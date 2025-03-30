@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/petzify/static/css/main.9261ee8f.css",
+    "main.js": "/petzify/static/js/main.4b8c2a9e.js",
+    "static/js/453.b261231d.chunk.js": "/petzify/static/js/453.b261231d.chunk.js",
+    "index.html": "/petzify/index.html",
+    "main.9261ee8f.css.map": "/petzify/static/css/main.9261ee8f.css.map",
+    "main.4b8c2a9e.js.map": "/petzify/static/js/main.4b8c2a9e.js.map",
+    "453.b261231d.chunk.js.map": "/petzify/static/js/453.b261231d.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.9261ee8f.css",
+    "static/js/main.4b8c2a9e.js"
+  ]
+}
