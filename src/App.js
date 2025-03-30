@@ -1,10 +1,11 @@
 import React, { useEffect } from 'react';
-import { HashRouter as Router, Routes, Route } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import './App.css';
 
 // Import components
 import Navbar from './components/common/Navbar';
 import Footer from './components/common/Footer';
+import AdminRoute from './components/auth/AdminRoute';
 
 // Import pages
 import Home from './pages/Home';
@@ -12,6 +13,24 @@ import About from './pages/About';
 import Services from './pages/Services';
 import Blog from './pages/Blog';
 import Contact from './pages/Contact';
+import AdminLogin from './pages/AdminLogin';
+import AdminDashboard from './pages/AdminDashboard';
+
+// Layout component to conditionally render Navbar and Footer
+const Layout = ({ children }) => {
+  const location = useLocation();
+  const isAdminPage = location.pathname.startsWith('/admin');
+  
+  return (
+    <div className="App min-h-screen bg-secondary-light text-primary-dark flex flex-col">
+      {!isAdminPage && <Navbar />}
+      <main className={`flex-grow ${!isAdminPage ? 'pt-20' : ''}`}>
+        {children}
+      </main>
+      {!isAdminPage && <Footer />}
+    </div>
+  );
+};
 
 function App() {
   useEffect(() => {
@@ -20,19 +39,45 @@ function App() {
 
   return (
     <Router>
-      <div className="App min-h-screen bg-secondary-light text-primary-dark flex flex-col">
-        <Navbar />
-        <main className="flex-grow pt-20">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/services" element={<Services />} />
-            <Route path="/blog" element={<Blog />} />
-            <Route path="/contact" element={<Contact />} />
-          </Routes>
-        </main>
-        <Footer />
-      </div>
+      <Routes>
+        <Route path="/" element={
+          <Layout>
+            <Home />
+          </Layout>
+        } />
+        <Route path="/about" element={
+          <Layout>
+            <About />
+          </Layout>
+        } />
+        <Route path="/services" element={
+          <Layout>
+            <Services />
+          </Layout>
+        } />
+        <Route path="/blog" element={
+          <Layout>
+            <Blog />
+          </Layout>
+        } />
+        <Route path="/contact" element={
+          <Layout>
+            <Contact />
+          </Layout>
+        } />
+        <Route path="/admin" element={
+          <Layout>
+            <AdminLogin />
+          </Layout>
+        } />
+        <Route path="/admin/dashboard" element={
+          <Layout>
+            <AdminRoute>
+              <AdminDashboard />
+            </AdminRoute>
+          </Layout>
+        } />
+      </Routes>
     </Router>
   );
 }
