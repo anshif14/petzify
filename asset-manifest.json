@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/petzify-website/static/css/main.abf3cc75.css",
-    "main.js": "/petzify-website/static/js/main.19abfd05.js",
+    "main.js": "/petzify-website/static/js/main.f8107f11.js",
     "static/js/453.b261231d.chunk.js": "/petzify-website/static/js/453.b261231d.chunk.js",
     "index.html": "/petzify-website/index.html",
     "main.abf3cc75.css.map": "/petzify-website/static/css/main.abf3cc75.css.map",
-    "main.19abfd05.js.map": "/petzify-website/static/js/main.19abfd05.js.map",
+    "main.f8107f11.js.map": "/petzify-website/static/js/main.f8107f11.js.map",
     "453.b261231d.chunk.js.map": "/petzify-website/static/js/453.b261231d.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.abf3cc75.css",
-    "static/js/main.19abfd05.js"
+    "static/js/main.f8107f11.js"
   ]
 }
