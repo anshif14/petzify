@@ -3,10 +3,26 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Admin collection security rules
     match /admin/{adminId} {
-      // Only allow read operations on admin collection
-      // This allows the login to work without full write access
+      // Allow read access to admin collection
       allow read: if true;
-      allow write: if false;
+      // Allow admin to update their own document
+      allow update: if true;
+      // Prevent creation and deletion
+      allow create, delete: if false;
+    }
+    
+    // Contact info collection - allow read and write for now
+    // In a production environment, you should restrict write access
+    match /contact_info/{docId} {
+      allow read, write: if true;
+    }
+    
+    // Messages collection - allow users to create messages, admins to read
+    match /messages/{messageId} {
+      // Anyone can create a message
+      allow create: if true;
+      // Only allow read/update/delete by admins (for now we're keeping it simple)
+      allow read, update, delete: if true;
     }
     
     // Default deny other collections

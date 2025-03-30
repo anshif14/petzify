@@ -1,4 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { getFirestore, doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { app } from '../firebase/config';
+import { initializeContactInfo } from '../firebase/initContactInfo';
 
 const faqs = [
   {
@@ -36,6 +39,42 @@ const Contact = () => {
     subject: '',
     message: ''
   });
+  const [contactInfo, setContactInfo] = useState({
+    email: "Loading...",
+    phone: "Loading...",
+    address: "Loading...",
+    state: "Loading...",
+    country: "Loading..."
+  });
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+
+  // Fetch contact info from Firestore
+  useEffect(() => {
+    const fetchContactInfo = async () => {
+      try {
+        const db = getFirestore(app);
+        const contactInfoRef = doc(db, 'contact_info', 'main');
+        const docSnap = await getDoc(contactInfoRef);
+        
+        if (docSnap.exists()) {
+          setContactInfo(docSnap.data());
+        } else {
+          // If contact info doesn't exist, initialize it
+          const initializedData = await initializeContactInfo();
+          setContactInfo(initializedData);
+        }
+      } catch (error) {
+        console.error("Error fetching contact info:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchContactInfo();
+  }, []);
 
   const toggleFaq = (id) => {
     setOpenFaqId(openFaqId === id ? null : id);
@@ -49,17 +88,42 @@ const Contact = () => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // In a real app, you would process the form submission here
-    console.log('Form submitted:', formData);
-    alert('Thank you for your message! We will get back to you soon.');
-    setFormData({
-      name: '',
-      email: '',
-      subject: '',
-      message: ''
-    });
+    setSubmitting(true);
+    setSubmitError('');
+    setSubmitSuccess(false);
+    
+    try {
+      const db = getFirestore(app);
+      const messagesCollection = collection(db, 'messages');
+      
+      // Add timestamp to the message
+      const messageWithTimestamp = {
+        ...formData,
+        createdAt: serverTimestamp(),
+        status: 'unread'
+      };
+      
+      // Save message to Firestore
+      await addDoc(messagesCollection, messageWithTimestamp);
+      
+      // Show success message
+      setSubmitSuccess(true);
+      
+      // Reset form
+      setFormData({
+        name: '',
+        email: '',
+        subject: '',
+        message: ''
+      });
+    } catch (error) {
+      console.error('Error submitting message:', error);
+      setSubmitError('There was an error sending your message. Please try again later.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -84,19 +148,19 @@ const Contact = () => {
               
               <div className="mb-8">
                 <h3 className="text-lg font-semibold text-primary-dark mb-2">Email Us</h3>
-                <p className="text-primary-dark">petzify.business@gmail.com</p>
+                <p className="text-primary-dark">{contactInfo.email}</p>
               </div>
               
               <div className="mb-8">
                 <h3 className="text-lg font-semibold text-primary-dark mb-2">Call Us</h3>
-                <p className="text-primary-dark">+91 8129008634</p>
+                <p className="text-primary-dark">{contactInfo.phone}</p>
               </div>
               
               <div className="mb-8">
                 <h3 className="text-lg font-semibold text-primary-dark mb-2">Our Office</h3>
                 <p className="text-primary-dark">
-                  Kochi, Kerala<br />
-                  India
+                  {contactInfo.address}, {contactInfo.state}<br />
+                  {contactInfo.country}
                 </p>
               </div>
               
@@ -150,6 +214,18 @@ const Contact = () => {
             {/* Contact Form */}
             <div className="lg:w-2/3">
               <h2 className="text-2xl font-bold text-primary mb-6">Send Us a Message</h2>
+              
+              {submitSuccess && (
+                <div className="mb-6 p-4 bg-green-100 text-green-700 rounded-md">
+                  Thank you for your message! We will get back to you soon.
+                </div>
+              )}
+              
+              {submitError && (
+                <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-md">
+                  {submitError}
+                </div>
+              )}
               
               <form onSubmit={handleSubmit} className="bg-secondary p-8 rounded-lg shadow-md">
                 <div className="mb-6">
@@ -206,9 +282,10 @@ const Contact = () => {
                 
                 <button 
                   type="submit" 
+                  disabled={submitting}
                   className="bg-primary hover:bg-primary-dark text-white px-6 py-3 rounded-md transition-colors duration-300"
                 >
-                  Send Message
+                  {submitting ? 'Sending...' : 'Send Message'}
                 </button>
               </form>
             </div>

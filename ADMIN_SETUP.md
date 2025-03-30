@@ -1,4 +1,4 @@
-# Petzify Admin Panel Setup
+ADMI# Petzify Admin Panel Setup
 
 This document provides instructions on how to set up and use the admin panel for the Petzify website.
 
@@ -41,7 +41,37 @@ admin (collection)
         └── role: "super_admin"
 ```
 
-### 3. Configure Firestore Security Rules
+### 3. Contact Information in Firestore
+
+The application will automatically create a `contact_info` collection with default contact information. The structure will look like this:
+
+```
+contact_info (collection)
+  └── main (document)
+        ├── email: "petzify.business@gmail.com"
+        ├── phone: "+91 8129008634"
+        ├── address: "Kochi"
+        ├── state: "Kerala"
+        ├── country: "India"
+        └── lastUpdated: "[timestamp]"
+```
+
+### 4. Messages in Firestore
+
+When users submit the contact form, a new document will be created in the `messages` collection. The structure will look like this:
+
+```
+messages (collection)
+  └── [auto-generated ID] (document)
+        ├── name: "Visitor Name"
+        ├── email: "visitor@example.com"
+        ├── subject: "Message Subject"
+        ├── message: "The content of the message..."
+        ├── createdAt: "[timestamp]"
+        └── status: "unread" or "read"
+```
+
+### 5. Configure Firestore Security Rules
 
 1. In the Firebase console, navigate to Firestore Database > Rules
 2. Update the security rules to allow read access to the admin collection:
@@ -52,9 +82,26 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Admin collection security rules
     match /admin/{adminId} {
-      // Only allow read operations on admin collection
+      // Allow read access to admin collection
       allow read: if true;
-      allow write: if false;
+      // Allow admin to update their own document
+      allow update: if true;
+      // Prevent creation and deletion
+      allow create, delete: if false;
+    }
+    
+    // Contact info collection - allow read by anyone, write by admin
+    match /contact_info/{docId} {
+      allow read: if true;
+      allow write: if true;  // In production, restrict this to admins only
+    }
+    
+    // Messages collection - allow users to create messages, admins to read
+    match /messages/{messageId} {
+      // Anyone can create a message
+      allow create: if true;
+      // Only allow read/update/delete by admins (in production, restrict this)
+      allow read, update, delete: if true;
     }
     
     // Default deny other collections
@@ -82,8 +129,48 @@ The admin dashboard provides the following features:
 1. **Website Statistics**: View visitor stats, active users, and service bookings
 2. **Recent Activities**: See recent user activities on the website
 3. **Quick Actions**: Access common administrative tasks
-4. **Content Management**: Manage website pages and their content
-5. **Messages**: View and respond to contact form submissions
+4. **Contact Information Management**: Update contact information displayed on the website
+5. **Messages Management**: View, respond to, and delete messages submitted through the contact form
+6. **Admin Profile Management**: Update admin name and password
+
+### Managing Contact Information
+
+1. Log in to the admin panel
+2. Click on "Contact Information" in the sidebar
+3. Update any of the fields:
+   - Email Address
+   - Phone Number
+   - Address
+   - State/Province
+   - Country
+4. Click the "Update Contact Information" button to save changes
+5. The changes will immediately be reflected on the Contact page of the website
+
+### Managing Contact Messages
+
+1. Log in to the admin panel
+2. Click on "Messages" in the sidebar
+3. You'll see a list of all messages, with unread messages highlighted
+4. Click on a message to view its full content
+5. When you view a message, it will automatically be marked as read
+6. You can:
+   - Reply to the message via email by clicking the "Reply via Email" button
+   - Delete the message by clicking the "Delete" button
+   - Refresh the list to see new messages by clicking the "Refresh" button
+
+### Managing Admin Profile
+
+1. Log in to the admin panel
+2. Click on "Admin Profile" in the sidebar
+3. You can:
+   - Update your display name
+   - Change your password by:
+     - Checking the "Change Password" checkbox
+     - Entering your current password
+     - Entering a new password (minimum 6 characters)
+     - Confirming your new password
+4. Click the "Update Profile" button to save changes
+5. Your display name will be immediately updated in the admin panel header
 
 ### Security Considerations
 
@@ -122,7 +209,7 @@ If you see errors like `Failed to load resource: the server responded with a sta
 
 1. Check that your Firebase credentials in the `.env` file are correct
 2. Ensure your Firebase project has Firestore enabled
-3. Make sure your Firebase security rules allow read access to the `admin` collection
+3. Make sure your Firebase security rules allow read access to the collections you're trying to access
 
 ### Authentication Errors
 

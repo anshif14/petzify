@@ -3,6 +3,12 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
+import { initializeContactInfo } from './firebase/initContactInfo';
+
+// Initialize contact information in Firestore
+initializeContactInfo()
+  .then(() => console.log("Contact information initialized"))
+  .catch(error => console.error("Error initializing contact information:", error));
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
