@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 import './App.css';
 
@@ -14,10 +14,6 @@ import Blog from './pages/Blog';
 import Contact from './pages/Contact';
 
 function App() {
-  useEffect(() => {
-    console.log('App component mounted');
-  }, []);
-
   return (
     <Router>
       <div className="App min-h-screen bg-secondary-light text-primary-dark flex flex-col">

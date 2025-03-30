@@ -31,7 +31,7 @@ const Footer = () => {
               <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="hover:text-gray-300 transition-all duration-300 transform hover:scale-125">
                 <FaInstagram size={20} />
               </a>
-              <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="hover:text-gray-300 transition-all duration-300 transform hover:scale-125">
+              <a href="https://www.linkedin.com/company/petzifyinofficial/posts/?feedView=all" target="_blank" rel="noopener noreferrer" className="hover:text-gray-300 transition-all duration-300 transform hover:scale-125">
                 <FaLinkedin size={20} />
               </a>
             </div>
@@ -123,19 +123,21 @@ const Footer = () => {
             <ul className="space-y-2">
               <li className="flex items-center">
                 <span className="text-primary-light mr-2">📍</span>
-                123 Pet Street, Animalville
+                Kochi, Kerala, India
               </li>
               <li className="flex items-center">
                 <span className="text-primary-light mr-2">📞</span>
-                Phone: (123) 456-7890
+                Phone: +91 8129008634
               </li>
               <li className="flex items-center">
                 <span className="text-primary-light mr-2">✉️</span>
-                Email: info@petzify.com
+                Email: petzify.business@gmail.com
               </li>
               <li className="flex items-center">
-                <span className="text-primary-light mr-2">⏰</span>
-                Hours: Mon-Fri, 9am-5pm
+                <span className="text-primary-light mr-2">💼</span>
+                <a href="https://www.linkedin.com/company/petzifyinofficial/posts/?feedView=all" target="_blank" rel="noopener noreferrer" className="hover:text-gray-300 transition-colors duration-300">
+                  LinkedIn: @petzifyinofficial
+                </a>
               </li>
             </ul>
           </div>

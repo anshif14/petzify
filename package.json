@@ -2,11 +2,13 @@
   "name": "petzify",
   "version": "0.1.0",
   "private": true,
+  "homepage": "https://anshif14.github.io/petzify-website",
   "dependencies": {
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",
     "@testing-library/user-event": "^13.5.0",
+    "firebase": "^11.5.0",
     "framer-motion": "^12.6.2",
     "gsap": "^3.12.7",
     "react": "^19.1.0",
@@ -17,6 +19,8 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d build",
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
@@ -43,6 +47,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.17",
     "autoprefixer": "^10.4.21",
+    "gh-pages": "^6.3.0",
     "postcss": "^8.5.3",
     "postcss-import": "^16.1.0",
     "tailwindcss": "^3.4.17"
