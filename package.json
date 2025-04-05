@@ -2,7 +2,7 @@
   "name": "petzify",
   "version": "0.1.0",
   "private": true,
-  "homepage": "https://anshif14.github.io/petzify-website",
+  "homepage": "https://anshif14.github.io/petzify",
   "dependencies": {
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
@@ -12,6 +12,7 @@
     "framer-motion": "^12.6.2",
     "gsap": "^3.12.7",
     "react": "^19.1.0",
+    "react-calendar": "^5.1.0",
     "react-dom": "^19.1.0",
     "react-icons": "^5.5.0",
     "react-router-dom": "^7.4.1",

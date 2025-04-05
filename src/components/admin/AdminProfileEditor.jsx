@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getFirestore, doc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { app } from '../../firebase/config';
+import PasswordInput from '../common/PasswordInput';
 
 const AdminProfileEditor = () => {
   const [adminData, setAdminData] = useState({
@@ -248,62 +249,64 @@ const AdminProfileEditor = () => {
         
         {changePassword && (
           <div className="mb-4 p-4 border border-gray-200 rounded-md">
-            <div className="mb-4">
+            <h3 className="font-medium text-gray-700 mb-3">Change Password</h3>
+            
+            <div className="mb-3">
               <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 mb-1">
                 Current Password
               </label>
-              <input
-                type="password"
+              <PasswordInput
                 id="currentPassword"
                 name="currentPassword"
                 value={adminData.currentPassword}
                 onChange={handleChange}
                 required={changePassword}
-                className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                placeholder="Enter current password"
+                autoComplete="current-password"
               />
             </div>
             
-            <div className="mb-4">
+            <div className="mb-3">
               <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1">
                 New Password
               </label>
-              <input
-                type="password"
+              <PasswordInput
                 id="newPassword"
                 name="newPassword"
                 value={adminData.newPassword}
                 onChange={handleChange}
                 required={changePassword}
-                minLength={6}
-                className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                placeholder="Enter new password"
+                autoComplete="new-password"
               />
             </div>
             
-            <div className="mb-4">
+            <div className="mb-3">
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
                 Confirm New Password
               </label>
-              <input
-                type="password"
+              <PasswordInput
                 id="confirmPassword"
                 name="confirmPassword"
                 value={adminData.confirmPassword}
                 onChange={handleChange}
                 required={changePassword}
-                minLength={6}
-                className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                placeholder="Confirm new password"
+                autoComplete="new-password"
               />
             </div>
           </div>
         )}
         
-        <button
-          type="submit"
-          disabled={updating}
-          className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-        >
-          {updating ? "Updating..." : "Update Profile"}
-        </button>
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={updating}
+            className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:opacity-50"
+          >
+            {updating ? 'Updating...' : 'Update Profile'}
+          </button>
+        </div>
       </form>
     </div>
   );

@@ -32,7 +32,7 @@ const Services = () => {
       title: 'Veterinary Services',
       description: 'Connect with qualified veterinarians for regular check-ups, vaccinations, and medical care.',
       icon: '🩺',
-      link: '/services/veterinary',
+      link: '/book-appointment',
       image: 'https://images.unsplash.com/photo-1584873603799-39114ed0f28d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1476&q=80'
     },
     {
@@ -65,9 +65,15 @@ const Services = () => {
         
         <div className="container mx-auto px-6 text-center relative z-10">
           <h1 className="text-4xl md:text-5xl font-bold mb-6 transform transition-transform duration-700 hover:scale-105">Our Services</h1>
-          <p className="text-xl max-w-2xl mx-auto">
+          <p className="text-xl max-w-2xl mx-auto mb-6">
             Comprehensive pet care services designed to keep your furry friends happy, healthy, and thriving.
           </p>
+          <Link 
+            to="/book-appointment" 
+            className="inline-block bg-white text-primary font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-gray-100 transform transition-all duration-300 hover:scale-105"
+          >
+            Book a Vet Appointment
+          </Link>
         </div>
       </section>
 
@@ -99,7 +105,7 @@ const Services = () => {
                       to={service.link}
                       className="inline-block bg-primary text-white py-2 px-4 rounded hover:bg-primary-dark transition-colors duration-300 transform hover:translate-x-1"
                     >
-                      Learn More
+                      {service.id === 4 ? 'Book Now' : 'Learn More'}
                     </Link>
                     <div className="w-8 h-0.5 bg-primary-light transition-all duration-300 group-hover:w-12"></div>
                   </div>
@@ -107,6 +113,22 @@ const Services = () => {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Book Appointment Banner */}
+      <section className="bg-primary text-white py-12">
+        <div className="container mx-auto px-6 text-center">
+          <h2 className="text-3xl font-bold mb-4">Need Veterinary Services?</h2>
+          <p className="text-lg mb-6 max-w-2xl mx-auto">
+            Our qualified veterinarians are available for appointments. Book a consultation today for your pet's health needs.
+          </p>
+          <Link 
+            to="/book-appointment" 
+            className="inline-block bg-white text-primary font-bold py-3 px-8 rounded-lg shadow-md hover:bg-gray-100 transform transition-all duration-300 hover:scale-105"
+          >
+            Book an Appointment
+          </Link>
         </div>
       </section>
 

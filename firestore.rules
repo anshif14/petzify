@@ -32,6 +32,44 @@ service cloud.firestore {
       allow delete: if true;
     }
     
+    // Doctor slots collection - for managing doctor availability
+    match /doctorSlots/{slotId} {
+      // Allow read access to everyone (patients need to see available slots)
+      allow read: if true;
+      
+      // Allow doctors to create and update their own slots
+      allow create, update: if request.auth != null && 
+                          (request.resource.data.doctorId == request.auth.uid || 
+                           get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.role == 'superadmin');
+                           
+      // Allow doctors to delete their own slots if not booked
+      allow delete: if request.auth != null && 
+                   (resource.data.doctorId == request.auth.uid && resource.data.isBooked == false) || 
+                   get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.role == 'superadmin';
+    }
+    
+    // Appointments collection - for managing patient appointments
+    match /appointments/{appointmentId} {
+      // Allow the doctor and patient involved to read appointments
+      allow read: if request.auth != null && 
+                 (resource.data.doctorId == request.auth.uid || 
+                  resource.data.patientId == request.auth.uid || 
+                  get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.role == 'superadmin');
+                  
+      // Allow anyone to create appointments (patients without accounts can book)
+      allow create: if true;
+      
+      // Allow doctors to update appointment status
+      allow update: if request.auth != null && 
+                   (resource.data.doctorId == request.auth.uid || 
+                    get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.role == 'superadmin');
+                    
+      // Allow doctors or superadmins to delete appointments
+      allow delete: if request.auth != null && 
+                   (resource.data.doctorId == request.auth.uid || 
+                    get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.role == 'superadmin');
+    }
+    
     // Contact info collection - allow read and write for now
     // In a production environment, you should restrict write access
     match /contact_info/{docId} {
