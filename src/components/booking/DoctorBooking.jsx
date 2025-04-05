@@ -5,6 +5,8 @@ import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import BookingInitializer from './BookingInitializer';
 import { useAlert } from '../../context/AlertContext';
+import { useUser } from '../../context/UserContext';
+import AuthModal from '../auth/AuthModal';
 
 const DoctorBooking = () => {
   const [loading, setLoading] = useState(true);
@@ -28,6 +30,8 @@ const DoctorBooking = () => {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState(null);
   const { showSuccess, showError, showInfo } = useAlert();
+  const { currentUser, isAuthenticated } = useUser();
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Pet types options
   const petTypes = ['Dog', 'Cat', 'Bird', 'Rabbit', 'Hamster', 'Guinea Pig', 'Reptile', 'Other'];
@@ -90,6 +94,18 @@ const DoctorBooking = () => {
       fetchAvailableSlots();
     }
   }, [selectedDoctor, selectedDate]);
+
+  // Pre-fill form with user data if logged in
+  useEffect(() => {
+    if (isAuthenticated() && currentUser) {
+      setBookingForm(prevState => ({
+        ...prevState,
+        patientName: currentUser.name,
+        patientEmail: currentUser.email,
+        patientPhone: currentUser.phone
+      }));
+    }
+  }, [currentUser, isAuthenticated]);
 
   const fetchAvailableSlots = async () => {
     if (!selectedDoctor) return;
@@ -193,6 +209,19 @@ const DoctorBooking = () => {
       return;
     }
     
+    // Check if user is logged in
+    if (!isAuthenticated()) {
+      // Store form data temporarily and show auth modal
+      localStorage.setItem('tempBookingForm', JSON.stringify(bookingForm));
+      setShowAuthModal(true);
+      return;
+    }
+    
+    // Continue with booking process
+    await processBooking();
+  };
+  
+  const processBooking = async () => {
     setLoading(true);
     try {
       const db = getFirestore(app);
@@ -228,13 +257,15 @@ const DoctorBooking = () => {
         startTime: selectedSlot.startTime,
         endTime: selectedSlot.endTime,
         status: 'pending',
+        userId: currentUser.email, // Add user ID for tracking
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now()
       });
       
       // Update slot to booked
       await updateDoc(slotRef, {
-        isBooked: true
+        isBooked: true,
+        bookedBy: currentUser.email
       });
       
       // Move to confirmation step
@@ -247,6 +278,29 @@ const DoctorBooking = () => {
       showError('Error booking appointment. Please try again.', 'Booking Error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAuthSuccess = () => {
+    // Retrieve stored form data and proceed with booking
+    const storedForm = localStorage.getItem('tempBookingForm');
+    if (storedForm) {
+      try {
+        const parsedForm = JSON.parse(storedForm);
+        setBookingForm(prevForm => ({
+          ...prevForm,
+          ...parsedForm
+        }));
+        localStorage.removeItem('tempBookingForm');
+        
+        // Process booking after a short delay
+        setTimeout(() => {
+          processBooking();
+        }, 500);
+      } catch (error) {
+        console.error('Error parsing stored form data:', error);
+        localStorage.removeItem('tempBookingForm');
+      }
     }
   };
 
@@ -599,7 +653,7 @@ const DoctorBooking = () => {
                     </div>
                   </div>
                   
-                  <div className="flex justify-between">
+                  <div className="mt-6 flex justify-between">
                     <button
                       type="button"
                       onClick={() => setStep(2)}
@@ -610,10 +664,9 @@ const DoctorBooking = () => {
                     
                     <button
                       type="submit"
-                      disabled={loading}
                       className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors"
                     >
-                      {loading ? 'Booking...' : 'Confirm Booking'}
+                      {isAuthenticated() ? 'Confirm Booking' : 'Sign in to Book'}
                     </button>
                   </div>
                 </form>
@@ -671,6 +724,14 @@ const DoctorBooking = () => {
           </div>
         </div>
       </div>
+      
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        initialMode="signup"
+        onSuccess={handleAuthSuccess}
+      />
     </div>
   );
 };

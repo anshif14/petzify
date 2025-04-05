@@ -3,12 +3,19 @@ import { useNavigate, Link } from 'react-router-dom';
 import Navbar from '../components/common/Navbar';
 import Footer from '../components/common/Footer';
 import { useAlert } from '../context/AlertContext';
+import { useUser } from '../context/UserContext';
+import AuthModal from '../components/auth/AuthModal';
+import { getFirestore, collection, addDoc, Timestamp } from 'firebase/firestore';
+import { app } from '../firebase/config';
 
 const Cart = () => {
   const navigate = useNavigate();
   const [cart, setCart] = useState([]);
   const [subtotal, setSubtotal] = useState(0);
   const { showSuccess, showInfo, showError } = useAlert();
+  const { currentUser, isAuthenticated } = useUser();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [isProcessingOrder, setIsProcessingOrder] = useState(false);
   
   useEffect(() => {
     // Load cart from localStorage
@@ -88,8 +95,54 @@ const Cart = () => {
     }
   };
   
-  const handleCheckout = () => {
-    showInfo('Checkout functionality would be implemented here.', 'Checkout');
+  const handleCheckout = async () => {
+    if (isProcessingOrder) {
+      console.log('Order is already being processed');
+      return;
+    }
+    
+    if (!isAuthenticated()) {
+      setShowAuthModal(true);
+      return;
+    }
+    
+    try {
+      if (cart.length === 0) {
+        showError('Your cart is empty', 'Checkout Failed');
+        return;
+      }
+      
+      setIsProcessingOrder(true);
+      
+      const db = getFirestore(app);
+      
+      const orderData = {
+        userId: currentUser.email,
+        userName: currentUser.name,
+        userEmail: currentUser.email,
+        userPhone: currentUser.phone,
+        items: cart,
+        subtotal: subtotal,
+        status: 'pending',
+        createdAt: Timestamp.now()
+      };
+      
+      const orderRef = await addDoc(collection(db, 'orders'), orderData);
+      
+      setCart([]);
+      localStorage.removeItem('cart');
+      
+      window.dispatchEvent(new Event('cartUpdated'));
+      
+      showSuccess('Your order has been placed successfully!', 'Order Placed');
+      
+      navigate(`/my-orders?orderId=${orderRef.id}`);
+    } catch (err) {
+      console.error('Error processing checkout:', err);
+      showError('Could not process your order. Please try again.', 'Checkout Error');
+    } finally {
+      setIsProcessingOrder(false);
+    }
   };
   
   const formatPrice = (price) => {
@@ -98,6 +151,14 @@ const Cart = () => {
       currency: 'INR',
       maximumFractionDigits: 0
     }).format(price);
+  };
+
+  const handleAuthSuccess = () => {
+    if (!isProcessingOrder) {
+      setTimeout(() => {
+        handleCheckout();
+      }, 800);
+    }
   };
 
   return (
@@ -247,10 +308,22 @@ const Cart = () => {
                     <button
                       type="button"
                       onClick={handleCheckout}
-                      className="w-full bg-primary text-white px-6 py-3 rounded-md hover:bg-primary-dark transition-colors"
+                      disabled={isProcessingOrder}
+                      className={`w-full ${isProcessingOrder ? 'bg-gray-400 cursor-not-allowed' : 'bg-primary hover:bg-primary-dark'} text-white px-6 py-3 rounded-md transition-colors`}
                     >
-                      Proceed to Checkout
+                      {isProcessingOrder 
+                        ? 'Processing Order...' 
+                        : isAuthenticated() 
+                          ? 'Proceed to Checkout' 
+                          : 'Sign in to Checkout'
+                      }
                     </button>
+                    
+                    {!isAuthenticated() && (
+                      <p className="mt-2 text-sm text-gray-500 text-center">
+                        You'll need to sign in or create an account to complete your purchase.
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -258,6 +331,15 @@ const Cart = () => {
           )}
         </div>
       </main>
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        initialMode="signup"
+        onSuccess={handleAuthSuccess}
+      />
+      
       <Footer />
     </>
   );

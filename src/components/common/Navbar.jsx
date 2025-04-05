@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import logoImage from '../../assets/images/logo.png';
 import logoText from '../../assets/images/logo_text.png';
+import UserAccountButton from '../auth/UserAccountButton';
 
 const Navbar = () => {
   const navigate = useNavigate();
@@ -95,6 +96,9 @@ const Navbar = () => {
                 </span>
               )}
             </button>
+
+            {/* User Account Button */}
+            <UserAccountButton />
           </div>
 
           {/* Mobile Menu Button */}
@@ -184,6 +188,10 @@ const Navbar = () => {
             >
               Contact
             </NavLink>
+            {/* User Account Button Mobile */}
+            <div className="px-3 py-2">
+              <UserAccountButton />
+            </div>
           </div>
         </div>
       )}

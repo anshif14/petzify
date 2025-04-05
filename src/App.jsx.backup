@@ -1,0 +1,54 @@
+import React from 'react';
+import { HashRouter as Router, Routes, Route } from 'react-router-dom';
+import ScrollToTop from './components/common/ScrollToTop';
+import Home from './pages/Home';
+import About from './pages/About';
+import Services from './pages/Services';
+import Contact from './pages/Contact';
+import Products from './pages/Products';
+import ProductDetail from './pages/ProductDetail';
+import Cart from './pages/Cart';
+import NotFound from './pages/NotFound';
+import AdminLogin from './pages/AdminLogin';
+import AdminDashboard from './pages/AdminDashboard';
+import AdminRoute from './components/auth/AdminRoute';
+import InitialSetup from './pages/InitialSetup';
+import DoctorBooking from './components/booking/DoctorBooking';
+import { UserProvider } from './context/UserContext';
+import UserOrders from './pages/UserOrders';
+import UserBookings from './pages/UserBookings';
+
+function App() {
+  return (
+    <UserProvider>
+      <Router>
+        <ScrollToTop />
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/services" element={<Services />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/products" element={<Products />} />
+          <Route path="/products/:productId" element={<ProductDetail />} />
+          <Route path="/cart" element={<Cart />} />
+          <Route path="/book-appointment" element={<DoctorBooking />} />
+          <Route path="/admin-login" element={<AdminLogin />} />
+          <Route path="/admin-setup" element={<InitialSetup />} />
+          <Route path="/my-orders" element={<UserOrders />} />
+          <Route path="/my-bookings" element={<UserBookings />} />
+          <Route
+            path="/admin/*"
+            element={
+              <AdminRoute>
+                <AdminDashboard />
+              </AdminRoute>
+            }
+          />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </Router>
+    </UserProvider>
+  );
+}
+
+export default App; 
