@@ -7,15 +7,21 @@ module.exports = {
     extend: {
       colors: {
         primary: {
-          light: '#F8F0E3',
-          DEFAULT: '#8B5A2B',
-          dark: '#5D3A1D',
+          light: '#77dcbf', // bermuda
+          DEFAULT: '#14cca4', // java
+          dark: '#0c7c74', // surfie-green
         },
         secondary: {
-          light: '#FFFFFF',
-          DEFAULT: '#F5F5F5',
-          dark: '#E0E0E0',
+          light: '#c7e7df', // skeptic
+          DEFAULT: '#5cd6b3', // downy
+          dark: '#43948c', // viridian
         },
+        accent: {
+          light: '#68a59f', // breaker-bay
+          DEFAULT: '#338981', // paradiso
+          dark: '#1f8279', // elm
+        },
+        white: '#FFFFFF',
       },
     },
   },

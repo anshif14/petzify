@@ -33,11 +33,11 @@ const Home = () => {
   return (
     <div className="bg-gray-50">
       {/* Hero Section with Background Image */}
-      <section className="relative h-screen bg-center bg-cover bg-no-repeat text-white" style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1548199973-03cce0bbc87b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1469&q=80")' }}>
-        <div className="absolute inset-0 bg-black bg-opacity-50"></div>
+      <section className="relative h-screen bg-center bg-cover bg-no-repeat text-white" style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1601758174114-e711c0cbaa69?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80")' }}>
+        <div className="absolute inset-0 bg-gradient-to-r from-primary-dark/70 to-primary/50"></div>
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
-          <div className="absolute w-64 h-64 rounded-full bg-white opacity-10 -top-10 -left-10 animate-pulse"></div>
-          <div className="absolute w-96 h-96 rounded-full bg-white opacity-5 bottom-0 right-0 animate-pulse" style={{animationDelay: '1s'}}></div>
+          <div className="absolute w-64 h-64 rounded-full bg-secondary-light opacity-10 -top-10 -left-10 animate-pulse"></div>
+          <div className="absolute w-96 h-96 rounded-full bg-secondary-light opacity-10 bottom-0 right-0 animate-pulse" style={{animationDelay: '1s'}}></div>
         </div>
         
         <div className="container mx-auto px-6 h-full flex flex-col justify-center items-center text-center relative z-10">
@@ -57,11 +57,21 @@ const Home = () => {
               Explore Our Services
             </Link>
             <a
-              href="#download-app"
-              className="bg-transparent hover:bg-white hover:bg-opacity-20 text-white border border-white px-8 py-3 rounded-md transition-all duration-300 font-semibold hover:shadow-lg transform hover:-translate-y-1"
+              href="https://luna-pets-anywhere.web.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              // className="bg-secondary hover:bg-secondary-dark text-white px-8 py-3 rounded-md transition-all duration-300 font-semibold hover:shadow-lg transform hover:-translate-y-1"
+                className="bg-transparent hover:bg-white hover:bg-opacity-20 text-white border border-white px-8 py-3 rounded-md transition-all duration-300 font-semibold hover:shadow-lg transform hover:-translate-y-1"
+
             >
-              Download the App
+              Explore Our App
             </a>
+            {/*<a*/}
+            {/*  href="#download-app"*/}
+            {/*  className="bg-transparent hover:bg-white hover:bg-opacity-20 text-white border border-white px-8 py-3 rounded-md transition-all duration-300 font-semibold hover:shadow-lg transform hover:-translate-y-1"*/}
+            {/*>*/}
+            {/*  Download the App*/}
+            {/*</a>*/}
           </div>
         </div>
       </section>
@@ -74,19 +84,19 @@ const Home = () => {
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="overflow-hidden rounded-lg h-64 transition-all duration-500 hover:shadow-xl transform hover:scale-105">
-              <img src="https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1469&q=80" 
+              <img src="https://images.unsplash.com/photo-1587559070757-b9e2ff45b0d3?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80" 
                   alt="Happy dog" className="w-full h-full object-cover" />
             </div>
             <div className="overflow-hidden rounded-lg h-64 transition-all duration-500 hover:shadow-xl transform hover:scale-105">
-              <img src="https://unionlakepetservices.com/wp-content/uploads/2020/07/ULPS-Cat-grooming-AdobeStock_313891439-1080x675.jpg" 
+              <img src="https://images.unsplash.com/photo-1605001011156-cbf0b0f67a51?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1548&q=80" 
                   alt="Cat grooming" className="w-full h-full object-cover" />
             </div>
             <div className="overflow-hidden rounded-lg h-64 transition-all duration-500 hover:shadow-xl transform hover:scale-105">
-              <img src="https://images.unsplash.com/photo-1444212477490-ca407925329e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1628&q=80" 
+              <img src="https://images.unsplash.com/photo-1542736143-29a8432162bc?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80" 
                   alt="Pet accessories" className="w-full h-full object-cover" />
             </div>
             <div className="overflow-hidden rounded-lg h-64 transition-all duration-500 hover:shadow-xl transform hover:scale-105">
-              <img src="https://www.helpguide.org/wp-content/uploads/2023/02/Health-Benefits-of-Walks-with-Your-Dog.jpeg" 
+              <img src="https://images.unsplash.com/photo-1598875184988-5e67b1a874b8?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80" 
                   alt="Dog walking" className="w-full h-full object-cover" />
             </div>
           </div>
@@ -106,7 +116,7 @@ const Home = () => {
               <p className="text-gray-600">Find everything your pet needs in one place, from toys to accessories.</p>
               <div className="w-16 h-1 bg-primary mx-auto mt-4 group-hover:w-24 transition-all duration-300"></div>
               <div className="mt-4 h-40 overflow-hidden rounded-lg">
-                <img src="https://www.taylor.com/hubfs/__Taylor.com%20-%20All%20files%20connected%20to%20main%20site%20and%20blogs/Blogs/Taylor%20-%20Blog/Packaging%20Concepts%20in%20the%20Pet%20Products%20Industry/Blog%20Hero%20Image%20%E2%80%93%20Packaging%20Concepts%20in%20the%20Pet%20Products%20Industry.jpg"
+                <img src="https://images.unsplash.com/photo-1516750105099-4b8a83e217ee?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80"
                     alt="Pet products" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
               </div>
             </div>
@@ -117,7 +127,7 @@ const Home = () => {
               <p className="text-gray-600">Book grooming, training, and veterinary services with ease.</p>
               <div className="w-16 h-1 bg-primary mx-auto mt-4 group-hover:w-24 transition-all duration-300"></div>
               <div className="mt-4 h-40 overflow-hidden rounded-lg">
-                <img src="https://images.unsplash.com/photo-1516734212186-a967f81ad0d7?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1471&q=80"
+                <img src="https://images.unsplash.com/photo-1550781469-dd2cf7a54688?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80"
                     alt="Pet grooming" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
               </div>
             </div>
@@ -128,7 +138,7 @@ const Home = () => {
               <p className="text-gray-600">Discover boarding options and care solutions for your pets.</p>
               <div className="w-16 h-1 bg-primary mx-auto mt-4 group-hover:w-24 transition-all duration-300"></div>
               <div className="mt-4 h-40 overflow-hidden rounded-lg">
-                <img src="https://images.unsplash.com/photo-1601758177266-bc599de87707?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80"
+                <img src="https://images.unsplash.com/photo-1636622433525-127afdf3662d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1632&q=80"
                     alt="Pet care" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
               </div>
             </div>
@@ -167,7 +177,7 @@ const Home = () => {
       </section>
 
       {/* Quotes Section */}
-      <section className="py-20 bg-primary-light relative overflow-hidden">
+      <section className="py-20 bg-secondary-light relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden">
           <div className="absolute w-64 h-64 rounded-full bg-primary opacity-10 top-20 left-20"></div>
           <div className="absolute w-96 h-96 rounded-full bg-primary opacity-5 -bottom-20 -right-20"></div>
@@ -225,27 +235,27 @@ const Home = () => {
             </div>
             
             <div className="md:w-1/2 grid grid-cols-2 gap-4">
-              <div className="h-64 bg-gradient-to-br from-primary-light to-secondary rounded-3xl flex items-center justify-center shadow-lg overflow-hidden relative transform transition-transform duration-500 hover:scale-105">
+              <div className="h-64 bg-gradient-to-br from-secondary-light to-primary rounded-3xl flex items-center justify-center shadow-lg overflow-hidden relative transform transition-transform duration-500 hover:scale-105">
                 <img 
-                  src="https://images.unsplash.com/photo-1522276498395-f4f68f7f8454?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=749&q=80" 
+                  src="https://images.unsplash.com/photo-1611269154421-4e27233ac5c7?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1365&q=80" 
                   alt="Pet app screenshot" 
                   className="absolute inset-0 w-full h-full object-cover opacity-80"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-primary to-transparent opacity-30"></div>
                 <span className="relative z-10 text-white text-lg font-bold">Petzify App</span>
               </div>
-              <div className="h-64 bg-gradient-to-br from-primary-light to-secondary rounded-3xl flex items-center justify-center shadow-lg overflow-hidden relative transform transition-transform duration-500 hover:scale-105">
+              <div className="h-64 bg-gradient-to-br from-secondary-light to-primary rounded-3xl flex items-center justify-center shadow-lg overflow-hidden relative transform transition-transform duration-500 hover:scale-105">
                 <img 
-                  src="https://images.unsplash.com/photo-1588943211346-0908a1fb0b01?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80" 
+                  src="https://images.unsplash.com/photo-1583337130417-3346a1be7dee?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1364&q=80" 
                   alt="Pet app features" 
                   className="absolute inset-0 w-full h-full object-cover opacity-80"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-primary to-transparent opacity-30"></div>
                 <span className="relative z-10 text-white text-lg font-bold">Easy Booking</span>
               </div>
-              <div className="h-64 bg-gradient-to-br from-primary-light to-secondary rounded-3xl flex items-center justify-center shadow-lg overflow-hidden relative transform transition-transform duration-500 hover:scale-105 col-span-2">
+              <div className="h-64 bg-gradient-to-br from-secondary-light to-primary rounded-3xl flex items-center justify-center shadow-lg overflow-hidden relative transform transition-transform duration-500 hover:scale-105 col-span-2">
                 <img 
-                  src="https://images.unsplash.com/photo-1560743641-3914f2c45636?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1374&q=80" 
+                  src="https://images.unsplash.com/photo-1596797882948-6ec5776b53db?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1471&q=80" 
                   alt="Mobile app interface" 
                   className="absolute inset-0 w-full h-full object-cover opacity-80"
                 />
@@ -258,7 +268,7 @@ const Home = () => {
       </section>
 
       {/* Contact Us Section */}
-      <section className="py-20 bg-primary-light">
+      <section className="py-20 bg-secondary-light">
         <div className="container mx-auto px-6">
           <h2 className="text-3xl font-bold text-primary text-center mb-4">Contact Us</h2>
           <p className="text-gray-600 text-center mb-12 max-w-2xl mx-auto">Have questions or need support? We're here to help with all your pet needs.</p>
