@@ -9,6 +9,7 @@ import {
 } from 'firebase/firestore';
 import { app } from '../../firebase/config';
 import PasswordInput from '../common/PasswordInput';
+import { Link } from 'react-router-dom';
 
 const InitialSetup = () => {
   const [loading, setLoading] = useState(true);
@@ -156,12 +157,12 @@ const InitialSetup = () => {
             An admin user has already been created for this system. Please use the admin login page to access the dashboard.
           </p>
           <div className="text-center">
-            <a 
-              href="/admin" 
+            <Link 
+              to="/admin" 
               className="inline-block px-6 py-2 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors"
             >
               Go to Admin Login
-            </a>
+            </Link>
           </div>
         </div>
       </div>

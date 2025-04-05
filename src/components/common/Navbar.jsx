@@ -64,14 +64,18 @@ const Navbar = () => {
             <NavLink end to="/" className={({isActive}) => isActive ? activeClass : inactiveClass}>
               Home
             </NavLink>
-            <NavLink to="/about" className={({isActive}) => isActive ? activeClass : inactiveClass}>
-              About
-            </NavLink>
+
             <NavLink to="/services" className={({isActive}) => isActive ? activeClass : inactiveClass}>
               Services
             </NavLink>
             <NavLink to="/products" className={({isActive}) => isActive ? activeClass : inactiveClass}>
               Products
+            </NavLink>
+            {/*<NavLink to="/book-appointment" className={({isActive}) => isActive ? activeClass : inactiveClass}>*/}
+            {/*  Book Vet*/}
+            {/*</NavLink>*/}
+            <NavLink to="/about" className={({isActive}) => isActive ? activeClass : inactiveClass}>
+              About
             </NavLink>
             <NavLink to="/contact" className={({isActive}) => isActive ? activeClass : inactiveClass}>
               Contact
@@ -163,6 +167,14 @@ const Navbar = () => {
               onClick={() => setIsMobileMenuOpen(false)}
             >
               Products
+            </NavLink>
+            <NavLink to="/book-appointment" 
+              className={({isActive}) => 
+                `block px-3 py-2 rounded-md text-base font-medium ${isActive ? 'bg-primary text-white' : 'text-gray-700 hover:bg-gray-100'}`
+              }
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              Book Vet
             </NavLink>
             <NavLink to="/contact" 
               className={({isActive}) => 

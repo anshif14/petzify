@@ -267,6 +267,30 @@ const Home = () => {
         </div>
       </section>
 
+      {/* Call to Action Section */}
+      <section className="py-16 bg-gradient-to-r from-primary to-primary-dark text-white">
+        <div className="container mx-auto px-6 text-center">
+          <h2 className="text-3xl font-bold mb-4">Ready to care for your pet?</h2>
+          <p className="text-xl max-w-2xl mx-auto mb-8">
+            Schedule a veterinary appointment today or explore our premium pet products and services.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link
+              to="/book-appointment"
+              className="px-8 py-3 bg-white text-primary font-bold rounded-full shadow-lg hover:bg-gray-100 transition-colors"
+            >
+              Book Vet Appointment
+            </Link>
+            <Link
+              to="/products"
+              className="px-8 py-3 bg-transparent border-2 border-white text-white font-bold rounded-full hover:bg-white hover:bg-opacity-10 transition-colors"
+            >
+              Shop Pet Products
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* Contact Us Section */}
       <section className="py-20 bg-secondary-light">
         <div className="container mx-auto px-6">

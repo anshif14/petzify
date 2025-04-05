@@ -77,44 +77,88 @@ const Services = () => {
         </div>
       </section>
 
-      {/* Services Grid */}
-      <section className="py-16">
-        <div className="container mx-auto px-6">
+      {/* Featured Service - Pet Veterinary Care */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl shadow-lg overflow-hidden mb-16">
+          <div className="md:flex">
+            <div className="md:w-1/2 p-8 md:p-12">
+              <h2 className="text-3xl font-bold mb-4">Pet Veterinary Care</h2>
+              <p className="text-lg mb-6">
+                Our experienced veterinarians provide comprehensive healthcare for your pets. Book an appointment today for checkups, vaccinations, treatments, and more.
+              </p>
+              <div className="flex flex-wrap gap-4">
+                <Link
+                  to="/book-appointment"
+                  className="inline-block bg-white text-primary font-medium px-6 py-3 rounded-lg shadow-md hover:bg-gray-100 transition-colors"
+                >
+                  Book Appointment
+                </Link>
+                <a href="#all-services-section" className="inline-block bg-primary-light bg-opacity-30 text-white border border-white font-medium px-6 py-3 rounded-lg hover:bg-opacity-40 transition-colors">
+                  View All Services
+                </a>
+              </div>
+            </div>
+            <div className="md:w-1/2 bg-primary-light">
+              <img
+                src="/images/services/vet-service.jpg"
+                alt="Veterinary Care"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.target.src = 'https://images.unsplash.com/photo-1583336663277-620dc1996580?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxzZWFyY2h8Mnx8dmV0ZXJpbmFyaWFufGVufDB8fDB8fA%3D%3D&auto=format&fit=crop&w=800&q=60';
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Services Section */}
+        <div id="all-services-section" className="mb-16">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Our Services</h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              We offer a comprehensive range of services to care for your beloved pets
+            </p>
+          </div>
+        
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {services.map((service) => (
-              <div 
-                key={service.id}
-                className="bg-white rounded-lg shadow-md overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-2 group"
-              >
-                <div className="h-48 overflow-hidden relative">
+              <div key={service.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+                <div className="h-48 overflow-hidden">
                   <img 
                     src={service.image} 
                     alt={service.title} 
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                    onError={(e) => {
+                      e.target.src = 'https://via.placeholder.com/640x360?text=Service+Image';
+                    }}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-primary to-transparent opacity-0 group-hover:opacity-40 transition-opacity duration-300"></div>
-                  <div className="absolute top-4 left-4 bg-primary text-white rounded-full w-12 h-12 flex items-center justify-center text-2xl transform transition-transform duration-500 group-hover:scale-110 group-hover:rotate-12">
-                    {service.icon}
-                  </div>
                 </div>
+                
                 <div className="p-6">
-                  <h3 className="text-2xl font-bold text-primary mb-3 group-hover:text-primary-dark transition-colors duration-300">{service.title}</h3>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">{service.title}</h3>
                   <p className="text-gray-600 mb-4">{service.description}</p>
-                  <div className="flex justify-between items-center">
-                    <Link 
+                  
+                  {service.link && (
+                    <Link
                       to={service.link}
-                      className="inline-block bg-primary text-white py-2 px-4 rounded hover:bg-primary-dark transition-colors duration-300 transform hover:translate-x-1"
+                      className={`inline-flex items-center px-4 py-2 ${
+                        service.featured 
+                          ? 'bg-primary text-white hover:bg-primary-dark' 
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      } rounded transition-colors`}
                     >
-                      {service.id === 4 ? 'Book Now' : 'Learn More'}
+                      {service.linkText || 'Learn More'}
+                      <svg className="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
                     </Link>
-                    <div className="w-8 h-0.5 bg-primary-light transition-all duration-300 group-hover:w-12"></div>
-                  </div>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         </div>
-      </section>
+      </div>
 
       {/* Book Appointment Banner */}
       <section className="bg-primary text-white py-12">

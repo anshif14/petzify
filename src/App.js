@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, useLocation, Link } from 'react-router-dom';
 import './App.css';
 
 // Import components
@@ -19,6 +19,7 @@ import InitialSetup from './components/admin/InitialSetup';
 import Products from './pages/Products';
 import ProductDetail from './pages/ProductDetail';
 import Cart from './pages/Cart';
+import DoctorBooking from './components/booking/DoctorBooking';
 
 // Import context providers
 import { AlertProvider } from './context/AlertContext';
@@ -88,6 +89,11 @@ function App() {
               <Cart />
             </Layout>
           } />
+          <Route path="/book-appointment" element={
+            <Layout>
+              <DoctorBooking />
+            </Layout>
+          } />
           <Route path="/admin" element={
             <Layout>
               <AdminLogin />
@@ -103,6 +109,17 @@ function App() {
           <Route path="/admin/setup" element={
             <Layout>
               <InitialSetup />
+            </Layout>
+          } />
+          <Route path="*" element={
+            <Layout>
+              <div className="py-20 text-center">
+                <h1 className="text-4xl font-bold text-primary mb-4">404 - Page Not Found</h1>
+                <p className="text-gray-600 mb-8">The page you are looking for doesn't exist or has been moved.</p>
+                <Link to="/" className="px-6 py-3 bg-primary text-white rounded-md hover:bg-primary-dark inline-block">
+                  Go Home
+                </Link>
+              </div>
             </Layout>
           } />
         </Routes>

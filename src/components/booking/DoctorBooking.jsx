@@ -3,6 +3,8 @@ import { getFirestore, collection, query, where, getDocs, getDoc, doc, addDoc, u
 import { app } from '../../firebase/config';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
+import BookingInitializer from './BookingInitializer';
+import { useAlert } from '../../context/AlertContext';
 
 const DoctorBooking = () => {
   const [loading, setLoading] = useState(true);
@@ -25,6 +27,7 @@ const DoctorBooking = () => {
   });
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState(null);
+  const { showSuccess, showError, showInfo } = useAlert();
 
   // Pet types options
   const petTypes = ['Dog', 'Cat', 'Bird', 'Rabbit', 'Hamster', 'Guinea Pig', 'Reptile', 'Other'];
@@ -72,13 +75,14 @@ const DoctorBooking = () => {
         console.error('Error fetching doctors:', error);
         setMessage('Error loading doctors. Please try again.');
         setMessageType('error');
+        showError('Error loading doctors. Please try again.', 'Error');
       } finally {
         setLoading(false);
       }
     };
     
     fetchDoctors();
-  }, []);
+  }, [showError]);
 
   useEffect(() => {
     // Fetch available slots when doctor and date are selected
@@ -93,21 +97,14 @@ const DoctorBooking = () => {
     setLoading(true);
     try {
       const db = getFirestore(app);
-      const selectedDateCopy = new Date(selectedDate);
       
-      // Set to beginning of day
-      selectedDateCopy.setHours(0, 0, 0, 0);
-      
-      // Set to end of day
-      const endDate = new Date(selectedDateCopy);
-      endDate.setHours(23, 59, 59, 999);
+      // Format the date to get just the day (YYYY-MM-DD)
+      const selectedDateStr = selectedDate.toISOString().split('T')[0];
       
       // Query Firestore for available slots on the selected date
       const slotsQuery = query(
         collection(db, 'doctorSlots'),
         where('doctorId', '==', selectedDoctor.username),
-        where('date', '>=', Timestamp.fromDate(selectedDateCopy)),
-        where('date', '<=', Timestamp.fromDate(endDate)),
         where('isBooked', '==', false)
       );
       
@@ -115,11 +112,29 @@ const DoctorBooking = () => {
       
       const slots = [];
       querySnapshot.forEach((doc) => {
-        slots.push({
-          id: doc.id,
-          ...doc.data(),
-          date: doc.data().date.toDate()
-        });
+        const data = doc.data();
+        // Convert Firestore Timestamp to Date
+        let slotDate;
+        if (data.date instanceof Timestamp) {
+          slotDate = data.date.toDate();
+        } else if (data.date instanceof Date) {
+          slotDate = data.date;
+        } else {
+          // Skip invalid date formats
+          return;
+        }
+        
+        // Format to YYYY-MM-DD for comparison
+        const slotDateStr = slotDate.toISOString().split('T')[0];
+        
+        // Only include slots for the selected date
+        if (slotDateStr === selectedDateStr) {
+          slots.push({
+            id: doc.id,
+            ...data,
+            date: slotDate
+          });
+        }
       });
       
       // Sort slots by start time
@@ -130,6 +145,7 @@ const DoctorBooking = () => {
       console.error('Error fetching slots:', error);
       setMessage('Error loading available slots');
       setMessageType('error');
+      showError('Error loading available slots. Please try again.', 'Error');
     } finally {
       setLoading(false);
     }
@@ -165,6 +181,7 @@ const DoctorBooking = () => {
     if (!selectedDoctor || !selectedSlot) {
       setMessage('Please select a doctor and time slot');
       setMessageType('error');
+      showError('Please select a doctor and time slot', 'Missing Information');
       return;
     }
     
@@ -172,6 +189,7 @@ const DoctorBooking = () => {
     if (!bookingForm.patientName || !bookingForm.patientEmail || !bookingForm.patientPhone) {
       setMessage('Please fill in all required fields');
       setMessageType('error');
+      showError('Please fill in all required fields', 'Missing Information');
       return;
     }
     
@@ -186,6 +204,7 @@ const DoctorBooking = () => {
       if (!slotDoc.exists() || slotDoc.data().isBooked) {
         setMessage('Sorry, this slot is no longer available. Please select another time.');
         setMessageType('error');
+        showError('Sorry, this slot is no longer available. Please select another time.', 'Slot Unavailable');
         setLoading(false);
         fetchAvailableSlots(); // Refresh available slots
         return;
@@ -220,10 +239,12 @@ const DoctorBooking = () => {
       
       // Move to confirmation step
       setStep(4);
+      showSuccess('Your appointment has been booked successfully!', 'Appointment Booked');
     } catch (error) {
       console.error('Error booking appointment:', error);
       setMessage('Error booking appointment. Please try again.');
       setMessageType('error');
+      showError('Error booking appointment. Please try again.', 'Booking Error');
     } finally {
       setLoading(false);
     }
@@ -247,6 +268,7 @@ const DoctorBooking = () => {
     });
     setMessage('');
     setMessageType(null);
+    showInfo('Starting a new booking', 'New Booking');
   };
 
   const formatDate = (date) => {
@@ -272,6 +294,9 @@ const DoctorBooking = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      {/* Include the booking initializer component */}
+      <BookingInitializer />
+      
       <div className="max-w-4xl mx-auto">
         <div className="bg-white shadow-lg rounded-lg overflow-hidden">
           <div className="px-4 py-5 sm:px-6 bg-primary text-white">

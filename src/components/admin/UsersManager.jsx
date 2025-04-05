@@ -22,6 +22,7 @@ const UsersManager = () => {
       edit_contacts: false,
       manage_messages: false,
       manage_products: false,
+      manage_bookings: false,
       edit_profile: true
     }
   });
@@ -96,6 +97,7 @@ const UsersManager = () => {
         edit_contacts: false,
         manage_messages: false,
         manage_products: false,
+        manage_bookings: false,
         edit_profile: true
       }
     });
@@ -202,6 +204,7 @@ const UsersManager = () => {
       edit_contacts: false,
       manage_messages: false,
       manage_products: false,
+      manage_bookings: false,
       edit_profile: true
     };
     
@@ -212,6 +215,7 @@ const UsersManager = () => {
         edit_contacts: user.permissions.includes('edit_contacts') || false,
         manage_messages: user.permissions.includes('manage_messages') || false,
         manage_products: user.permissions.includes('manage_products') || false,
+        manage_bookings: user.permissions.includes('manage_bookings') || false,
         edit_profile: user.permissions.includes('edit_profile') || true
       };
     } 
@@ -222,6 +226,7 @@ const UsersManager = () => {
         edit_contacts: user.permissions.canEditContacts || user.permissions.edit_contacts || false,
         manage_messages: user.permissions.canManageMessages || user.permissions.manage_messages || false,
         manage_products: user.permissions.canManageProducts || user.permissions.manage_products || false,
+        manage_bookings: user.permissions.canManageBookings || user.permissions.manage_bookings || false,
         edit_profile: user.permissions.canEditProfile || user.permissions.edit_profile || true
       };
     }
@@ -326,11 +331,22 @@ const UsersManager = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           <div className="flex flex-wrap gap-1">
-                            {user.permissions?.map((permission) => (
-                              <span key={permission} className="px-2 py-1 bg-gray-100 rounded-full text-xs">
-                                {permission.replace('_', ' ')}
-                              </span>
-                            ))}
+                            {Array.isArray(user.permissions) 
+                              ? user.permissions.map((permission) => (
+                                  <span key={permission} className="px-2 py-1 bg-gray-100 rounded-full text-xs">
+                                    {permission.replace('_', ' ')}
+                                  </span>
+                                ))
+                              : user.permissions && typeof user.permissions === 'object'
+                                ? Object.entries(user.permissions)
+                                    .filter(([_, value]) => value === true)
+                                    .map(([key]) => (
+                                      <span key={key} className="px-2 py-1 bg-gray-100 rounded-full text-xs">
+                                        {key.replace('_', ' ').replace(/^can/, '')}
+                                      </span>
+                                    ))
+                                : <span className="text-gray-400">No permissions</span>
+                            }
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -491,6 +507,19 @@ const UsersManager = () => {
                       />
                       <label htmlFor="manage_products" className="ml-2 block text-sm text-gray-700">
                         Manage Products
+                      </label>
+                    </div>
+                    
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="manage_bookings"
+                        checked={formData.permissions.manage_bookings}
+                        onChange={() => handlePermissionChange('manage_bookings')}
+                        className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary"
+                      />
+                      <label htmlFor="manage_bookings" className="ml-2 block text-sm text-gray-700">
+                        Manage Appointments
                       </label>
                     </div>
                     
