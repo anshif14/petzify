@@ -1,18 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { getFirestore, collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
+import { Link, useNavigate } from 'react-router-dom';
+import { getFirestore, collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { app } from '../firebase/config';
 import Footer from '../components/common/Footer';
 import Navbar from '../components/common/Navbar';
+import { useAlert } from '../context/AlertContext';
 
 const Products = () => {
+  const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [sort, setSort] = useState('featured');
+  const { showSuccess, showError } = useAlert();
 
   useEffect(() => {
+    // Log current path to help debug
+    console.log('Current URL:', window.location.href);
+    
     const fetchProducts = async () => {
       setLoading(true);
       try {
@@ -61,19 +68,53 @@ const Products = () => {
       } catch (err) {
         console.error('Error fetching products:', err);
         setError('Failed to load products. Please try again later.');
+        showError('Failed to load products. Please try again later.', 'Error');
       } finally {
         setLoading(false);
       }
     };
     
     fetchProducts();
-  }, [selectedCategory, sort]);
+  }, [selectedCategory, sort, showError]);
   
   const formatPrice = (price) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-IN', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'INR',
+      maximumFractionDigits: 0
     }).format(price);
+  };
+
+  // Function to handle adding product to cart
+  const handleAddToCart = (e, product) => {
+    e.preventDefault();
+    
+    try {
+      let cart = JSON.parse(localStorage.getItem('cart')) || [];
+      const existingProductIndex = cart.findIndex(item => item.id === product.id);
+      
+      if (existingProductIndex >= 0) {
+        cart[existingProductIndex].quantity += 1;
+        showSuccess(`Added another ${product.name} to your cart`, 'Product Added');
+      } else {
+        cart.push({
+          id: product.id,
+          name: product.name,
+          price: product.salePrice || product.price,
+          image: product.images && product.images.length > 0 ? product.images[0] : null,
+          quantity: 1
+        });
+        showSuccess(`${product.name} added to your cart!`, 'Product Added');
+      }
+      
+      localStorage.setItem('cart', JSON.stringify(cart));
+      
+      // Dispatch the cartUpdated event to update the cart count in Navbar
+      window.dispatchEvent(new Event('cartUpdated'));
+    } catch (err) {
+      console.error('Error adding to cart:', err);
+      showError('Could not add product to cart', 'Error');
+    }
   };
 
   return (
@@ -86,6 +127,18 @@ const Products = () => {
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
               Browse our selection of high-quality products for your furry friends
             </p>
+          </div>
+          
+          {/* Cart button (for mobile) */}
+          <div className="md:hidden flex justify-end mb-4">
+            <button
+              onClick={() => navigate('/cart')}
+              className="bg-primary text-white p-2 rounded-full shadow-md hover:bg-primary-dark transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </button>
           </div>
           
           {/* Filters and Sorting */}
@@ -107,18 +160,32 @@ const Products = () => {
               ))}
             </div>
             
-            <div className="flex items-center">
-              <span className="text-gray-700 font-medium mr-2">Sort by:</span>
-              <select
-                value={sort}
-                onChange={(e) => setSort(e.target.value)}
-                className="border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="featured">Featured</option>
-                <option value="priceAsc">Price: Low to High</option>
-                <option value="priceDesc">Price: High to Low</option>
-                <option value="newest">Newest</option>
-              </select>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center">
+                <span className="text-gray-700 font-medium mr-2">Sort by:</span>
+                <select
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value)}
+                  className="border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="featured">Featured</option>
+                  <option value="priceAsc">Price: Low to High</option>
+                  <option value="priceDesc">Price: High to Low</option>
+                  <option value="newest">Newest</option>
+                </select>
+              </div>
+              
+              {/* Cart button (for desktop) */}
+              <div className="hidden md:block">
+                <button
+                  onClick={() => navigate('/cart')}
+                  className="bg-primary text-white p-2 rounded-full shadow-md hover:bg-primary-dark transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
           
@@ -142,7 +209,7 @@ const Products = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {products.map((product) => (
                 <div key={product.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
-                  <div className="h-64 overflow-hidden">
+                  <Link to={`/products/${product.id}`} className="block h-64 overflow-hidden">
                     {product.images && product.images.length > 0 ? (
                       <img 
                         src={product.images[0]} 
@@ -154,11 +221,15 @@ const Products = () => {
                         <span className="text-gray-500">No image available</span>
                       </div>
                     )}
-                  </div>
+                  </Link>
                   
                   <div className="p-4">
                     <div className="flex justify-between items-start">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-1">{product.name}</h3>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                        <Link to={`/products/${product.id}`} className="hover:text-primary">
+                          {product.name}
+                        </Link>
+                      </h3>
                       {product.featured && (
                         <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">Featured</span>
                       )}
@@ -180,10 +251,16 @@ const Products = () => {
                     <p className="text-gray-600 text-sm mb-4 line-clamp-2">{product.description}</p>
                     
                     <div className="flex justify-between items-center">
-                      <button className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors">
+                      <Link 
+                        to={`/products/${product.id}`}
+                        className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
+                      >
                         View Details
-                      </button>
-                      <button className="p-2 text-primary hover:text-primary-dark">
+                      </Link>
+                      <button 
+                        className="p-2 text-primary hover:text-primary-dark"
+                        onClick={(e) => handleAddToCart(e, product)}
+                      >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                         </svg>
