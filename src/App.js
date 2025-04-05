@@ -15,6 +15,7 @@ import Blog from './pages/Blog';
 import Contact from './pages/Contact';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
+import InitialSetup from './components/admin/InitialSetup';
 
 // Layout component to conditionally render Navbar and Footer
 const Layout = ({ children }) => {
@@ -75,6 +76,11 @@ function App() {
             <AdminRoute>
               <AdminDashboard />
             </AdminRoute>
+          </Layout>
+        } />
+        <Route path="/admin/setup" element={
+          <Layout>
+            <InitialSetup />
           </Layout>
         } />
       </Routes>

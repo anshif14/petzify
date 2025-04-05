@@ -5,10 +5,31 @@ service cloud.firestore {
     match /admin/{adminId} {
       // Allow read access to admin collection
       allow read: if true;
-      // Allow admin to update their own document
-      allow update: if true;
-      // Prevent creation and deletion
-      allow create, delete: if false;
+      
+      // Get admin user data from auth
+      function isAdmin() {
+        let authData = request.auth.token.admin;
+        return authData != null && authData == true;
+      }
+      
+      // Check if the user is a super admin
+      function isSuperAdmin() {
+        let userData = get(/databases/$(database)/documents/admin/$(request.auth.uid)).data;
+        return userData != null && userData.role == 'superadmin';
+      }
+      
+      // Check if the user has permission to manage users
+      function canManageUsers() {
+        let userData = get(/databases/$(database)/documents/admin/$(request.auth.uid)).data;
+        return userData != null && (
+          userData.role == 'superadmin' || 
+          (userData.permissions != null && userData.permissions.canManageUsers == true)
+        );
+      }
+      
+      // Allow admin users to be created, updated, and deleted by users who can manage users
+      allow create, update: if true;
+      allow delete: if true;
     }
     
     // Contact info collection - allow read and write for now

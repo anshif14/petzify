@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getFirestore, collection, query, where, getDocs } from 'firebase/firestore';
 import { app } from '../firebase/config';
@@ -8,7 +8,31 @@ const AdminLogin = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [checkingAdminExists, setCheckingAdminExists] = useState(true);
   const navigate = useNavigate();
+  
+  // Check if any admin users exist in the database
+  useEffect(() => {
+    const checkAdminExists = async () => {
+      try {
+        const db = getFirestore(app);
+        const adminCollection = collection(db, 'admin');
+        const querySnapshot = await getDocs(adminCollection);
+        
+        if (querySnapshot.empty) {
+          // No admin users exist, redirect to setup
+          navigate('/admin/setup');
+        }
+      } catch (err) {
+        console.error('Error checking admin existence:', err);
+        setError('Error connecting to database. Please try again later.');
+      } finally {
+        setCheckingAdminExists(false);
+      }
+    };
+    
+    checkAdminExists();
+  }, [navigate]);
   
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -20,7 +44,6 @@ const AdminLogin = () => {
       
       // Query admin collection for matching username
       const adminCollection = collection(db, 'admin');
-      console.log(adminCollection);
       const adminQuery = query(adminCollection, where('username', '==', username));
       const querySnapshot = await getDocs(adminQuery);
       
@@ -42,6 +65,7 @@ const AdminLogin = () => {
           name: adminData.name,
           username: adminData.username,
           role: adminData.role,
+          permissions: adminData.permissions || {},
           isLoggedIn: true
         }));
         
@@ -58,6 +82,17 @@ const AdminLogin = () => {
       setLoading(false);
     }
   };
+  
+  if (checkingAdminExists) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+          <p className="mt-2 text-gray-500">Checking configuration...</p>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -85,6 +120,7 @@ const AdminLogin = () => {
                 id="username"
                 name="username"
                 type="text"
+                autoComplete="username"
                 required
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm"
                 placeholder="Username"
@@ -98,6 +134,7 @@ const AdminLogin = () => {
                 id="password"
                 name="password"
                 type="password"
+                autoComplete="current-password"
                 required
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm"
                 placeholder="Password"
@@ -106,16 +143,14 @@ const AdminLogin = () => {
               />
             </div>
           </div>
-
+          
           <div>
             <button
               type="submit"
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
               disabled={loading}
-              className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white ${
-                loading ? 'bg-primary-light cursor-not-allowed' : 'bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary'
-              }`}
             >
-              {loading ? 'Logging in...' : 'Sign in'}
+              {loading ? 'Signing in...' : 'Sign in'}
             </button>
           </div>
         </form>
