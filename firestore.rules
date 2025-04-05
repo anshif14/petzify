@@ -70,6 +70,27 @@ service cloud.firestore {
                     get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.role == 'superadmin');
     }
     
+    // Check if the user has permission to manage products
+    function canManageProducts() {
+      let userData = get(/databases/$(database)/documents/admin/$(request.auth.uid)).data;
+      return userData != null && (
+        userData.role == 'superadmin' || 
+        (userData.permissions != null && (
+          userData.permissions.canManageProducts == true || 
+          userData.permissions.includes('manage_products')
+        ))
+      );
+    }
+    
+    // Products collection - for pet store products
+    match /products/{productId} {
+      // Allow read access to everyone
+      allow read: if true;
+      
+      // Allow product creation, updates, and deletion by admins with product management permissions
+      allow create, update, delete: if request.auth != null && canManageProducts();
+    }
+    
     // Contact info collection - allow read and write for now
     // In a production environment, you should restrict write access
     match /contact_info/{docId} {

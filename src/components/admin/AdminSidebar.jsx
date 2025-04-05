@@ -6,7 +6,8 @@ const AdminSidebar = ({
   setActiveComponent, 
   canManageUsers, 
   canEditContacts, 
-  canManageMessages 
+  canManageMessages,
+  canManageProducts 
 }) => {
   const navigate = useNavigate();
 
@@ -89,6 +90,24 @@ const AdminSidebar = ({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                 </svg>
                 Messages
+              </button>
+            </li>
+          )}
+          
+          {canManageProducts && (
+            <li>
+              <button
+                onClick={() => setActiveComponent('products')}
+                className={`flex items-center w-full px-6 py-3 text-left transition-colors ${
+                  activeComponent === 'products'
+                    ? 'bg-primary text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                </svg>
+                Products
               </button>
             </li>
           )}

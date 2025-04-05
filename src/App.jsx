@@ -5,6 +5,7 @@ import Home from './pages/Home';
 import About from './pages/About';
 import Services from './pages/Services';
 import Contact from './pages/Contact';
+import Products from './pages/Products';
 import NotFound from './pages/NotFound';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
@@ -21,6 +22,7 @@ function App() {
         <Route path="/about" element={<About />} />
         <Route path="/services" element={<Services />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/products" element={<Products />} />
         <Route path="/book-appointment" element={<DoctorBooking />} />
         <Route path="/admin-login" element={<AdminLogin />} />
         <Route path="/admin-setup" element={<InitialSetup />} />

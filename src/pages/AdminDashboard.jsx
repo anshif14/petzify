@@ -6,6 +6,7 @@ import ContactInfoEditor from '../components/admin/ContactInfoEditor';
 import MessagesManager from '../components/admin/MessagesManager';
 import AdminProfileEditor from '../components/admin/AdminProfileEditor';
 import DoctorDashboard from '../components/admin/doctor/DoctorDashboard';
+import ProductManager from '../components/admin/ProductManager';
 
 const AdminDashboard = () => {
   const [activeComponent, setActiveComponent] = useState('dashboard');
@@ -65,6 +66,11 @@ const AdminDashboard = () => {
     (Array.isArray(adminData?.permissions) && adminData?.permissions?.includes('edit_profile')) || 
     true; // All users can edit their profile
 
+  const canManageProducts = 
+    (adminData?.permissions?.canManageProducts === true) || 
+    (Array.isArray(adminData?.permissions) && adminData?.permissions?.includes('manage_products')) || 
+    adminData?.role === 'superadmin';
+
   // If user is a doctor, render the DoctorDashboard
   if (isDoctor) {
     return (
@@ -93,6 +99,7 @@ const AdminDashboard = () => {
         canManageUsers={canManageUsers}
         canEditContacts={canEditContacts}
         canManageMessages={canManageMessages}
+        canManageProducts={canManageProducts}
       />
       
       <div className="flex-1 p-8">
@@ -139,6 +146,13 @@ const AdminDashboard = () => {
                     <p className="text-gray-600">Update your admin profile</p>
                   </div>
                 )}
+
+                {canManageProducts && (
+                  <div className="bg-primary-light rounded-lg p-6 cursor-pointer" onClick={() => setActiveComponent('products')}>
+                    <h3 className="text-lg font-medium text-primary mb-2">Product Management</h3>
+                    <p className="text-gray-600">Manage pet products and inventory</p>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -147,6 +161,7 @@ const AdminDashboard = () => {
           {activeComponent === 'contact-info' && canEditContacts && <ContactInfoEditor />}
           {activeComponent === 'messages' && canManageMessages && <MessagesManager />}
           {activeComponent === 'profile' && canEditProfile && <AdminProfileEditor adminData={adminData} />}
+          {activeComponent === 'products' && canManageProducts && <ProductManager />}
         </div>
       </div>
     </div>

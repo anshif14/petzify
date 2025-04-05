@@ -21,6 +21,7 @@ const UsersManager = () => {
       manage_users: false,
       edit_contacts: false,
       manage_messages: false,
+      manage_products: false,
       edit_profile: true
     }
   });
@@ -94,6 +95,7 @@ const UsersManager = () => {
         manage_users: false,
         edit_contacts: false,
         manage_messages: false,
+        manage_products: false,
         edit_profile: true
       }
     });
@@ -199,6 +201,7 @@ const UsersManager = () => {
       manage_users: false,
       edit_contacts: false,
       manage_messages: false,
+      manage_products: false,
       edit_profile: true
     };
     
@@ -208,6 +211,7 @@ const UsersManager = () => {
         manage_users: user.permissions.includes('manage_users') || false,
         edit_contacts: user.permissions.includes('edit_contacts') || false,
         manage_messages: user.permissions.includes('manage_messages') || false,
+        manage_products: user.permissions.includes('manage_products') || false,
         edit_profile: user.permissions.includes('edit_profile') || true
       };
     } 
@@ -217,6 +221,7 @@ const UsersManager = () => {
         manage_users: user.permissions.canManageUsers || user.permissions.manage_users || false,
         edit_contacts: user.permissions.canEditContacts || user.permissions.edit_contacts || false,
         manage_messages: user.permissions.canManageMessages || user.permissions.manage_messages || false,
+        manage_products: user.permissions.canManageProducts || user.permissions.manage_products || false,
         edit_profile: user.permissions.canEditProfile || user.permissions.edit_profile || true
       };
     }
@@ -431,8 +436,11 @@ const UsersManager = () => {
                   </select>
                 </div>
                 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Permissions</label>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Permissions
+                  </label>
+                  
                   <div className="space-y-2">
                     <div className="flex items-center">
                       <input
@@ -440,9 +448,9 @@ const UsersManager = () => {
                         id="manage_users"
                         checked={formData.permissions.manage_users}
                         onChange={() => handlePermissionChange('manage_users')}
-                        className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                        className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary"
                       />
-                      <label htmlFor="manage_users" className="ml-2 text-sm text-gray-700">
+                      <label htmlFor="manage_users" className="ml-2 block text-sm text-gray-700">
                         Manage Users
                       </label>
                     </div>
@@ -453,10 +461,10 @@ const UsersManager = () => {
                         id="edit_contacts"
                         checked={formData.permissions.edit_contacts}
                         onChange={() => handlePermissionChange('edit_contacts')}
-                        className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                        className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary"
                       />
-                      <label htmlFor="edit_contacts" className="ml-2 text-sm text-gray-700">
-                        Edit Contacts
+                      <label htmlFor="edit_contacts" className="ml-2 block text-sm text-gray-700">
+                        Edit Contact Information
                       </label>
                     </div>
                     
@@ -466,10 +474,23 @@ const UsersManager = () => {
                         id="manage_messages"
                         checked={formData.permissions.manage_messages}
                         onChange={() => handlePermissionChange('manage_messages')}
-                        className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                        className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary"
                       />
-                      <label htmlFor="manage_messages" className="ml-2 text-sm text-gray-700">
+                      <label htmlFor="manage_messages" className="ml-2 block text-sm text-gray-700">
                         Manage Messages
+                      </label>
+                    </div>
+                    
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="manage_products"
+                        checked={formData.permissions.manage_products}
+                        onChange={() => handlePermissionChange('manage_products')}
+                        className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary"
+                      />
+                      <label htmlFor="manage_products" className="ml-2 block text-sm text-gray-700">
+                        Manage Products
                       </label>
                     </div>
                     
@@ -479,11 +500,11 @@ const UsersManager = () => {
                         id="edit_profile"
                         checked={formData.permissions.edit_profile}
                         onChange={() => handlePermissionChange('edit_profile')}
-                        className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                        disabled // All users should be able to edit their own profile
+                        disabled
+                        className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary"
                       />
-                      <label htmlFor="edit_profile" className="ml-2 text-sm text-gray-700">
-                        Edit Profile
+                      <label htmlFor="edit_profile" className="ml-2 block text-sm text-gray-700">
+                        Edit Own Profile (always enabled)
                       </label>
                     </div>
                   </div>
