@@ -1,15 +1,17 @@
 {
   "files": {
-    "main.css": "/petzify-website/static/css/main.2be1feb0.css",
-    "main.js": "/petzify-website/static/js/main.ffb0cded.js",
-    "static/js/453.b261231d.chunk.js": "/petzify-website/static/js/453.b261231d.chunk.js",
-    "index.html": "/petzify-website/index.html",
-    "main.2be1feb0.css.map": "/petzify-website/static/css/main.2be1feb0.css.map",
-    "main.ffb0cded.js.map": "/petzify-website/static/js/main.ffb0cded.js.map",
-    "453.b261231d.chunk.js.map": "/petzify-website/static/js/453.b261231d.chunk.js.map"
+    "main.css": "/petzify/static/css/main.ac4573f6.css",
+    "main.js": "/petzify/static/js/main.f6492b79.js",
+    "static/js/453.b261231d.chunk.js": "/petzify/static/js/453.b261231d.chunk.js",
+    "static/media/logo_text.png": "/petzify/static/media/logo_text.917a5316f76381f7bb22.png",
+    "static/media/logo.png": "/petzify/static/media/logo.6c70a4ebe3f10b867ef3.png",
+    "index.html": "/petzify/index.html",
+    "main.ac4573f6.css.map": "/petzify/static/css/main.ac4573f6.css.map",
+    "main.f6492b79.js.map": "/petzify/static/js/main.f6492b79.js.map",
+    "453.b261231d.chunk.js.map": "/petzify/static/js/453.b261231d.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.2be1feb0.css",
-    "static/js/main.ffb0cded.js"
+    "static/css/main.ac4573f6.css",
+    "static/js/main.f6492b79.js"
   ]
 }
