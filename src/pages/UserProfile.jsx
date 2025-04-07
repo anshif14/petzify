@@ -30,6 +30,12 @@ const UserProfile = () => {
     dateOfBirth: ''
   });
 
+  const [profileCompletion, setProfileCompletion] = useState({
+    percentage: 0,
+    completedSteps: [],
+    remainingSteps: []
+  });
+
   useEffect(() => {
     if (authInitialized && !isAuthenticated()) {
       setShowAuthModal(true);
@@ -41,6 +47,33 @@ const UserProfile = () => {
       fetchUserProfile();
     }
   }, [currentUser]);
+
+  useEffect(() => {
+    calculateProfileCompletion();
+  }, [profileData]);
+
+  const calculateProfileCompletion = () => {
+    const steps = [
+      { id: 'name', label: 'Full Name', completed: !!profileData.name },
+      { id: 'dateOfBirth', label: 'Date of Birth', completed: !!profileData.dateOfBirth },
+      { id: 'phone', label: 'Phone Number', completed: !!profileData.phone },
+      { id: 'address', label: 'Address', completed: !!profileData.address },
+      { id: 'city', label: 'City', completed: !!profileData.city },
+      { id: 'state', label: 'State', completed: !!profileData.state },
+      { id: 'zipCode', label: 'ZIP Code', completed: !!profileData.zipCode },
+      { id: 'avatar', label: 'Profile Picture', completed: !!profileData.avatar }
+    ];
+
+    const completedSteps = steps.filter(step => step.completed);
+    const remainingSteps = steps.filter(step => !step.completed);
+    const percentage = Math.round((completedSteps.length / steps.length) * 100);
+
+    setProfileCompletion({
+      percentage,
+      completedSteps,
+      remainingSteps
+    });
+  };
 
   const fetchUserProfile = async () => {
     try {
@@ -189,148 +222,206 @@ const UserProfile = () => {
             {/* Content */}
             <div className="p-6">
               {activeTab === 'profile' ? (
-                <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="col-span-2">
-                      <h2 className="text-xl font-semibold text-gray-800 mb-4">Personal Information</h2>
+                <>
+                  {/* Profile Completion Stepper */}
+                  {profileCompletion.percentage < 100 && (
+                    <div className="mb-8 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                      <div className="p-4 bg-primary-light">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-medium text-gray-800">Complete Your Profile</h3>
+                          <span className="text-sm font-medium text-white">{profileCompletion.percentage}% Complete</span>
+                        </div>
+                        <div className="mt-2 w-full bg-gray-200 rounded-full h-2.5">
+                          <div 
+                            className="bg-primary h-2.5 rounded-full transition-all duration-500 ease-in-out" 
+                            style={{ width: `${profileCompletion.percentage}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                      <div className="p-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-700 mb-2">Completed</h4>
+                            {profileCompletion.completedSteps.length > 0 ? (
+                              <ul className="space-y-2">
+                                {profileCompletion.completedSteps.map(step => (
+                                  <li key={step.id} className="flex items-center text-sm text-gray-600">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-green-500" viewBox="0 0 20 20" fill="currentColor">
+                                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                    </svg>
+                                    {step.label}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-sm text-gray-500">No completed steps yet</p>
+                            )}
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-700 mb-2">Remaining</h4>
+                            {profileCompletion.remainingSteps.length > 0 ? (
+                              <ul className="space-y-2">
+                                {profileCompletion.remainingSteps.map(step => (
+                                  <li key={step.id} className="flex items-center text-sm text-gray-600">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
+                                    </svg>
+                                    {step.label}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-sm text-gray-500">All steps completed!</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Full Name
-                      </label>
-                      <input
-                        type="text"
-                        name="name"
-                        value={profileData.name}
-                        onChange={handleChange}
-                        required
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition duration-200"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Date of Birth
-                      </label>
-                      <input
-                        type="date"
-                        name="dateOfBirth"
-                        value={profileData.dateOfBirth}
-                        onChange={handleChange}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition duration-200"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Email
-                      </label>
-                      <input
-                        type="email"
-                        name="email"
-                        value={profileData.email}
-                        disabled
-                        className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-600"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Phone Number
-                      </label>
-                      <input
-                        type="tel"
-                        name="phone"
-                        value={profileData.phone}
-                        onChange={handleChange}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition duration-200"
-                      />
-                    </div>
-                    
-                    <div className="col-span-2">
-                      <h2 className="text-xl font-semibold text-gray-800 mb-4 mt-4">Address Information</h2>
-                    </div>
-                    
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Address
-                      </label>
-                      <input
-                        type="text"
-                        name="address"
-                        value={profileData.address}
-                        onChange={handleChange}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition duration-200"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        City
-                      </label>
-                      <input
-                        type="text"
-                        name="city"
-                        value={profileData.city}
-                        onChange={handleChange}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition duration-200"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        State
-                      </label>
-                      <input
-                        type="text"
-                        name="state"
-                        value={profileData.state}
-                        onChange={handleChange}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition duration-200"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        ZIP Code
-                      </label>
-                      <input
-                        type="text"
-                        name="zipCode"
-                        value={profileData.zipCode}
-                        onChange={handleChange}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition duration-200"
-                      />
-                    </div>
-                  </div>
+                  )}
                   
-                  <div className="mt-8 flex justify-end">
-                    <button
-                      type="submit"
-                      disabled={updating}
-                      className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition duration-200 disabled:opacity-50 flex items-center"
-                    >
-                      {updating ? (
-                        <>
-                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Updating...
-                        </>
-                      ) : (
-                        <>
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                          Update Profile
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
+                  <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="col-span-2">
+                        <h2 className="text-xl font-semibold text-gray-800 mb-4">Personal Information</h2>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Full Name
+                        </label>
+                        <input
+                          type="text"
+                          name="name"
+                          value={profileData.name}
+                          onChange={handleChange}
+                          required
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition duration-200"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Date of Birth
+                        </label>
+                        <input
+                          type="date"
+                          name="dateOfBirth"
+                          value={profileData.dateOfBirth}
+                          onChange={handleChange}
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition duration-200"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Email
+                        </label>
+                        <input
+                          type="email"
+                          name="email"
+                          value={profileData.email}
+                          disabled
+                          className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-600"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Phone Number
+                        </label>
+                        <input
+                          type="tel"
+                          name="phone"
+                          value={profileData.phone}
+                          onChange={handleChange}
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition duration-200"
+                        />
+                      </div>
+                      
+                      <div className="col-span-2">
+                        <h2 className="text-xl font-semibold text-gray-800 mb-4 mt-4">Address Information</h2>
+                      </div>
+                      
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Address
+                        </label>
+                        <input
+                          type="text"
+                          name="address"
+                          value={profileData.address}
+                          onChange={handleChange}
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition duration-200"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          City
+                        </label>
+                        <input
+                          type="text"
+                          name="city"
+                          value={profileData.city}
+                          onChange={handleChange}
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition duration-200"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          State
+                        </label>
+                        <input
+                          type="text"
+                          name="state"
+                          value={profileData.state}
+                          onChange={handleChange}
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition duration-200"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          ZIP Code
+                        </label>
+                        <input
+                          type="text"
+                          name="zipCode"
+                          value={profileData.zipCode}
+                          onChange={handleChange}
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition duration-200"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="mt-8 flex justify-end">
+                      <button
+                        type="submit"
+                        disabled={updating}
+                        className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition duration-200 disabled:opacity-50 flex items-center"
+                      >
+                        {updating ? (
+                          <>
+                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Updating...
+                          </>
+                        ) : (
+                          <>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                            Update Profile
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                </>
               ) : (
                 <UserPets />
               )}
