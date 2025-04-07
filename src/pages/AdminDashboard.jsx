@@ -11,6 +11,7 @@ import BookingManager from '../components/admin/BookingManager';
 import ContentManager from '../components/admin/ContentManager';
 import LoadingScreen from '../components/common/LoadingScreen';
 import PetParentingManager from '../components/admin/PetParentingManager';
+import OrderManager from '../components/admin/OrderManager';
 
 const AdminDashboard = () => {
   const [activeComponent, setActiveComponent] = useState('dashboard');
@@ -81,6 +82,11 @@ const AdminDashboard = () => {
     (Array.isArray(adminData?.permissions) && adminData?.permissions?.includes('manage_pet_parenting')) || 
     adminData?.role === 'superadmin';
 
+  const canManageOrders = 
+    (adminData?.permissions?.canManageOrders === true) || 
+    (Array.isArray(adminData?.permissions) && adminData?.permissions?.includes('manage_orders')) || 
+    adminData?.role === 'superadmin';
+
   // If user is a doctor, render the DoctorDashboard
   if (isDoctor) {
     return (
@@ -112,6 +118,7 @@ const AdminDashboard = () => {
         canManageProducts={canManageProducts}
         canManageBookings={canManageBookings}
         canManagePetParenting={canManagePetParenting}
+        canManageOrders={canManageOrders}
       />
       
       <div className="flex-1 p-8">
@@ -166,6 +173,13 @@ const AdminDashboard = () => {
                   </div>
                 )}
                 
+                {canManageOrders && (
+                  <div className="bg-primary-light rounded-lg p-6 cursor-pointer" onClick={() => setActiveComponent('orders')}>
+                    <h3 className="text-lg font-bold text-white mb-2">Order Management</h3>
+                    <p className="text-gray-600">Manage customer orders and deliveries</p>
+                  </div>
+                )}
+                
                 {canEditContacts && (
                   <div className="bg-primary-light rounded-lg p-6 cursor-pointer" onClick={() => setActiveComponent('content')}>
                     <h3 className="text-lg font-bold text-white mb-2">Content Management</h3>
@@ -198,6 +212,7 @@ const AdminDashboard = () => {
           {activeComponent === 'bookings' && canManageBookings && <BookingManager />}
           {activeComponent === 'content' && canEditContacts && <ContentManager />}
           {activeComponent === 'pet-parenting' && canManagePetParenting && <PetParentingManager />}
+          {activeComponent === 'orders' && canManageOrders && <OrderManager />}
         </div>
       </div>
     </div>

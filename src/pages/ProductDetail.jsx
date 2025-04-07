@@ -64,6 +64,7 @@ const ProductDetail = () => {
       } else {
         cart.push({
           id: product.id,
+          productId: product.id,
           name: product.name,
           price: product.salePrice || product.price,
           image: product.images && product.images.length > 0 ? product.images[0] : null,

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getFirestore, collection, query, where, getDocs, orderBy, doc, updateDoc } from 'firebase/firestore';
+import { getFirestore, collection, query, where, getDocs, orderBy, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { app } from '../firebase/config';
 import Navbar from '../components/common/Navbar';
 import Footer from '../components/common/Footer';
@@ -8,6 +8,7 @@ import { useUser } from '../context/UserContext';
 import { useAlert } from '../context/AlertContext';
 import AuthModal from '../components/auth/AuthModal';
 import PageLoader from '../components/common/PageLoader';
+import UserOrderStepper from '../components/user/UserOrderStepper';
 
 const UserOrders = () => {
   const [orders, setOrders] = useState([]);
@@ -41,6 +42,23 @@ const UserOrders = () => {
     }
   }, [location.search, orders]);
 
+  // Function to fetch product details including image
+  const fetchProductDetails = async (productId) => {
+    try {
+      const db = getFirestore(app);
+      const productRef = doc(db, 'products', productId);
+      const productSnap = await getDoc(productRef);
+      
+      if (productSnap.exists()) {
+        return productSnap.data();
+      }
+      return null;
+    } catch (error) {
+      console.error('Error fetching product details:', error);
+      return null;
+    }
+  };
+
   // Memoize fetchUserOrders to avoid ESLint warning
   const fetchUserOrders = useCallback(async () => {
     if (!currentUser) return;
@@ -57,13 +75,33 @@ const UserOrders = () => {
       const querySnapshot = await getDocs(ordersQuery);
       const ordersList = [];
       
-      querySnapshot.forEach((doc) => {
+      for (const doc of querySnapshot.docs) {
+        const orderData = doc.data();
+        const items = await Promise.all(
+          (orderData.items || []).map(async (item) => {
+            if (item.productId) {
+              const productRef = doc(db, 'products', item.productId);
+              const productSnap = await getDoc(productRef);
+              
+              if (productSnap.exists()) {
+                const productData = productSnap.data();
+                return {
+                  ...item,
+                  imageUrl: productData.images?.[0] || null
+                };
+              }
+            }
+            return item;
+          })
+        );
+
         ordersList.push({
           id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate?.() || new Date()
+          ...orderData,
+          items,
+          createdAt: orderData.createdAt?.toDate?.() || new Date()
         });
-      });
+      }
       
       setOrders(ordersList);
       console.log(`Loaded ${ordersList.length} orders`);
@@ -204,152 +242,131 @@ const UserOrders = () => {
       <Navbar />
       <main className="min-h-screen bg-gray-50 py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl font-bold text-gray-900 mb-6">My Orders</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-8">My Orders</h1>
           
-          {!isAuthenticated() ? (
-            <div className="bg-white rounded-lg shadow p-6 text-center">
-              <h2 className="text-xl font-medium text-gray-700 mb-4">Please Sign In</h2>
-              <p className="text-gray-500 mb-6">
-                You need to be signed in to view your orders
-              </p>
-              <button
-                onClick={() => setShowAuthModal(true)}
-                className="inline-block bg-primary text-white px-6 py-3 rounded-md hover:bg-primary-dark transition-colors"
-              >
-                Sign In
-              </button>
-            </div>
-          ) : loading ? (
-            <div className="bg-white rounded-lg shadow p-6">
-              <PageLoader message="Loading your orders..." />
-            </div>
+          {loading ? (
+            <PageLoader />
           ) : orders.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-sm p-8 text-center">
-              <h2 className="text-xl font-medium text-gray-700 mb-4">No Orders Found</h2>
-              <p className="text-gray-500 mb-6">
-                You haven't placed any orders yet.
-              </p>
-              <button
-                onClick={() => navigate('/products')}
-                className="inline-block bg-primary text-white px-6 py-3 rounded-md hover:bg-primary-dark transition-colors"
-              >
-                Browse Products
-              </button>
+            <div className="text-center py-12 bg-white rounded-lg shadow-sm">
+              <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+              </svg>
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No orders</h3>
+              <p className="mt-1 text-sm text-gray-500">You haven't placed any orders yet.</p>
+              <div className="mt-6">
+                <button
+                  onClick={() => navigate('/products')}
+                  className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                >
+                  Start Shopping
+                </button>
+              </div>
             </div>
           ) : (
             <div className="space-y-6">
-              <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-                <h2 className="text-lg font-medium text-gray-900 mb-2">Order History</h2>
-                <p className="text-sm text-gray-500">
-                  View and track all your recent orders
-                </p>
-              </div>
-            
               {orders.map((order) => (
                 <div
                   key={order.id}
                   id={`order-${order.id}`}
-                  className="bg-white rounded-lg shadow-sm overflow-hidden transition-all duration-300"
+                  className="bg-white rounded-lg shadow-sm overflow-hidden transition-all duration-200"
                 >
-                  <div className="border-b border-gray-200 px-6 py-4 flex flex-col md:flex-row justify-between items-start md:items-center">
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900">
-                        Order #{order.id.substring(0, 8)}
-                      </h3>
-                      <p className="text-sm text-gray-500">
-                        Placed on {formatDate(order.createdAt)}
-                      </p>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {getOrderTotalItems(order.items)} item{getOrderTotalItems(order.items) !== 1 ? 's' : ''}
-                      </p>
-                    </div>
-                    <div className="mt-2 md:mt-0 flex flex-col md:items-end">
-                      <span
-                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusBadgeClass(
-                          order.status
-                        )}`}
-                      >
-                        {order.status?.charAt(0).toUpperCase() + order.status?.slice(1) || 'Processing'}
-                      </span>
-                      
-                      {canCancelOrder(order.status) && (
-                        <button 
-                          onClick={() => handleCancelOrder(order.id)}
-                          disabled={cancelLoading}
-                          className="mt-2 text-sm text-red-600 hover:text-red-800 transition-colors font-medium focus:outline-none"
-                        >
-                          {cancelLoading ? 'Cancelling...' : 'Cancel Order'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <ul className="divide-y divide-gray-200">
-                    {order.items && Array.isArray(order.items) && order.items.map((item, index) => (
-                      <li key={index} className="px-6 py-4 flex items-center">
-                        <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-md border border-gray-200">
-                          {item.image ? (
-                            <img
-                              src={item.image}
-                              alt={item.name}
-                              className="h-full w-full object-cover object-center"
-                            />
-                          ) : (
-                            <div className="h-full w-full bg-gray-200 flex items-center justify-center">
-                              <span className="text-xs text-gray-400">No image</span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="ml-4 flex-1">
-                          <div className="flex justify-between">
-                            <div>
-                              <h4 className="text-sm font-medium text-gray-900">{item.name || 'Product'}</h4>
-                              <p className="mt-1 text-xs text-gray-500">Qty: {item.quantity || 1}</p>
-                            </div>
-                            <p className="text-sm font-medium text-gray-900">
-                              {formatPrice((item.price || 0) * (item.quantity || 1))}
-                            </p>
-                          </div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                  
-                  <div className="border-t border-gray-200 px-6 py-4 bg-gray-50">
-                    <div className="flex justify-between text-base font-medium text-gray-900">
-                      <p>Subtotal</p>
-                      <p>{formatPrice(order.subtotal)}</p>
-                    </div>
-                    
-                    {/* Show shipping and order total if available */}
-                    {order.shipping && (
-                      <div className="flex justify-between text-sm text-gray-700 mt-2">
-                        <p>Shipping</p>
-                        <p>{formatPrice(order.shipping)}</p>
-                      </div>
-                    )}
-                    
-                    {order.tax && (
-                      <div className="flex justify-between text-sm text-gray-700 mt-2">
-                        <p>Tax</p>
-                        <p>{formatPrice(order.tax)}</p>
-                      </div>
-                    )}
-                    
-                    {(order.shipping || order.tax) && (
-                      <div className="flex justify-between text-base font-medium text-gray-900 mt-3 pt-3 border-t border-gray-200">
-                        <p>Total</p>
-                        <p>{formatPrice((order.subtotal || 0) + (order.shipping || 0) + (order.tax || 0))}</p>
-                      </div>
-                    )}
-                    
-                    {order.status === 'cancelled' && (
-                      <div className="mt-3 pt-3 border-t border-gray-200">
-                        <p className="text-sm text-red-600">
-                          This order was cancelled {order.cancelledAt ? `on ${new Date(order.cancelledAt).toLocaleString()}` : ''}
+                  <div className="p-6">
+                    {/* Order Header */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h2 className="text-lg font-medium text-gray-900">
+                          Order #{order.id.slice(-8)}
+                        </h2>
+                        <p className="text-sm text-gray-500">
+                          Placed on {formatDate(order.createdAt)}
                         </p>
                       </div>
-                    )}
+                      <div className="text-right">
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusBadgeClass(order.status)}`}>
+                          {order.status?.charAt(0).toUpperCase() + order.status?.slice(1) || 'Pending'}
+                        </span>
+                        <p className="mt-1 text-sm font-medium text-gray-900">
+                          Total: {formatPrice(order.totalAmount)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Order Stepper */}
+                    <div className="mb-6">
+                      <UserOrderStepper 
+                        currentStatus={order.status} 
+                        courierDetails={order.courierDetails}
+                      />
+                    </div>
+
+                    {/* Order Items */}
+                    <div className="mt-6 border-t border-gray-200 pt-4">
+                      <div className="flow-root">
+                        <ul className="-my-6 divide-y divide-gray-200">
+                          {order.items?.map((item, index) => (
+                            <li key={index} className="py-6 flex">
+                              <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-md border border-gray-200">
+                                {item.imageUrl ? (
+                                  <img
+                                    src={item.imageUrl}
+                                    alt={item.name}
+                                    className="h-full w-full object-cover object-center"
+                                  />
+                                ) : (
+                                  <div className="h-full w-full bg-gray-100 flex items-center justify-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="ml-4 flex-1 flex flex-col">
+                                <div>
+                                  <div className="flex justify-between text-base font-medium text-gray-900">
+                                    <h3>{item.name}</h3>
+                                    <p className="ml-4">{formatPrice(item.price * item.quantity)}</p>
+                                  </div>
+                                  <p className="mt-1 text-sm text-gray-500">
+                                    {formatPrice(item.price)} × {item.quantity}
+                                  </p>
+                                </div>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {/* Order Summary */}
+                      <div className="mt-6 pt-4 border-t border-gray-200">
+                        <div className="flex justify-between text-sm text-gray-500">
+                          <p>Subtotal ({getOrderTotalItems(order.items)} items)</p>
+                          <p>{formatPrice(order.subtotal || order.totalAmount)}</p>
+                        </div>
+                        {order.shippingCost > 0 && (
+                          <div className="flex justify-between text-sm text-gray-500 mt-2">
+                            <p>Shipping</p>
+                            <p>{formatPrice(order.shippingCost)}</p>
+                          </div>
+                        )}
+                        <div className="flex justify-between text-base font-medium text-gray-900 mt-4">
+                          <p>Total</p>
+                          <p>{formatPrice(order.totalAmount)}</p>
+                        </div>
+                      </div>
+
+                      {/* Cancel Order Button */}
+                      {canCancelOrder(order.status) && (
+                        <div className="mt-4">
+                          <button
+                            onClick={() => handleCancelOrder(order.id)}
+                            disabled={cancelLoading}
+                            className="w-full text-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-red-600 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+                          >
+                            Cancel Order
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -357,20 +374,14 @@ const UserOrders = () => {
           )}
         </div>
       </main>
+      <Footer />
       
       <AuthModal
         isOpen={showAuthModal}
-        onClose={() => {
-          setShowAuthModal(false);
-          if (!isAuthenticated()) {
-            navigate('/');
-          }
-        }}
-        initialMode="login"
+        onClose={() => setShowAuthModal(false)}
         onSuccess={handleAuthSuccess}
+        message="Please sign in to view your orders"
       />
-      
-
     </>
   );
 };
