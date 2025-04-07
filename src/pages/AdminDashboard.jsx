@@ -102,7 +102,7 @@ const AdminDashboard = () => {
 
   // For regular admin users
   return (
-    <div className="flex min-h-screen bg-gray-100">
+    <div className="flex min-h-screen bg-white">
       <AdminSidebar 
         activeComponent={activeComponent} 
         setActiveComponent={setActiveComponent}

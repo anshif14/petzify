@@ -14,6 +14,7 @@ const Products = () => {
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [sort, setSort] = useState('featured');
+  const [searchQuery, setSearchQuery] = useState('');
   const { showSuccess, showError } = useAlert();
 
   useEffect(() => {
@@ -57,7 +58,16 @@ const Products = () => {
           });
         });
         
-        setProducts(productsData);
+        // Apply search filter
+        const filteredProducts = searchQuery
+          ? productsData.filter(product => 
+              product.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              product.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              product.category?.toLowerCase().includes(searchQuery.toLowerCase())
+            )
+          : productsData;
+        
+        setProducts(filteredProducts);
         
         // Extract unique categories
         const allCategories = productsData
@@ -75,7 +85,7 @@ const Products = () => {
     };
     
     fetchProducts();
-  }, [selectedCategory, sort, showError]);
+  }, [selectedCategory, sort, searchQuery, showError]);
   
   const formatPrice = (price) => {
     return new Intl.NumberFormat('en-IN', {
@@ -141,50 +151,68 @@ const Products = () => {
             </button>
           </div>
           
-          {/* Filters and Sorting */}
-          <div className="flex flex-col md:flex-row justify-between items-center mb-8 space-y-4 md:space-y-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-gray-700 font-medium">Categories:</span>
-              {categories.map(category => (
-                <button
-                  key={category}
-                  onClick={() => setSelectedCategory(category)}
-                  className={`px-4 py-2 rounded-full text-sm ${
-                    selectedCategory === category
-                      ? 'bg-primary text-white'
-                      : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                  }`}
+          {/* Search and Filters */}
+          <div className="bg-white rounded-xl shadow-md p-6 mb-8">
+            <div className="flex items-center gap-4">
+              {/* Main Search - 60% width */}
+              <div className="w-[60%]">
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search products by name, description, or category..."
+                    className="w-full h-10 pl-10 pr-4 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent shadow-sm"
+                  />
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* Category Filter */}
+              <div className="w-[20%]">
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="w-full h-10 px-4 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-gray-600"
                 >
-                  {category}
-                </button>
-              ))}
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center">
-                <span className="text-gray-700 font-medium mr-2">Sort by:</span>
+                  {categories.map(category => (
+                    <option key={category} value={category}>{category}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Sort Options */}
+              <div className="w-[20%] flex items-center gap-2">
                 <select
                   value={sort}
                   onChange={(e) => setSort(e.target.value)}
-                  className="border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full h-10 px-4 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-gray-600"
                 >
                   <option value="featured">Featured</option>
                   <option value="priceAsc">Price: Low to High</option>
                   <option value="priceDesc">Price: High to Low</option>
-                  <option value="newest">Newest</option>
+                  <option value="newest">Newest First</option>
                 </select>
-              </div>
-              
-              {/* Cart button (for desktop) */}
-              <div className="hidden md:block">
-                <button
-                  onClick={() => navigate('/cart')}
-                  className="bg-primary text-white p-2 rounded-full shadow-md hover:bg-primary-dark transition-colors"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                </button>
+
+                {(searchQuery || selectedCategory !== 'All' || sort !== 'featured') && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery('');
+                      setSelectedCategory('All');
+                      setSort('featured');
+                    }}
+                    className="h-10 w-10 flex items-center justify-center text-primary hover:text-primary-dark"
+                    title="Clear All"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
               </div>
             </div>
           </div>

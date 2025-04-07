@@ -19,7 +19,7 @@ const AdminSidebar = ({
   };
 
   return (
-    <div className="w-64 bg-white shadow-md min-h-screen">
+    <div className="w-64 bg-white shadow-lg min-h-screen">
       <div className="p-6 border-b">
         <h2 className="text-xl font-bold text-primary">Petzify Admin</h2>
       </div>

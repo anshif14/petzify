@@ -296,7 +296,7 @@ const Contact = () => {
       {/* FAQ Section */}
       <section className="py-20 bg-primary-light">
         <div className="container mx-auto px-6">
-          <h2 className="text-3xl font-bold text-primary text-center mb-12">Frequently Asked Questions</h2>
+          <h2 className="text-3xl font-bold text-white text-center mb-12">Frequently Asked Questions</h2>
           
           <div className="max-w-3xl mx-auto">
             {faqs.map((faq) => (

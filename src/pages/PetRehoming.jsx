@@ -17,67 +17,126 @@ const PetRehoming = () => {
     age: '',
     gender: '',
     description: '',
-    contactInfo: '',
-    imageUrl: '',
-    status: 'pending' // Default status is pending
+    price: '',
+    hasKCICertificate: false,
+    mediaFiles: [],
+    status: 'pending'
   });
+  const [mediaPreview, setMediaPreview] = useState([]);
+  const [error, setError] = useState('');
 
   // Pet types options
   const petTypes = ['Dog', 'Cat', 'Bird', 'Rabbit', 'Hamster', 'Guinea Pig', 'Reptile', 'Other'];
 
-  // Function to trigger file input click
-  const triggerFileInput = () => {
-    fileInputRef.current.click();
+  // Function to check media limits
+  const checkMediaLimits = (files) => {
+    const currentImages = mediaPreview.filter(file => file.type === 'image').length;
+    const currentVideos = mediaPreview.filter(file => file.type === 'video').length;
+    
+    const newImages = files.filter(file => file.type.startsWith('image/')).length;
+    const newVideos = files.filter(file => file.type.startsWith('video/')).length;
+
+    if (currentImages + newImages > 5) {
+      setError('Maximum 5 images allowed');
+      return false;
+    }
+    if (currentVideos + newVideos > 2) {
+      setError('Maximum 2 videos allowed');
+      return false;
+    }
+    return true;
   };
 
   // Function to handle file selection
   const handleFileSelect = async (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      try {
-        setUploading(true);
-        const storage = getStorage(app);
-        const storageRef = ref(storage, `pets/${Date.now()}_${file.name}`);
-        await uploadBytes(storageRef, file);
-        const url = await getDownloadURL(storageRef);
-        setFormData(prev => ({ ...prev, imageUrl: url }));
-      } catch (error) {
-        console.error('Error uploading file:', error);
-        alert('Failed to upload image. Please try again.');
-      } finally {
-        setUploading(false);
-      }
+    const files = Array.from(e.target.files);
+    setError('');
+
+    // Validate file types and sizes
+    const validFiles = files.filter(file => {
+      const isImage = file.type.startsWith('image/');
+      const isVideo = file.type.startsWith('video/');
+      const isValidSize = file.size <= 10 * 1024 * 1024; // 10MB limit
+      return (isImage || isVideo) && isValidSize;
+    });
+
+    if (!checkMediaLimits(validFiles)) {
+      return;
     }
+
+    // Create preview URLs
+    const newPreviews = validFiles.map(file => ({
+      file,
+      url: URL.createObjectURL(file),
+      type: file.type.startsWith('image/') ? 'image' : 'video',
+      name: file.name
+    }));
+
+    setMediaPreview(prev => [...prev, ...newPreviews]);
   };
 
-  // Function to handle form input changes
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+  // Function to remove a preview
+  const handleRemoveFile = (index) => {
+    setMediaPreview(prev => {
+      const newPreviews = [...prev];
+      URL.revokeObjectURL(newPreviews[index].url);
+      newPreviews.splice(index, 1);
+      return newPreviews;
+    });
+    setError('');
+  };
+
+  // Function to upload files to Firebase Storage
+  const uploadFiles = async (files) => {
+    const storage = getStorage(app);
+    const uploadPromises = files.map(async (fileObj) => {
+      const fileRef = ref(storage, `pets/${Date.now()}_${fileObj.file.name}`);
+      await uploadBytes(fileRef, fileObj.file);
+      const url = await getDownloadURL(fileRef);
+      return {
+        url,
+        type: fileObj.type,
+        name: fileObj.file.name
+      };
+    });
+
+    return Promise.all(uploadPromises);
   };
 
   // Function to handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (mediaPreview.length === 0) {
+      setError('Please add at least one image or video');
+      return;
+    }
+    
     try {
       setLoading(true);
+      setError('');
+      
+      // Upload all media files
+      const mediaUrls = await uploadFiles(mediaPreview);
+      
       const db = getFirestore(app);
       const docRef = await addDoc(collection(db, 'rehoming_pets'), {
         ...formData,
+        mediaFiles: mediaUrls,
         createdAt: new Date().toISOString()
       });
       
       // Set the submitted pet with the ID
       const submittedPetWithId = {
         id: docRef.id,
-        ...formData
+        ...formData,
+        mediaFiles: mediaUrls
       };
       setSubmittedPet(submittedPetWithId);
       
       // Hide the form and show the submitted pet details
       setShowForm(false);
       
-      // Reset form for future submissions
+      // Reset form and media previews
       setFormData({
         name: '',
         type: '',
@@ -85,10 +144,12 @@ const PetRehoming = () => {
         age: '',
         gender: '',
         description: '',
-        contactInfo: '',
-        imageUrl: '',
+        price: '',
+        hasKCICertificate: false,
+        mediaFiles: [],
         status: 'pending'
       });
+      setMediaPreview([]);
       
       // Refresh the pets list
       fetchPets();
@@ -96,7 +157,7 @@ const PetRehoming = () => {
       alert('Pet added successfully! Waiting for admin approval.');
     } catch (error) {
       console.error('Error adding pet:', error);
-      alert('Failed to add pet. Please try again.');
+      setError('Failed to add pet. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -178,40 +239,78 @@ const PetRehoming = () => {
             </div>
             
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Pet Image Upload */}
-              <div className="flex flex-col items-center mb-4">
-                <div className="relative w-40 h-40 rounded-full overflow-hidden border-4 border-gray-200 mb-4">
-                  {formData.imageUrl ? (
-                    <img 
-                      src={formData.imageUrl} 
-                      alt="Pet" 
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                    </div>
+              {/* Media Upload Section */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Pet Photos and Videos
+                  </label>
+                  <p className="text-sm text-gray-500 mb-2">
+                    Add up to 5 images and 2 videos (Max 10MB each)
+                  </p>
+                  {error && (
+                    <p className="text-sm text-red-600 mb-2">{error}</p>
                   )}
-                  <button 
-                    type="button"
-                    onClick={triggerFileInput}
-                    className="absolute bottom-0 right-0 bg-primary text-white p-2 rounded-full shadow-md hover:bg-primary-dark transition duration-200"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                    </svg>
-                  </button>
+                  <div className="flex items-center space-x-4">
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileSelect}
+                      accept="image/*,video/*"
+                      multiple
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current.click()}
+                      className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition duration-200 flex items-center"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+                      </svg>
+                      Add Media
+                    </button>
+                    <div className="text-sm text-gray-500">
+                      {mediaPreview.filter(f => f.type === 'image').length}/5 images,{' '}
+                      {mediaPreview.filter(f => f.type === 'video').length}/2 videos
+                    </div>
+                  </div>
                 </div>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileSelect}
-                  accept="image/*"
-                  className="hidden"
-                />
-                <p className="text-sm text-gray-500">Click to upload a photo of your pet</p>
+
+                {/* Media Previews */}
+                {mediaPreview.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
+                    {mediaPreview.map((file, index) => (
+                      <div key={index} className="relative rounded-lg overflow-hidden bg-gray-100">
+                        {file.type === 'image' ? (
+                          <img
+                            src={file.url}
+                            alt={`Preview ${index + 1}`}
+                            className="w-full h-32 object-cover"
+                          />
+                        ) : (
+                          <video
+                            src={file.url}
+                            className="w-full h-32 object-cover"
+                            controls
+                          />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFile(index)}
+                          className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 shadow-sm"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                        <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1 truncate">
+                          {file.name}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -223,7 +322,7 @@ const PetRehoming = () => {
                     type="text"
                     name="name"
                     value={formData.name}
-                    onChange={handleChange}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                     required
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition duration-200"
                   />
@@ -236,7 +335,7 @@ const PetRehoming = () => {
                   <select
                     name="type"
                     value={formData.type}
-                    onChange={handleChange}
+                    onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
                     required
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition duration-200"
                   >
@@ -255,7 +354,7 @@ const PetRehoming = () => {
                     type="text"
                     name="breed"
                     value={formData.breed}
-                    onChange={handleChange}
+                    onChange={(e) => setFormData(prev => ({ ...prev, breed: e.target.value }))}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition duration-200"
                   />
                 </div>
@@ -268,7 +367,7 @@ const PetRehoming = () => {
                     type="text"
                     name="age"
                     value={formData.age}
-                    onChange={handleChange}
+                    onChange={(e) => setFormData(prev => ({ ...prev, age: e.target.value }))}
                     placeholder="e.g., 2 years, 6 months"
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition duration-200"
                   />
@@ -281,7 +380,7 @@ const PetRehoming = () => {
                   <select
                     name="gender"
                     value={formData.gender}
-                    onChange={handleChange}
+                    onChange={(e) => setFormData(prev => ({ ...prev, gender: e.target.value }))}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition duration-200"
                   >
                     <option value="">Select Gender</option>
@@ -292,19 +391,37 @@ const PetRehoming = () => {
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Contact Information
+                    Price (₹)
                   </label>
                   <input
-                    type="text"
-                    name="contactInfo"
-                    value={formData.contactInfo}
-                    onChange={handleChange}
-                    placeholder="Phone or email"
+                    type="number"
+                    name="price"
+                    value={formData.price}
+                    onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
+                    placeholder="Enter pet price"
                     required
+                    min="0"
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition duration-200"
                   />
                 </div>
               </div>
+
+              {formData.type === 'Dog' && (
+                <div className="mt-4">
+                  <label className="flex items-center space-x-3">
+                    <input
+                      type="checkbox"
+                      name="hasKCICertificate"
+                      checked={formData.hasKCICertificate}
+                      onChange={(e) => setFormData(prev => ({ ...prev, hasKCICertificate: e.target.checked }))}
+                      className="h-5 w-5 text-primary focus:ring-primary border-gray-300 rounded"
+                    />
+                    <span className="text-sm font-medium text-gray-700">
+                      Has KCI Certificate
+                    </span>
+                  </label>
+                </div>
+              )}
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -313,7 +430,7 @@ const PetRehoming = () => {
                 <textarea
                   name="description"
                   value={formData.description}
-                  onChange={handleChange}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   rows="4"
                   required
                   placeholder="Tell us about your pet's personality, habits, and why you're looking to rehome them"
@@ -365,9 +482,9 @@ const PetRehoming = () => {
             {pets.map(pet => (
               <div key={pet.id} className="bg-white rounded-xl shadow-md overflow-hidden">
                 <div className="h-48 overflow-hidden">
-                  {pet.imageUrl ? (
+                  {pet.mediaFiles && pet.mediaFiles.length > 0 ? (
                     <img 
-                      src={pet.imageUrl} 
+                      src={pet.mediaFiles[0].url} 
                       alt={pet.name} 
                       className="w-full h-full object-cover"
                     />
@@ -391,11 +508,12 @@ const PetRehoming = () => {
                     {pet.breed && <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">{pet.breed}</span>}
                     {pet.age && <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">{pet.age}</span>}
                     {pet.gender && <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">{pet.gender}</span>}
+                    {pet.price && <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">₹{pet.price}</span>}
+                    {pet.type === 'Dog' && pet.hasKCICertificate && (
+                      <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">KCI Certified</span>
+                    )}
                   </div>
                   <p className="mt-3 text-gray-600 line-clamp-3">{pet.description}</p>
-                  <div className="mt-4 pt-4 border-t border-gray-100">
-                    <p className="text-sm text-gray-500">Contact: {pet.contactInfo}</p>
-                  </div>
                 </div>
               </div>
             ))}

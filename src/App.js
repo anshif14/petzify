@@ -27,6 +27,7 @@ import NotFound from './pages/NotFound';
 import PetTransportation from './pages/PetTransportation';
 import PetRehoming from './pages/PetRehoming';
 import FindFurrySoulmate from './pages/FindFurrySoulmate';
+import PetDetails from './pages/PetDetails';
 
 // Import context providers
 import { AlertProvider } from './context/AlertContext';
@@ -81,11 +82,14 @@ function App() {
               </Layout>
             } />
 
+            <Route path="/admin/pet-parenting/:id" element={<Layout><PetDetails /></Layout>} />
+
             <Route path="/download/ios" element={<Layout><AppDownloadComing storeType="ios" /></Layout>} />
             <Route path="/download/android" element={<Layout><AppDownloadComing storeType="android" /></Layout>} />
             <Route path="/services/transportation" element={<Layout><PetTransportation /></Layout>} />
             <Route path="/rehome" element={<Layout><PetRehoming /></Layout>} />
             <Route path="/find-furry-soulmate" element={<Layout><FindFurrySoulmate /></Layout>} />
+            <Route path="/pets/:petId" element={<Layout><PetDetails /></Layout>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Router>
