@@ -114,6 +114,18 @@ const Footer = () => {
                   Pet Training
                 </Link>
               </li>
+              <li>
+                <Link to="/services/transportation" className="hover:text-secondary-light transition-colors duration-300 flex items-center group">
+                  <span className="w-0 h-0.5 bg-secondary-light mr-0 transition-all duration-300 group-hover:w-2 group-hover:mr-2"></span>
+                  Pet Transportation
+                </Link>
+              </li>
+              <li>
+                <Link to="/services/mating" className="hover:text-secondary-light transition-colors duration-300 flex items-center group">
+                  <span className="w-0 h-0.5 bg-secondary-light mr-0 transition-all duration-300 group-hover:w-2 group-hover:mr-2"></span>
+                  Pet Mating
+                </Link>
+              </li>
             </ul>
           </div>
           

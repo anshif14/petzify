@@ -53,6 +53,22 @@ const Services = () => {
       icon: '🏨',
       comingSoon: true,
       image: 'https://doggyvilleindia.in/wp-content/uploads/2024/09/how-to-choose-the-best-dog-boarding-facility-for-your-pet.jpg'
+    },
+    {
+      id: 7,
+      title: 'Pet Transportation',
+      description: 'Safe and reliable transportation services for your pets to vet appointments, grooming sessions, or any destination.',
+      icon: '🚗',
+      link: '/services/transportation',
+      image: 'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1471&q=80'
+    },
+    {
+      id: 8,
+      title: 'Pet Mating',
+      description: 'Connect with compatible pets for breeding purposes with our carefully curated matching service.',
+      icon: '❤️',
+      comingSoon: true,
+      image: 'https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80'
     }
   ];
 
@@ -81,7 +97,9 @@ const Services = () => {
       'Dog Walking': "Our dog walking service is almost ready! Soon you'll be able to schedule regular walks with experienced dog walkers who will provide exercise, companionship, and fun for your furry friend.",
       'Pet Grooming': "We're putting the finishing touches on our grooming service. Soon you'll be able to book professional groomers for everything from baths and haircuts to nail trimming and specialized treatments.",
       'Pet Training': "Our team of certified trainers is preparing to offer personalized training programs for your pets, including obedience training, behavior modification, and specialized skills. Stay tuned!",
-      'Pet Boarding': "We're carefully selecting partner facilities to provide safe, comfortable accommodation for your pets when you're away. You'll soon be able to browse boarding options and book stays directly through our platform."
+      'Pet Boarding': "We're carefully selecting partner facilities to provide safe, comfortable accommodation for your pets when you're away. You'll soon be able to browse boarding options and book stays directly through our platform.",
+      'Pet Transportation': "Our pet transportation service is coming soon! We're partnering with experienced pet transporters to provide safe, comfortable rides for your pets to vet appointments, grooming sessions, or any destination you need.",
+      'Pet Mating': "We're developing a carefully curated matching service for pet breeding. Soon you'll be able to connect with compatible pets, view detailed profiles, and arrange safe, responsible breeding through our platform."
     };
     
     return messages[service.title] || `We're working hard to bring you our ${service.title.toLowerCase()} service. Stay tuned for updates!`;
@@ -111,7 +129,68 @@ const Services = () => {
         </div>
       </section>
 
-      {/* Coming Soon Section - Only shown when a coming soon service is selected */}
+      {/* Services Grid */}
+      <div className="container mx-auto px-6 py-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {services.map((service) => (
+            <div key={service.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+              <div className="h-48 overflow-hidden">
+                <img 
+                  src={service.image} 
+                  alt={service.title} 
+                  className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                  onError={(e) => {
+                    e.target.src = 'https://via.placeholder.com/640x360?text=Service+Image';
+                  }}
+                />
+              </div>
+              
+              <div className="p-6">
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">{service.title}</h3>
+                <p className="text-gray-600 mb-4">{service.description}</p>
+                
+                {service.title === 'Pet Transportation' ? (
+                  <Link
+                    to={service.link}
+                    className="inline-flex items-center px-4 py-2 bg-primary text-white hover:bg-primary-dark rounded transition-colors"
+                  >
+                    Book Transportation
+                    <svg className="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                ) : service.comingSoon ? (
+                  <button 
+                    onClick={() => handleServiceClick(service)}
+                    className="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-700 hover:bg-gray-300 rounded transition-colors"
+                  >
+                    Coming Soon
+                    <svg className="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                ) : service.link && (
+                  <Link
+                    to={service.link}
+                    className={`inline-flex items-center px-4 py-2 ${
+                      service.featured 
+                        ? 'bg-primary text-white hover:bg-primary-dark' 
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    } rounded transition-colors`}
+                  >
+                    {service.linkText || 'Learn More'}
+                    <svg className="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Coming Soon Section */}
       {selectedService && (
         <div id="coming-soon-section" className="max-w-5xl mx-auto px-4 py-10">
           <div className="bg-white rounded-lg shadow-md overflow-hidden mb-10">
@@ -124,7 +203,7 @@ const Services = () => {
             <div className="p-6">
               <ComingSoon 
                 title={`${selectedService.title} Coming Soon!`} 
-                message={getServiceMessage(selectedService)} 
+                message={getServiceMessage(selectedService)}
               />
             </div>
           </div>
@@ -192,7 +271,17 @@ const Services = () => {
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">{service.title}</h3>
                   <p className="text-gray-600 mb-4">{service.description}</p>
                   
-                  {service.comingSoon ? (
+                  {service.title === 'Pet Transportation' ? (
+                    <Link
+                      to={service.link}
+                      className="inline-flex items-center px-4 py-2 bg-primary text-white hover:bg-primary-dark rounded transition-colors"
+                    >
+                      Book Transportation
+                      <svg className="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </Link>
+                  ) : service.comingSoon ? (
                     <button 
                       onClick={() => handleServiceClick(service)}
                       className="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-700 hover:bg-gray-300 rounded transition-colors"

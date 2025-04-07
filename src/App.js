@@ -25,6 +25,7 @@ import UserOrders from './pages/UserOrders';
 import UserBookings from './pages/UserBookings';
 import UserProfile from './pages/UserProfile';
 import NotFound from './pages/NotFound';
+import PetTransportation from './pages/PetTransportation';
 
 // Import context providers
 import { AlertProvider } from './context/AlertContext';
@@ -143,6 +144,7 @@ function App() {
                 <AppDownloadComing storeType="android" />
               </Layout>
             } />
+            <Route path="/services/transportation" element={<Layout><PetTransportation /></Layout>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Router>
