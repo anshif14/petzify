@@ -11,6 +11,14 @@ const Services = () => {
   
   const services = [
     {
+      id: 7,
+      title: 'Veterinary Services',
+      description: 'Connect with qualified veterinarians for regular check-ups, vaccinations, and medical care.',
+      icon: '🩺',
+      link: '/book-appointment',
+      image: 'https://plus.unsplash.com/premium_photo-1661961347317-41f7a010a441?q=80&w=2940&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'
+    },
+    {
       id: 1,
       title: 'Pet Transportation',
       description: 'Safe and reliable transportation services for your pets to vet appointments, grooming sessions, or any destination.',
@@ -18,22 +26,22 @@ const Services = () => {
       link: '/services/transportation',
       image: 'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1471&q=80'
     },
-    {
-      id: 2,
-      title: 'Find Your Furry Soulmate',
-      description: 'Discover and welcome a loving companion into your family through our trusted pet adoption network.',
-      icon: '❤️',
-      link: '/find-furry-soulmate',
-      image: 'https://images.unsplash.com/photo-1450778869180-41d0601e046e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1450&q=80'
-    },
-    {
-      id: 3,
-      title: 'Pet Rehoming',
-      description: 'Help find a new loving home for pets that need to be rehomed, ensuring they continue to receive the care they deserve.',
-      icon: '🏠',
-      comingSoon: true,
-      image: 'https://images.unsplash.com/photo-1494947665470-20322015e3a8?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80'
-    },
+    // {
+    //   id: 2,
+    //   title: 'Find Your Furry Soulmate',
+    //   description: 'Discover and welcome a loving companion into your family through our trusted pet adoption network.',
+    //   icon: '❤️',
+    //   link: '/find-furry-soulmate',
+    //   image: 'https://images.unsplash.com/photo-1450778869180-41d0601e046e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1450&q=80'
+    // },
+    // {
+    //   id: 3,
+    //   title: 'Pet Rehoming',
+    //   description: 'Help find a new loving home for pets that need to be rehomed, ensuring they continue to receive the care they deserve.',
+    //   icon: '🏠',
+    //   comingSoon: true,
+    //   image: 'https://images.unsplash.com/photo-1494947665470-20322015e3a8?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80'
+    // },
     {
       id: 4,
       title: 'Pet Sitting',
@@ -58,14 +66,7 @@ const Services = () => {
       comingSoon: true,
       image: 'https://images.unsplash.com/photo-1516734212186-a967f81ad0d7?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1471&q=80'
     },
-    {
-      id: 7,
-      title: 'Veterinary Services',
-      description: 'Connect with qualified veterinarians for regular check-ups, vaccinations, and medical care.',
-      icon: '🩺',
-      link: '/book-appointment',
-      image: 'https://plus.unsplash.com/premium_photo-1661961347317-41f7a010a441?q=80&w=2940&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'
-    },
+
     {
       id: 8,
       title: 'Pet Training',
