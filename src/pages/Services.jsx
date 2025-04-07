@@ -20,6 +20,22 @@ const Services = () => {
     },
     {
       id: 2,
+      title: 'Find Your Furry Soulmate',
+      description: 'Discover and welcome a loving companion into your family through our trusted pet adoption network.',
+      icon: '❤️',
+      link: '/find-furry-soulmate',
+      image: 'https://images.unsplash.com/photo-1450778869180-41d0601e046e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1450&q=80'
+    },
+    {
+      id: 3,
+      title: 'Pet Rehoming',
+      description: 'Help find a new loving home for pets that need to be rehomed, ensuring they continue to receive the care they deserve.',
+      icon: '🏠',
+      comingSoon: true,
+      image: 'https://images.unsplash.com/photo-1494947665470-20322015e3a8?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80'
+    },
+    {
+      id: 4,
       title: 'Pet Sitting',
       description: 'Professional pet sitters who provide care for your pets in the comfort of your own home while you\'re away.',
       icon: '🏠',
@@ -27,7 +43,7 @@ const Services = () => {
       image: 'https://images.unsplash.com/photo-1450778869180-41d0601e046e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1450&q=80'
     },
     {
-      id: 3,
+      id: 5,
       title: 'Dog Walking',
       description: 'Regular exercise for your dog with our experienced dog walkers who provide fun and safe outings.',
       icon: '🦮',
@@ -35,7 +51,7 @@ const Services = () => {
       image: 'https://images.unsplash.com/photo-1494947665470-20322015e3a8?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80'
     },
     {
-      id: 4,
+      id: 6,
       title: 'Pet Grooming',
       description: 'Complete grooming services from baths and haircuts to nail trimming and ear cleaning.',
       icon: '✂️',
@@ -43,7 +59,7 @@ const Services = () => {
       image: 'https://images.unsplash.com/photo-1516734212186-a967f81ad0d7?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1471&q=80'
     },
     {
-      id: 5,
+      id: 7,
       title: 'Veterinary Services',
       description: 'Connect with qualified veterinarians for regular check-ups, vaccinations, and medical care.',
       icon: '🩺',
@@ -51,7 +67,7 @@ const Services = () => {
       image: 'https://plus.unsplash.com/premium_photo-1661961347317-41f7a010a441?q=80&w=2940&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'
     },
     {
-      id: 6,
+      id: 8,
       title: 'Pet Training',
       description: 'Professional trainers to help with obedience training, behavior modification, and specialized skill training.',
       icon: '🏆',
@@ -59,7 +75,7 @@ const Services = () => {
       image: 'https://images.unsplash.com/photo-1541690090176-17d35a190b6c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1473&q=80'
     },
     {
-      id: 7,
+      id: 9,
       title: 'Pet Boarding',
       description: 'Safe and comfortable accommodation for your pets when you\'re away for longer periods.',
       icon: '🏨',
@@ -67,7 +83,7 @@ const Services = () => {
       image: 'https://doggyvilleindia.in/wp-content/uploads/2024/09/how-to-choose-the-best-dog-boarding-facility-for-your-pet.jpg'
     },
     {
-      id: 8,
+      id: 10,
       title: 'Pet Mating',
       description: 'Connect with compatible pets for breeding purposes with our carefully curated matching service.',
       icon: '❤️',
@@ -131,16 +147,17 @@ const Services = () => {
               </p>
               <div className="space-y-4 sm:space-y-0 sm:space-x-4">
                 <Link
-                  to="/adopt"
+                  to="/find-furry-soulmate"
                   className="inline-block px-8 py-4 bg-white text-primary rounded-full font-semibold hover:bg-gray-100 transition-all transform hover:scale-105 animate-bounce-subtle"
                 >
-                  Adopt Now
+                  Find Your Furry Soulmate
                 </Link>
-                <button
+                <Link
+                  to="/rehome"
                   className="inline-block px-8 py-4 border-2 border-white text-white rounded-full font-semibold hover:bg-white/10 transition-all animate-fade-in"
                 >
-                  Learn More
-                </button>
+                  Pet Rehoming
+                </Link>
               </div>
             </div>
             <div className="hidden lg:block">

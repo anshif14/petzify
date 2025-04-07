@@ -10,6 +10,7 @@ import ProductManager from '../components/admin/ProductManager';
 import BookingManager from '../components/admin/BookingManager';
 import ContentManager from '../components/admin/ContentManager';
 import LoadingScreen from '../components/common/LoadingScreen';
+import PetParentingManager from '../components/admin/PetParentingManager';
 
 const AdminDashboard = () => {
   const [activeComponent, setActiveComponent] = useState('dashboard');
@@ -75,6 +76,11 @@ const AdminDashboard = () => {
     (Array.isArray(adminData?.permissions) && adminData?.permissions?.includes('manage_bookings')) || 
     adminData?.role === 'superadmin';
 
+  const canManagePetParenting = 
+    (adminData?.permissions?.canManagePetParenting === true) || 
+    (Array.isArray(adminData?.permissions) && adminData?.permissions?.includes('manage_pet_parenting')) || 
+    adminData?.role === 'superadmin';
+
   // If user is a doctor, render the DoctorDashboard
   if (isDoctor) {
     return (
@@ -105,6 +111,7 @@ const AdminDashboard = () => {
         canManageMessages={canManageMessages}
         canManageProducts={canManageProducts}
         canManageBookings={canManageBookings}
+        canManagePetParenting={canManagePetParenting}
       />
       
       <div className="flex-1 p-8">
@@ -166,6 +173,13 @@ const AdminDashboard = () => {
                   </div>
                 )}
                 
+                {canManagePetParenting && (
+                  <div className="bg-primary-light rounded-lg p-6 cursor-pointer" onClick={() => setActiveComponent('pet-parenting')}>
+                    <h3 className="text-lg font-bold text-white mb-2">Pet Parenting</h3>
+                    <p className="text-gray-600">Manage pet adoption and rehoming requests</p>
+                  </div>
+                )}
+                
                 {canEditProfile && (
                   <div className="bg-primary-light rounded-lg p-6 cursor-pointer" onClick={() => setActiveComponent('profile')}>
                     <h3 className="text-lg font-bold text-white mb-2">Profile Settings</h3>
@@ -183,6 +197,7 @@ const AdminDashboard = () => {
           {activeComponent === 'products' && canManageProducts && <ProductManager />}
           {activeComponent === 'bookings' && canManageBookings && <BookingManager />}
           {activeComponent === 'content' && canEditContacts && <ContentManager />}
+          {activeComponent === 'pet-parenting' && canManagePetParenting && <PetParentingManager />}
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { HashRouter as Router, Routes, Route, useLocation, Link } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import './App.css';
 
 // Import components
@@ -16,7 +16,6 @@ import Blog from './pages/Blog';
 import Contact from './pages/Contact';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
-import InitialSetup from './components/admin/InitialSetup';
 import Products from './pages/Products';
 import ProductDetail from './pages/ProductDetail';
 import Cart from './pages/Cart';
@@ -26,6 +25,8 @@ import UserBookings from './pages/UserBookings';
 import UserProfile from './pages/UserProfile';
 import NotFound from './pages/NotFound';
 import PetTransportation from './pages/PetTransportation';
+import PetRehoming from './pages/PetRehoming';
+import FindFurrySoulmate from './pages/FindFurrySoulmate';
 
 // Import context providers
 import { AlertProvider } from './context/AlertContext';
@@ -57,71 +58,21 @@ function App() {
       <UserProvider>
         <Router>
           <Routes>
-            <Route path="/" element={
-              <Layout>
-                <Home />
-              </Layout>
-            } />
-            <Route path="/about" element={
-              <Layout>
-                <About />
-              </Layout>
-            } />
-            <Route path="/services" element={
-              <Layout>
-                <Services />
-              </Layout>
-            } />
-            <Route path="/blog" element={
-              <Layout>
-                <Blog />
-              </Layout>
-            } />
-            <Route path="/contact" element={
-              <Layout>
-                <Contact />
-              </Layout>
-            } />
-            <Route path="/products" element={
-              <Layout>
-                <Products />
-              </Layout>
-            } />
-            <Route path="/products/:productId" element={
-              <Layout>
-                <ProductDetail />
-              </Layout>
-            } />
-            <Route path="/cart" element={
-              <Layout>
-                <Cart />
-              </Layout>
-            } />
-            <Route path="/book-appointment" element={
-              <Layout>
-                <DoctorBooking />
-              </Layout>
-            } />
-            <Route path="/my-orders" element={
-              <Layout>
-                <UserOrders />
-              </Layout>
-            } />
-            <Route path="/my-bookings" element={
-              <Layout>
-                <UserBookings />
-              </Layout>
-            } />
-            <Route path="/profile" element={
-              <Layout>
-                <UserProfile />
-              </Layout>
-            } />
-            <Route path="/admin" element={
-              <Layout>
-                <AdminLogin />
-              </Layout>
-            } />
+            <Route path="/" element={<Layout><Home /></Layout>} />
+            <Route path="/about" element={<Layout><About /></Layout>} />
+            <Route path="/services" element={<Layout><Services /></Layout>} />
+            <Route path="/blog" element={<Layout><Blog /></Layout>} />
+            <Route path="/contact" element={<Layout><Contact /></Layout>} />
+            <Route path="/products" element={<Layout><Products /></Layout>} />
+            <Route path="/products/:productId" element={<Layout><ProductDetail /></Layout>} />
+            <Route path="/cart" element={<Layout><Cart /></Layout>} />
+            <Route path="/book-appointment" element={<Layout><DoctorBooking /></Layout>} />
+            <Route path="/my-orders" element={<Layout><UserOrders /></Layout>} />
+            <Route path="/my-bookings" element={<Layout><UserBookings /></Layout>} />
+            <Route path="/profile" element={<Layout><UserProfile /></Layout>} />
+            <Route path="/admin" element={<Layout><AdminLogin /></Layout>} />
+            
+            {/* Admin Dashboard Route */}
             <Route path="/admin/dashboard" element={
               <Layout>
                 <AdminRoute>
@@ -129,22 +80,12 @@ function App() {
                 </AdminRoute>
               </Layout>
             } />
-            <Route path="/admin/setup" element={
-              <Layout>
-                <InitialSetup />
-              </Layout>
-            } />
-            <Route path="/download/ios" element={
-              <Layout>
-                <AppDownloadComing storeType="ios" />
-              </Layout>
-            } />
-            <Route path="/download/android" element={
-              <Layout>
-                <AppDownloadComing storeType="android" />
-              </Layout>
-            } />
+
+            <Route path="/download/ios" element={<Layout><AppDownloadComing storeType="ios" /></Layout>} />
+            <Route path="/download/android" element={<Layout><AppDownloadComing storeType="android" /></Layout>} />
             <Route path="/services/transportation" element={<Layout><PetTransportation /></Layout>} />
+            <Route path="/rehome" element={<Layout><PetRehoming /></Layout>} />
+            <Route path="/find-furry-soulmate" element={<Layout><FindFurrySoulmate /></Layout>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Router>
