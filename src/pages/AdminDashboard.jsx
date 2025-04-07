@@ -8,6 +8,8 @@ import AdminProfileEditor from '../components/admin/AdminProfileEditor';
 import DoctorDashboard from '../components/admin/doctor/DoctorDashboard';
 import ProductManager from '../components/admin/ProductManager';
 import BookingManager from '../components/admin/BookingManager';
+import ContentManager from '../components/admin/ContentManager';
+import LoadingScreen from '../components/common/LoadingScreen';
 
 const AdminDashboard = () => {
   const [activeComponent, setActiveComponent] = useState('dashboard');
@@ -34,11 +36,7 @@ const AdminDashboard = () => {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-16 h-16 border-b-2 border-primary rounded-full animate-spin"></div>
-      </div>
-    );
+    return <LoadingScreen message="Loading Dashboard..." />;
   }
 
   // Determine if the user is a doctor
@@ -154,17 +152,24 @@ const AdminDashboard = () => {
                   </div>
                 )}
                 
-                {canEditProfile && (
-                  <div className="bg-primary-light rounded-lg p-6 cursor-pointer" onClick={() => setActiveComponent('profile')}>
-                    <h3 className="text-lg font-bold text-white mb-2">Profile Settings</h3>
-                    <p className="text-gray-600">Update your admin profile</p>
-                  </div>
-                )}
-
                 {canManageProducts && (
                   <div className="bg-primary-light rounded-lg p-6 cursor-pointer" onClick={() => setActiveComponent('products')}>
                     <h3 className="text-lg font-bold text-white mb-2">Product Management</h3>
                     <p className="text-gray-600">Manage pet products and inventory</p>
+                  </div>
+                )}
+                
+                {canEditContacts && (
+                  <div className="bg-primary-light rounded-lg p-6 cursor-pointer" onClick={() => setActiveComponent('content')}>
+                    <h3 className="text-lg font-bold text-white mb-2">Content Management</h3>
+                    <p className="text-gray-600">Manage website content and images</p>
+                  </div>
+                )}
+                
+                {canEditProfile && (
+                  <div className="bg-primary-light rounded-lg p-6 cursor-pointer" onClick={() => setActiveComponent('profile')}>
+                    <h3 className="text-lg font-bold text-white mb-2">Profile Settings</h3>
+                    <p className="text-gray-600">Update your admin profile</p>
                   </div>
                 )}
               </div>
@@ -177,6 +182,7 @@ const AdminDashboard = () => {
           {activeComponent === 'profile' && canEditProfile && <AdminProfileEditor adminData={adminData} />}
           {activeComponent === 'products' && canManageProducts && <ProductManager />}
           {activeComponent === 'bookings' && canManageBookings && <BookingManager />}
+          {activeComponent === 'content' && canEditContacts && <ContentManager />}
         </div>
       </div>
     </div>

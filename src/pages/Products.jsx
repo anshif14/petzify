@@ -273,7 +273,7 @@ const Products = () => {
           )}
         </div>
       </main>
-      <Footer />
+      {/*<Footer />*/}
     </>
   );
 };

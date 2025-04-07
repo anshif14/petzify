@@ -54,24 +54,14 @@ const Home = () => {
               to="/services"
               className="bg-white hover:bg-gray-100 text-primary px-8 py-3 rounded-md transition-all duration-300 font-semibold hover:shadow-lg transform hover:-translate-y-1"
             >
-              Explore Our Services
+              Explore Petzify
             </Link>
-            <a
-              href="https://luna-pets-anywhere.web.app/"
-              target="_blank"
-              rel="noopener noreferrer"
-              // className="bg-secondary hover:bg-secondary-dark text-white px-8 py-3 rounded-md transition-all duration-300 font-semibold hover:shadow-lg transform hover:-translate-y-1"
-                className="bg-transparent hover:bg-white hover:bg-opacity-20 text-white border border-white px-8 py-3 rounded-md transition-all duration-300 font-semibold hover:shadow-lg transform hover:-translate-y-1"
-
+            <Link
+              to="https://luna-pets-anywhere.web.app/"
+              className="bg-transparent hover:bg-white hover:bg-opacity-20 text-white border border-white px-8 py-3 rounded-md transition-all duration-300 font-semibold hover:shadow-lg transform hover:-translate-y-1"
             >
-              Explore Our App
-            </a>
-            {/*<a*/}
-            {/*  href="#download-app"*/}
-            {/*  className="bg-transparent hover:bg-white hover:bg-opacity-20 text-white border border-white px-8 py-3 rounded-md transition-all duration-300 font-semibold hover:shadow-lg transform hover:-translate-y-1"*/}
-            {/*>*/}
-            {/*  Download the App*/}
-            {/*</a>*/}
+              Explore Petzify App
+            </Link>
           </div>
         </div>
       </section>
@@ -84,7 +74,7 @@ const Home = () => {
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="overflow-hidden rounded-lg h-64 transition-all duration-500 hover:shadow-xl transform hover:scale-105">
-              <img src="https://images.unsplash.com/photo-1587559070757-b9e2ff45b0d3?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80" 
+              <img src="https://images.pexels.com/photos/2253275/pexels-photo-2253275.jpeg?auto=compress&cs=tinysrgb&w=1200"
                   alt="Happy dog" className="w-full h-full object-cover" />
             </div>
             <div className="overflow-hidden rounded-lg h-64 transition-all duration-500 hover:shadow-xl transform hover:scale-105">
@@ -127,7 +117,7 @@ const Home = () => {
               <p className="text-gray-600">Book grooming, training, and veterinary services with ease.</p>
               <div className="w-16 h-1 bg-primary mx-auto mt-4 group-hover:w-24 transition-all duration-300"></div>
               <div className="mt-4 h-40 overflow-hidden rounded-lg">
-                <img src="https://images.unsplash.com/photo-1550781469-dd2cf7a54688?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80"
+                <img src="https://images.pexels.com/photos/19145878/pexels-photo-19145878/free-photo-of-dog-groomer-brushing-a-dog.jpeg?auto=compress&cs=tinysrgb&w=1200"
                     alt="Pet grooming" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
               </div>
             </div>
@@ -218,19 +208,19 @@ const Home = () => {
               </p>
               
               <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-                <a
-                  href="https://apps.apple.com"
+                <Link
+                  to="/download/ios"
                   className="flex items-center justify-center space-x-2 bg-primary hover:bg-primary-dark text-white px-6 py-3 rounded-md transition-all duration-300 hover:shadow-lg transform hover:-translate-y-1"
                 >
                   <span>Download for iOS</span>
-                </a>
+                </Link>
                 
-                <a
-                  href="https://play.google.com"
+                <Link
+                  to="/download/android"
                   className="flex items-center justify-center space-x-2 bg-primary hover:bg-primary-dark text-white px-6 py-3 rounded-md transition-all duration-300 hover:shadow-lg transform hover:-translate-y-1"
                 >
                   <span>Download for Android</span>
-                </a>
+                </Link>
               </div>
             </div>
             
@@ -255,7 +245,7 @@ const Home = () => {
               </div>
               <div className="h-64 bg-gradient-to-br from-secondary-light to-primary rounded-3xl flex items-center justify-center shadow-lg overflow-hidden relative transform transition-transform duration-500 hover:scale-105 col-span-2">
                 <img 
-                  src="https://images.unsplash.com/photo-1596797882948-6ec5776b53db?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1471&q=80" 
+                  src="https://images.pexels.com/photos/6214568/pexels-photo-6214568.jpeg?auto=compress&cs=tinysrgb&w=1200"
                   alt="Mobile app interface" 
                   className="absolute inset-0 w-full h-full object-cover opacity-80"
                 />

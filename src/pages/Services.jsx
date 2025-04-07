@@ -1,14 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import ComingSoon from '../components/common/ComingSoon';
 
 const Services = () => {
+  const [selectedService, setSelectedService] = useState(null);
+  
   const services = [
     {
       id: 1,
       title: 'Pet Sitting',
       description: 'Professional pet sitters who provide care for your pets in the comfort of your own home while you\'re away.',
       icon: '🏠',
-      link: '/services/pet-sitting',
+      comingSoon: true,
       image: 'https://images.unsplash.com/photo-1450778869180-41d0601e046e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1450&q=80'
     },
     {
@@ -16,7 +19,7 @@ const Services = () => {
       title: 'Dog Walking',
       description: 'Regular exercise for your dog with our experienced dog walkers who provide fun and safe outings.',
       icon: '🦮',
-      link: '/services/dog-walking',
+      comingSoon: true,
       image: 'https://images.unsplash.com/photo-1494947665470-20322015e3a8?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80'
     },
     {
@@ -24,7 +27,7 @@ const Services = () => {
       title: 'Pet Grooming',
       description: 'Complete grooming services from baths and haircuts to nail trimming and ear cleaning.',
       icon: '✂️',
-      link: '/services/grooming',
+      comingSoon: true,
       image: 'https://images.unsplash.com/photo-1516734212186-a967f81ad0d7?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1471&q=80'
     },
     {
@@ -33,14 +36,14 @@ const Services = () => {
       description: 'Connect with qualified veterinarians for regular check-ups, vaccinations, and medical care.',
       icon: '🩺',
       link: '/book-appointment',
-      image: 'https://images.unsplash.com/photo-1584873603799-39114ed0f28d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1476&q=80'
+      image: 'https://plus.unsplash.com/premium_photo-1661961347317-41f7a010a441?q=80&w=2940&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'
     },
     {
       id: 5,
       title: 'Pet Training',
       description: 'Professional trainers to help with obedience training, behavior modification, and specialized skill training.',
       icon: '🏆',
-      link: '/services/training',
+      comingSoon: true,
       image: 'https://images.unsplash.com/photo-1541690090176-17d35a190b6c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1473&q=80'
     },
     {
@@ -48,10 +51,41 @@ const Services = () => {
       title: 'Pet Boarding',
       description: 'Safe and comfortable accommodation for your pets when you\'re away for longer periods.',
       icon: '🏨',
-      link: '/services/boarding',
-      image: 'https://images.unsplash.com/photo-1575467678930-c7acd65d2c23?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80'
+      comingSoon: true,
+      image: 'https://doggyvilleindia.in/wp-content/uploads/2024/09/how-to-choose-the-best-dog-boarding-facility-for-your-pet.jpg'
     }
   ];
+
+  // Function to handle service selection
+  const handleServiceClick = (service) => {
+    if (service.comingSoon) {
+      setSelectedService(service);
+      // Scroll to the coming soon component
+      setTimeout(() => {
+        const element = document.getElementById('coming-soon-section');
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
+    }
+  };
+
+  // Function to close the coming soon section
+  const handleClose = () => {
+    setSelectedService(null);
+  };
+
+  const getServiceMessage = (service) => {
+    const messages = {
+      'Pet Sitting': "We're building a network of reliable pet sitters to care for your pets in the comfort of your home. You'll be able to view profiles, read reviews, and book trusted sitters directly through our platform.",
+      'Dog Walking': "Our dog walking service is almost ready! Soon you'll be able to schedule regular walks with experienced dog walkers who will provide exercise, companionship, and fun for your furry friend.",
+      'Pet Grooming': "We're putting the finishing touches on our grooming service. Soon you'll be able to book professional groomers for everything from baths and haircuts to nail trimming and specialized treatments.",
+      'Pet Training': "Our team of certified trainers is preparing to offer personalized training programs for your pets, including obedience training, behavior modification, and specialized skills. Stay tuned!",
+      'Pet Boarding': "We're carefully selecting partner facilities to provide safe, comfortable accommodation for your pets when you're away. You'll soon be able to browse boarding options and book stays directly through our platform."
+    };
+    
+    return messages[service.title] || `We're working hard to bring you our ${service.title.toLowerCase()} service. Stay tuned for updates!`;
+  };
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -76,6 +110,26 @@ const Services = () => {
           </Link>
         </div>
       </section>
+
+      {/* Coming Soon Section - Only shown when a coming soon service is selected */}
+      {selectedService && (
+        <div id="coming-soon-section" className="max-w-5xl mx-auto px-4 py-10">
+          <div className="bg-white rounded-lg shadow-md overflow-hidden mb-10">
+            <div className="p-4 bg-primary text-white flex justify-between items-center">
+              <h3 className="text-xl font-semibold">{selectedService.title}</h3>
+              <button onClick={handleClose} className="text-white hover:text-gray-200">
+                <span className="text-2xl">×</span>
+              </button>
+            </div>
+            <div className="p-6">
+              <ComingSoon 
+                title={`${selectedService.title} Coming Soon!`} 
+                message={getServiceMessage(selectedService)} 
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Featured Service - Pet Veterinary Care */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -138,7 +192,17 @@ const Services = () => {
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">{service.title}</h3>
                   <p className="text-gray-600 mb-4">{service.description}</p>
                   
-                  {service.link && (
+                  {service.comingSoon ? (
+                    <button 
+                      onClick={() => handleServiceClick(service)}
+                      className="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-700 hover:bg-gray-300 rounded transition-colors"
+                    >
+                      Coming Soon
+                      <svg className="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  ) : service.link && (
                     <Link
                       to={service.link}
                       className={`inline-flex items-center px-4 py-2 ${
@@ -190,18 +254,18 @@ const Services = () => {
             Download our app today and connect with quality pet service providers in your area.
           </p>
           <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
-            <a 
-              href="https://apps.apple.com" 
+            <Link 
+              to="/download/ios" 
               className="bg-primary hover:bg-primary-dark text-white py-3 px-6 rounded-md font-semibold transition-all duration-300 transform hover:-translate-y-1 hover:shadow-lg"
             >
               Download for iOS
-            </a>
-            <a 
-              href="https://play.google.com" 
+            </Link>
+            <Link 
+              to="/download/android" 
               className="bg-primary hover:bg-primary-dark text-white py-3 px-6 rounded-md font-semibold transition-all duration-300 transform hover:-translate-y-1 hover:shadow-lg"
             >
               Download for Android
-            </a>
+            </Link>
           </div>
         </div>
       </section>

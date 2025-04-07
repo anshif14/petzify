@@ -7,6 +7,7 @@ import Footer from '../components/common/Footer';
 import { useUser } from '../context/UserContext';
 import { useAlert } from '../context/AlertContext';
 import AuthModal from '../components/auth/AuthModal';
+import PageLoader from '../components/common/PageLoader';
 
 const UserOrders = () => {
   const [orders, setOrders] = useState([]);
@@ -219,8 +220,8 @@ const UserOrders = () => {
               </button>
             </div>
           ) : loading ? (
-            <div className="flex justify-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+            <div className="bg-white rounded-lg shadow p-6">
+              <PageLoader message="Loading your orders..." />
             </div>
           ) : orders.length === 0 ? (
             <div className="bg-white rounded-lg shadow-sm p-8 text-center">

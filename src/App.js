@@ -6,6 +6,7 @@ import './App.css';
 import Navbar from './components/common/Navbar';
 import Footer from './components/common/Footer';
 import AdminRoute from './components/auth/AdminRoute';
+import AppDownloadComing from './components/common/AppDownloadComing';
 
 // Import pages
 import Home from './pages/Home';
@@ -22,6 +23,8 @@ import Cart from './pages/Cart';
 import DoctorBooking from './components/booking/DoctorBooking';
 import UserOrders from './pages/UserOrders';
 import UserBookings from './pages/UserBookings';
+import UserProfile from './pages/UserProfile';
+import NotFound from './pages/NotFound';
 
 // Import context providers
 import { AlertProvider } from './context/AlertContext';
@@ -108,6 +111,11 @@ function App() {
                 <UserBookings />
               </Layout>
             } />
+            <Route path="/profile" element={
+              <Layout>
+                <UserProfile />
+              </Layout>
+            } />
             <Route path="/admin" element={
               <Layout>
                 <AdminLogin />
@@ -125,17 +133,17 @@ function App() {
                 <InitialSetup />
               </Layout>
             } />
-            <Route path="*" element={
+            <Route path="/download/ios" element={
               <Layout>
-                <div className="py-20 text-center">
-                  <h1 className="text-4xl font-bold text-primary mb-4">404 - Page Not Found</h1>
-                  <p className="text-gray-600 mb-8">The page you are looking for doesn't exist or has been moved.</p>
-                  <Link to="/" className="px-6 py-3 bg-primary text-white rounded-md hover:bg-primary-dark inline-block">
-                    Go Home
-                  </Link>
-                </div>
+                <AppDownloadComing storeType="ios" />
               </Layout>
             } />
+            <Route path="/download/android" element={
+              <Layout>
+                <AppDownloadComing storeType="android" />
+              </Layout>
+            } />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </Router>
       </UserProvider>
