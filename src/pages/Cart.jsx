@@ -7,6 +7,7 @@ import { useUser } from '../context/UserContext';
 import AuthModal from '../components/auth/AuthModal';
 import { getFirestore, collection, addDoc, Timestamp } from 'firebase/firestore';
 import { app } from '../firebase/config';
+import Razorpay from 'razorpay';
 
 const Cart = () => {
   const navigate = useNavigate();
@@ -114,29 +115,57 @@ const Cart = () => {
       
       setIsProcessingOrder(true);
       
-      const db = getFirestore(app);
-      
-      const orderData = {
-        userId: currentUser.email,
-        userName: currentUser.name,
-        userEmail: currentUser.email,
-        userPhone: currentUser.phone,
-        items: cart,
-        subtotal: subtotal,
-        status: 'pending',
-        createdAt: Timestamp.now()
+      // Initialize Razorpay
+      const options = {
+        key: "rzp_test_qkJl4iBVtQOj4q",
+        amount: subtotal * 100, // Amount in paise
+        currency: "INR",
+        name: "Petzify",
+        description: "Pet Products Purchase",
+        handler: async function(response) {
+          try {
+            const db = getFirestore(app);
+            
+            const orderData = {
+              userId: currentUser.email,
+              userName: currentUser.name,
+              userEmail: currentUser.email,
+              userPhone: currentUser.phone,
+              items: cart,
+              subtotal: subtotal,
+              status: 'paid',
+              paymentId: response.razorpay_payment_id,
+              createdAt: Timestamp.now()
+            };
+            
+            const orderRef = await addDoc(collection(db, 'orders'), orderData);
+            
+            setCart([]);
+            localStorage.removeItem('cart');
+            
+            window.dispatchEvent(new Event('cartUpdated'));
+            
+            showSuccess('Your order has been placed successfully!', 'Order Placed');
+            
+            navigate(`/my-orders?orderId=${orderRef.id}`);
+          } catch (err) {
+            console.error('Error saving order:', err);
+            showError('Could not save your order. Please contact support.', 'Order Error');
+          }
+        },
+        prefill: {
+          name: currentUser.name,
+          email: currentUser.email,
+          contact: currentUser.phone
+        },
+        theme: {
+          color: "#4F46E5"
+        }
       };
       
-      const orderRef = await addDoc(collection(db, 'orders'), orderData);
+      const razorpayInstance = new window.Razorpay(options);
+      razorpayInstance.open();
       
-      setCart([]);
-      localStorage.removeItem('cart');
-      
-      window.dispatchEvent(new Event('cartUpdated'));
-      
-      showSuccess('Your order has been placed successfully!', 'Order Placed');
-      
-      navigate(`/my-orders?orderId=${orderRef.id}`);
     } catch (err) {
       console.error('Error processing checkout:', err);
       showError('Could not process your order. Please try again.', 'Checkout Error');
@@ -340,7 +369,7 @@ const Cart = () => {
         onSuccess={handleAuthSuccess}
       />
       
-      <Footer />
+      {/*<Footer />*/}
     </>
   );
 };
