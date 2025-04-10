@@ -128,7 +128,7 @@ const Home = () => {
               <p className="text-gray-600">Discover boarding options and care solutions for your pets.</p>
               <div className="w-16 h-1 bg-primary mx-auto mt-4 group-hover:w-24 transition-all duration-300"></div>
               <div className="mt-4 h-40 overflow-hidden rounded-lg">
-                <img src="https://images.unsplash.com/photo-1636622433525-127afdf3662d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1632&q=80"
+                <img src="https://www.offermaids.com/blog/wp-content/uploads/2022/09/o3.jpg"
                     alt="Pet care" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
               </div>
             </div>
