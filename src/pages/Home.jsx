@@ -1,35 +1,18 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import StatisticsCounter from '../components/StatisticsCounter';
+import TestimonialsSection from '../components/TestimonialsSection';
+import { initializeTestimonials } from '../firebase/seedTestimonials';
 
 const Home = () => {
   useEffect(() => {
     console.log('Home component mounted');
+    
+    // Initialize testimonials in Firestore
+    initializeTestimonials()
+      .then(() => console.log("Testimonials initialization check complete"))
+      .catch(error => console.error("Error checking/initializing testimonials:", error));
   }, []);
-
-  const testimonials = [
-    {
-      id: 1,
-      name: "Sarah Johnson",
-      role: "Dog Owner",
-      image: "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80",
-      content: "Petzify has completely transformed how I care for my dogs. Finding reliable dog walkers used to be so stressful, but now it's just a few taps away!"
-    },
-    {
-      id: 2,
-      name: "Michael Rodriguez",
-      role: "Cat Owner",
-      image: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1374&q=80",
-      content: "As someone with three cats, finding quality products and care has never been easier. The veterinary teleconsultation feature saved us during the pandemic."
-    },
-    {
-      id: 3,
-      name: "Emily Chen",
-      role: "Pet Shop Owner",
-      image: "https://images.unsplash.com/photo-1580489944761-15a19d654956?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1361&q=80",
-      content: "Being a partner on the Petzify platform has grown my small pet supply business exponentially. The customer base and support are unmatched!"
-    }
-  ];
 
   return (
     <div className="bg-gray-50">
@@ -141,34 +124,7 @@ const Home = () => {
       </section>
 
       {/* Testimonials Section */}
-      <section className="py-20 bg-white">
-        <div className="container mx-auto px-6">
-          <h2 className="text-3xl font-bold text-primary text-center mb-4">What Our Users Say</h2>
-          <p className="text-gray-600 text-center mb-12 max-w-2xl mx-auto">Discover why pet owners and care providers love Petzify.</p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial) => (
-              <div key={testimonial.id} className="bg-gray-50 rounded-lg p-6 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
-                <div className="flex items-center mb-4">
-                  <img 
-                    src={testimonial.image} 
-                    alt={testimonial.name} 
-                    className="w-16 h-16 rounded-full object-cover mr-4 border-2 border-primary"
-                  />
-                  <div>
-                    <h3 className="text-lg font-semibold text-primary">{testimonial.name}</h3>
-                    <p className="text-gray-500 text-sm">{testimonial.role}</p>
-                  </div>
-                </div>
-                <p className="text-gray-600 italic">{testimonial.content}</p>
-                <div className="mt-4 flex">
-                  <div className="text-primary">★★★★★</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <TestimonialsSection />
 
       {/* Quotes Section */}
       <section className="py-20 bg-secondary-light relative overflow-hidden">
