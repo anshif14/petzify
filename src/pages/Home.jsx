@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import StatisticsCounter from '../components/StatisticsCounter';
 
 const Home = () => {
   useEffect(() => {
@@ -65,6 +66,9 @@ const Home = () => {
           </div>
         </div>
       </section>
+
+      {/* Statistics Counter Section */}
+      <StatisticsCounter />
 
       {/* Showcase/Gallery Section */}
       {/*<section className="py-16 bg-white">*/}
