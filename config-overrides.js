@@ -12,7 +12,8 @@ module.exports = function override(config, env) {
     "https": require.resolve("https-browserify"),
     "os": require.resolve("os-browserify/browser"),
     "url": require.resolve("url/"),
-    "vm": require.resolve("vm-browserify")
+    "vm": require.resolve("vm-browserify"),
+    "process": require.resolve("process/browser")
   };
 
   config.plugins = [
@@ -20,6 +21,9 @@ module.exports = function override(config, env) {
     new webpack.ProvidePlugin({
       process: 'process/browser',
       Buffer: ['buffer', 'Buffer']
+    }),
+    new webpack.DefinePlugin({
+      'process.env': JSON.stringify(process.env)
     })
   ];
 

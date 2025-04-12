@@ -33,8 +33,8 @@ const Home = () => {
   return (
     <div className="bg-gray-50">
       {/* Hero Section with Background Image */}
-      <section className="relative h-screen bg-center bg-cover bg-no-repeat text-white" style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1601758174114-e711c0cbaa69?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80")' }}>
-        <div className="absolute inset-0 bg-gradient-to-r from-primary-dark/70 to-primary/50"></div>
+      <section className="relative h-screen bg-center bg-cover bg-no-repeat text-white" style={{ backgroundImage: 'url("https://images.pexels.com/photos/1378849/pexels-photo-1378849.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2")' }}>
+        <div className="absolute inset-0 bg-gradient-to-r from-primary-dark/30 to-primary/50"></div>
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
           <div className="absolute w-64 h-64 rounded-full bg-secondary-light opacity-10 -top-10 -left-10 animate-pulse"></div>
           <div className="absolute w-96 h-96 rounded-full bg-secondary-light opacity-10 bottom-0 right-0 animate-pulse" style={{animationDelay: '1s'}}></div>
@@ -46,7 +46,7 @@ const Home = () => {
           </h1>
           
           <p className="text-xl md:text-2xl mb-8 max-w-2xl mx-auto">
-            One-stop destination for pet products, services, and care.
+            One-stop Solution for all your pet needs.
           </p>
           
           <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4 justify-center">
@@ -67,31 +67,31 @@ const Home = () => {
       </section>
 
       {/* Showcase/Gallery Section */}
-      <section className="py-16 bg-white">
-        <div className="container mx-auto px-6">
-          <h2 className="text-3xl font-bold text-primary text-center mb-4">Pet Care Reimagined</h2>
-          <p className="text-gray-600 text-center mb-10 max-w-2xl mx-auto">Discover the Petzify experience through the eyes of our happy pets and owners.</p>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="overflow-hidden rounded-lg h-64 transition-all duration-500 hover:shadow-xl transform hover:scale-105">
-              <img src="https://images.pexels.com/photos/2253275/pexels-photo-2253275.jpeg?auto=compress&cs=tinysrgb&w=1200"
-                  alt="Happy dog" className="w-full h-full object-cover" />
-            </div>
-            <div className="overflow-hidden rounded-lg h-64 transition-all duration-500 hover:shadow-xl transform hover:scale-105">
-              <img src="https://images.unsplash.com/photo-1605001011156-cbf0b0f67a51?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1548&q=80" 
-                  alt="Cat grooming" className="w-full h-full object-cover" />
-            </div>
-            <div className="overflow-hidden rounded-lg h-64 transition-all duration-500 hover:shadow-xl transform hover:scale-105">
-              <img src="https://images.unsplash.com/photo-1542736143-29a8432162bc?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80" 
-                  alt="Pet accessories" className="w-full h-full object-cover" />
-            </div>
-            <div className="overflow-hidden rounded-lg h-64 transition-all duration-500 hover:shadow-xl transform hover:scale-105">
-              <img src="https://images.unsplash.com/photo-1598875184988-5e67b1a874b8?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80" 
-                  alt="Dog walking" className="w-full h-full object-cover" />
-            </div>
-          </div>
-        </div>
-      </section>
+      {/*<section className="py-16 bg-white">*/}
+      {/*  <div className="container mx-auto px-6">*/}
+      {/*    <h2 className="text-3xl font-bold text-primary text-center mb-4">Pet Care Reimagined</h2>*/}
+      {/*    <p className="text-gray-600 text-center mb-10 max-w-2xl mx-auto">Discover the Petzify experience through the eyes of our happy pets and owners.</p>*/}
+      {/*    */}
+      {/*    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">*/}
+      {/*      <div className="overflow-hidden rounded-lg h-64 transition-all duration-500 hover:shadow-xl transform hover:scale-105">*/}
+      {/*        <img src="https://images.pexels.com/photos/2253275/pexels-photo-2253275.jpeg?auto=compress&cs=tinysrgb&w=1200"*/}
+      {/*            alt="Happy dog" className="w-full h-full object-cover" />*/}
+      {/*      </div>*/}
+      {/*      <div className="overflow-hidden rounded-lg h-64 transition-all duration-500 hover:shadow-xl transform hover:scale-105">*/}
+      {/*        <img src="https://images.unsplash.com/photo-1605001011156-cbf0b0f67a51?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1548&q=80" */}
+      {/*            alt="Cat grooming" className="w-full h-full object-cover" />*/}
+      {/*      </div>*/}
+      {/*      <div className="overflow-hidden rounded-lg h-64 transition-all duration-500 hover:shadow-xl transform hover:scale-105">*/}
+      {/*        <img src="https://images.unsplash.com/photo-1542736143-29a8432162bc?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80" */}
+      {/*            alt="Pet accessories" className="w-full h-full object-cover" />*/}
+      {/*      </div>*/}
+      {/*      <div className="overflow-hidden rounded-lg h-64 transition-all duration-500 hover:shadow-xl transform hover:scale-105">*/}
+      {/*        <img src="https://images.unsplash.com/photo-1598875184988-5e67b1a874b8?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80" */}
+      {/*            alt="Dog walking" className="w-full h-full object-cover" />*/}
+      {/*      </div>*/}
+      {/*    </div>*/}
+      {/*  </div>*/}
+      {/*</section>*/}
 
       {/* Features Section */}
       <section className="py-20 bg-gray-50">

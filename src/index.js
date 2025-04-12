@@ -1,9 +1,14 @@
+// Import polyfills first
+import './polyfills';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { initializeContactInfo } from './firebase/initContactInfo';
+
+// Polyfill for process (after imports but before code)
+window.process = window.process || { env: {} };
 
 // Initialize contact information in Firestore
 initializeContactInfo()
