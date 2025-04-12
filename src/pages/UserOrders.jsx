@@ -75,8 +75,8 @@ const UserOrders = () => {
       const querySnapshot = await getDocs(ordersQuery);
       const ordersList = [];
       
-      for (const doc of querySnapshot.docs) {
-        const orderData = doc.data();
+      for (const docSnapshot of querySnapshot.docs) {
+        const orderData = docSnapshot.data();
         const items = await Promise.all(
           (orderData.items || []).map(async (item) => {
             if (item.productId) {
@@ -96,7 +96,7 @@ const UserOrders = () => {
         );
 
         ordersList.push({
-          id: doc.id,
+          id: docSnapshot.id,
           ...orderData,
           items,
           createdAt: orderData.createdAt?.toDate?.() || new Date()
@@ -374,7 +374,7 @@ const UserOrders = () => {
           )}
         </div>
       </main>
-      <Footer />
+      {/*<Footer />*/}
       
       <AuthModal
         isOpen={showAuthModal}

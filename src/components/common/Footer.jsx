@@ -141,11 +141,16 @@ const Footer = () => {
               </li>
               <li className="flex items-center">
                 <span className="text-secondary-light mr-2">📞</span>
-                Phone: +91 8129008634
+                Phone: +91 94976 72523
               </li>
               <li className="flex items-center">
                 <span className="text-secondary-light mr-2">✉️</span>
-                Email: petzify.business@gmail.com
+
+                <a href="mailto:petzify.business@gmail.com">
+                  Email: petzify.business@gmail.com
+                </a>
+
+
               </li>
               <li className="flex items-center">
                 <span className="text-secondary-light mr-2">💼</span>

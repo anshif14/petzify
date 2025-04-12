@@ -39,7 +39,37 @@ const Products = () => {
         
         // Add sorting
         if (sort === 'featured') {
-          productsQuery = query(productsQuery, where('featured', '==', true), orderBy('createdAt', 'desc'));
+          // Get all products first
+          const querySnapshot = await getDocs(productsQuery);
+          
+          const productsData = [];
+          querySnapshot.forEach((doc) => {
+            productsData.push({
+              id: doc.id,
+              ...doc.data()
+            });
+          });
+          
+          // Sort products: featured products first, then sort by createdAt
+          productsData.sort((a, b) => {
+            if (a.featured === b.featured) {
+              // If both have same featured status, sort by createdAt (newest first)
+              return (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0);
+            }
+            // Featured products come first
+            return a.featured ? -1 : 1;
+          });
+          
+          setProducts(productsData);
+          
+          // Extract unique categories
+          const allCategories = productsData
+            .map(product => product.category)
+            .filter((category, index, self) => category && self.indexOf(category) === index);
+          
+          setCategories(['All', ...allCategories]);
+          setLoading(false);
+          return;
         } else if (sort === 'priceAsc') {
           productsQuery = query(productsQuery, orderBy('price', 'asc'));
         } else if (sort === 'priceDesc') {
@@ -98,6 +128,7 @@ const Products = () => {
   // Function to handle adding product to cart
   const handleAddToCart = (e, product) => {
     e.preventDefault();
+    e.stopPropagation();
     
     try {
       let cart = JSON.parse(localStorage.getItem('cart')) || [];
@@ -234,68 +265,64 @@ const Products = () => {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
               {products.map((product) => (
-                <div key={product.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
-                  <Link to={`/products/${product.id}`} className="block h-64 overflow-hidden">
+                <Link 
+                  to={`/products/${product.id}`} 
+                  key={product.id} 
+                  className="group relative bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-all duration-300"
+                >
+                  {/* Product Image */}
+                  <div className="aspect-square overflow-hidden">
                     {product.images && product.images.length > 0 ? (
                       <img 
                         src={product.images[0]} 
                         alt={product.name} 
-                        className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />
                     ) : (
                       <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                        <span className="text-gray-500">No image available</span>
+                        <span className="text-gray-500 text-sm">No image</span>
                       </div>
                     )}
-                  </Link>
+                  </div>
                   
-                  <div className="p-4">
-                    <div className="flex justify-between items-start">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                        <Link to={`/products/${product.id}`} className="hover:text-primary">
-                          {product.name}
-                        </Link>
-                      </h3>
-                      {product.featured && (
-                        <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">Featured</span>
-                      )}
+                  {/* Featured Badge */}
+                  {product.featured && (
+                    <div className="absolute top-2 right-2">
+                      <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">Featured</span>
                     </div>
+                  )}
+                  
+                  {/* Quick Add to Cart */}
+                  <button 
+                    className="absolute right-2 bottom-2 p-2 bg-white rounded-full shadow hover:shadow-md text-primary hover:text-primary-dark transition-all z-10"
+                    onClick={(e) => handleAddToCart(e, product)}
+                    aria-label="Add to cart"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                  </button>
+                  
+                  {/* Product Info */}
+                  <div className="p-3">
+                    <h3 className="font-medium text-gray-900 mb-1 line-clamp-1 text-sm">
+                      {product.name}
+                    </h3>
                     
-                    <p className="text-sm text-gray-500 mb-2">{product.category}</p>
-                    
-                    <div className="mb-3">
+                    <div>
                       {product.salePrice ? (
                         <div className="flex items-center space-x-2">
-                          <span className="text-lg font-bold text-primary">{formatPrice(product.salePrice)}</span>
-                          <span className="text-sm text-gray-500 line-through">{formatPrice(product.price)}</span>
+                          <span className="font-bold text-primary">{formatPrice(product.salePrice)}</span>
+                          <span className="text-xs text-gray-500 line-through">{formatPrice(product.price)}</span>
                         </div>
                       ) : (
-                        <span className="text-lg font-bold text-primary">{formatPrice(product.price)}</span>
+                        <span className="font-bold text-primary">{formatPrice(product.price)}</span>
                       )}
                     </div>
-                    
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">{product.description}</p>
-                    
-                    <div className="flex justify-between items-center">
-                      <Link 
-                        to={`/products/${product.id}`}
-                        className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
-                      >
-                        View Details
-                      </Link>
-                      <button 
-                        className="p-2 text-primary hover:text-primary-dark"
-                        onClick={(e) => handleAddToCart(e, product)}
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                      </button>
-                    </div>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}
