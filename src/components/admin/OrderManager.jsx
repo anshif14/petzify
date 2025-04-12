@@ -9,6 +9,7 @@ const OrderManager = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [courierDetails, setCourierDetails] = useState({ company: '', trackingNumber: '' });
   const [showCourierModal, setShowCourierModal] = useState(false);
+  const [expandedOrderId, setExpandedOrderId] = useState(null);
 
   useEffect(() => {
     fetchOrders();
@@ -94,6 +95,19 @@ const OrderManager = () => {
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
 
+  const toggleOrderExpand = (orderId) => {
+    setExpandedOrderId(expandedOrderId === orderId ? null : orderId);
+  };
+
+  const formatCurrency = (amount) => {
+    if (!amount && amount !== 0) return 'N/A';
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    }).format(amount);
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-full">
@@ -111,60 +125,150 @@ const OrderManager = () => {
           <p className="text-gray-500">No orders found</p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {orders.map((order) => (
-            <div key={order.id} className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold">Order #{order.id.slice(-6)}</h3>
-                  <p className="text-gray-500">Placed on {formatDate(order.createdAt)}</p>
-                </div>
-                <span className={`px-3 py-1 rounded-full text-sm ${getStatusColor(order.status)}`}>
-                  {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                </span>
-              </div>
-
-              <OrderStepper 
-                currentStatus={order.status} 
-                courierDetails={order.courierDetails}
-              />
-
-              <div className="mt-6 border-t pt-4">
-                <div className="grid grid-cols-2 gap-4">
+            <div key={order.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
+              {/* Order Header - Always visible and clickable */}
+              <div 
+                className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                onClick={() => toggleOrderExpand(order.id)}
+              >
+                <div className="flex items-center space-x-4">
+                  <div className={`w-3 h-3 rounded-full ${order.status === 'pending' ? 'bg-yellow-400' : 
+                    order.status === 'confirmed' ? 'bg-blue-400' : 
+                    order.status === 'dispatched' ? 'bg-purple-400' : 
+                    order.status === 'delivered' ? 'bg-green-400' : 'bg-gray-400'}`} 
+                  />
                   <div>
-                    <h4 className="font-medium mb-2">Customer Details</h4>
-                    <p>{order.customerName}</p>
-                    <p>{order.customerEmail}</p>
-                    <p>{order.shippingAddress}</p>
-                  </div>
-                  <div>
-                    <h4 className="font-medium mb-2">Order Summary</h4>
-                    <p>Total Items: {order.items?.length || 0}</p>
-                    <p>Total Amount: ${order.totalAmount?.toFixed(2)}</p>
+                    <h3 className="font-medium">Order #{order.id.slice(-6)}</h3>
+                    <p className="text-sm text-gray-500">{formatDate(order.createdAt)}</p>
                   </div>
                 </div>
-
-                {order.status !== 'delivered' && (
-                  <div className="mt-4 flex justify-end">
-                    {order.status === 'confirmed' && (
-                      <button
-                        onClick={() => setSelectedOrder(order.id)}
-                        className="bg-primary text-white px-4 py-2 rounded hover:bg-primary-dark"
-                      >
-                        Add Courier Details
-                      </button>
-                    )}
-                    {getNextStatus(order.status) && (
-                      <button
-                        onClick={() => handleStatusChange(order.id, getNextStatus(order.status))}
-                        className="bg-primary text-white px-4 py-2 rounded hover:bg-primary-dark ml-2"
-                      >
-                        Mark as {getNextStatus(order.status)}
-                      </button>
-                    )}
+                <div className="flex items-center space-x-4">
+                  <div className="text-right">
+                    <p className="text-sm font-medium">{order.customerName}</p>
+                    <p className="text-sm text-gray-500">Subtotal: {formatCurrency(order.subtotal || order.totalAmount)}</p>
                   </div>
-                )}
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
+                    {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                  </span>
+                  <svg 
+                    className={`w-5 h-5 text-gray-400 transform transition-transform ${expandedOrderId === order.id ? 'rotate-180' : ''}`} 
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </div>
               </div>
+
+              {/* Order Details - Only visible when expanded */}
+              {expandedOrderId === order.id && (
+                <div className="border-t border-gray-100 p-4 bg-gray-50">
+                  <OrderStepper 
+                    currentStatus={order.status} 
+                    courierDetails={order.courierDetails}
+                  />
+                  
+                  <div className="mt-6 grid md:grid-cols-2 gap-6">
+                    {/* Customer Details */}
+                    <div className="bg-white p-4 rounded-lg shadow-sm">
+                      <h4 className="font-medium mb-3 text-gray-700">Customer Details</h4>
+                      <div className="space-y-2">
+                        <p className="flex items-center text-sm">
+                          <span className="w-24 text-gray-500">Name:</span>
+                          <span className="font-medium">{order.customerName || 'N/A'}</span>
+                        </p>
+                        <p className="flex items-center text-sm">
+                          <span className="w-24 text-gray-500">Email:</span>
+                          <span className="font-medium">{order.customerEmail || order.userId || 'N/A'}</span>
+                        </p>
+                        <p className="flex items-center text-sm">
+                          <span className="w-24 text-gray-500">Phone:</span>
+                          <span className="font-medium">{order.customerPhone || 'N/A'}</span>
+                        </p>
+                        <p className="flex items-start text-sm">
+                          <span className="w-24 text-gray-500">Address:</span>
+                          <span className="font-medium">{order.shippingAddress || 'N/A'}</span>
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Order Items */}
+                    <div className="bg-white p-4 rounded-lg shadow-sm">
+                      <h4 className="font-medium mb-3 text-gray-700">Order Items</h4>
+                      <div className="max-h-60 overflow-y-auto pr-2">
+                        {order.items?.map((item, index) => (
+                          <div key={index} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
+                            <div className="flex items-center space-x-3">
+                              {item.imageUrl && (
+                                <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-md border border-gray-200">
+                                  <img
+                                    src={item.imageUrl}
+                                    alt={item.name}
+                                    className="h-full w-full object-cover object-center"
+                                  />
+                                </div>
+                              )}
+                              <div>
+                                <p className="text-sm font-medium">{item.name}</p>
+                                <p className="text-xs text-gray-500">{formatCurrency(item.price)} × {item.quantity}</p>
+                              </div>
+                            </div>
+                            <p className="text-sm font-medium">{formatCurrency(item.price * item.quantity)}</p>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      <div className="mt-4 pt-3 border-t border-gray-200">
+                        <div className="flex justify-between text-sm">
+                          <span className="font-medium">Subtotal:</span>
+                          <span>{formatCurrency(order.subtotal || order.totalAmount)}</span>
+                        </div>
+                        {order.shippingCost > 0 && (
+                          <div className="flex justify-between text-sm mt-1">
+                            <span className="font-medium">Shipping:</span>
+                            <span>{formatCurrency(order.shippingCost)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between text-sm font-semibold mt-2">
+                          <span>Grand Total:</span>
+                          <span>{formatCurrency(order.totalAmount)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Action Buttons */}
+                  {order.status !== 'delivered' && (
+                    <div className="mt-6 flex justify-end">
+                      {order.status === 'confirmed' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedOrder(order.id);
+                            setShowCourierModal(true);
+                          }}
+                          className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 mr-2"
+                        >
+                          Add Courier Details
+                        </button>
+                      )}
+                      {getNextStatus(order.status) && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleStatusChange(order.id, getNextStatus(order.status));
+                          }}
+                          className="bg-primary text-white px-4 py-2 rounded-md hover:bg-primary-dark"
+                        >
+                          Mark as {getNextStatus(order.status)}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>

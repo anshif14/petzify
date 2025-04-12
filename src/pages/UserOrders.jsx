@@ -176,6 +176,15 @@ const UserOrders = () => {
     return items.reduce((total, item) => total + (item.quantity || 0), 0);
   };
 
+  // Function to calculate total price of items in an order
+  const calculateOrderTotal = (items) => {
+    if (!items || !Array.isArray(items)) return 0;
+    return items.reduce((total, item) => {
+      const itemTotal = (item.price || 0) * (item.quantity || 0);
+      return total + itemTotal;
+    }, 0);
+  };
+
   // Can the order be cancelled?
   const canCancelOrder = (status) => {
     const lowerStatus = status?.toLowerCase() || '';
@@ -286,7 +295,7 @@ const UserOrders = () => {
                           {order.status?.charAt(0).toUpperCase() + order.status?.slice(1) || 'Pending'}
                         </span>
                         <p className="mt-1 text-sm font-medium text-gray-900">
-                          Total: {formatPrice(order.totalAmount)}
+                          Total: {formatPrice(order.totalAmount || calculateOrderTotal(order.items))}
                         </p>
                       </div>
                     </div>
@@ -340,7 +349,7 @@ const UserOrders = () => {
                       <div className="mt-6 pt-4 border-t border-gray-200">
                         <div className="flex justify-between text-sm text-gray-500">
                           <p>Subtotal ({getOrderTotalItems(order.items)} items)</p>
-                          <p>{formatPrice(order.subtotal || order.totalAmount)}</p>
+                          <p>{formatPrice(order.subtotal || calculateOrderTotal(order.items))}</p>
                         </div>
                         {order.shippingCost > 0 && (
                           <div className="flex justify-between text-sm text-gray-500 mt-2">
@@ -350,7 +359,7 @@ const UserOrders = () => {
                         )}
                         <div className="flex justify-between text-base font-medium text-gray-900 mt-4">
                           <p>Total</p>
-                          <p>{formatPrice(order.totalAmount)}</p>
+                          <p>{formatPrice(order.totalAmount || calculateOrderTotal(order.items))}</p>
                         </div>
                       </div>
 
