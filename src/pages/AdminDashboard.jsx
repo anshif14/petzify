@@ -9,6 +9,7 @@ import DoctorDashboard from '../components/admin/doctor/DoctorDashboard';
 import ProductManager from '../components/admin/ProductManager';
 import BookingManager from '../components/admin/BookingManager';
 import ContentManager from '../components/admin/ContentManager';
+import TestimonialsManager from '../components/admin/TestimonialsManager';
 import LoadingScreen from '../components/common/LoadingScreen';
 import PetParentingManager from '../components/admin/PetParentingManager';
 import OrderManager from '../components/admin/OrderManager';
@@ -200,6 +201,13 @@ const AdminDashboard = () => {
                     <p className="text-gray-600">Update your admin profile</p>
                   </div>
                 )}
+                
+                {canEditContacts && (
+                  <div className="bg-primary-light rounded-lg p-6 cursor-pointer" onClick={() => setActiveComponent('testimonials')}>
+                    <h3 className="text-lg font-bold text-white mb-2">Testimonials</h3>
+                    <p className="text-gray-600">Manage customer testimonials</p>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -213,6 +221,7 @@ const AdminDashboard = () => {
           {activeComponent === 'content' && canEditContacts && <ContentManager />}
           {activeComponent === 'pet-parenting' && canManagePetParenting && <PetParentingManager />}
           {activeComponent === 'orders' && canManageOrders && <OrderManager />}
+          {activeComponent === 'testimonials' && canEditContacts && <TestimonialsManager />}
         </div>
       </div>
     </div>
