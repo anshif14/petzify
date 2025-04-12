@@ -16,6 +16,7 @@ const Services = () => {
       description: 'Connect with qualified veterinarians for regular check-ups, vaccinations, and medical care.',
       icon: '🩺',
       link: '/book-appointment',
+      linkText: 'Book Your Slots',
       image: 'https://plus.unsplash.com/premium_photo-1661961347317-41f7a010a441?q=80&w=2940&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'
     },
     {
@@ -73,7 +74,7 @@ const Services = () => {
       description: 'Professional trainers to help with obedience training, behavior modification, and specialized skill training.',
       icon: '🏆',
       comingSoon: true,
-      image: 'https://images.unsplash.com/photo-1541690090176-17d35a190b6c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1473&q=80'
+      image: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2069&q=80'
     },
     {
       id: 9,
