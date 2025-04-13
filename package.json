@@ -2,6 +2,7 @@
   "name": "petzify",
   "version": "0.1.0",
   "private": true,
+  "homepage": "https://anshif14.github.io/petzify-website",
   "dependencies": {
     "@headlessui/react": "^2.2.1",
     "@heroicons/react": "^2.2.0",
