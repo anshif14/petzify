@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { FaFacebook, FaTwitter, FaInstagram, FaLinkedin } from 'react-icons/fa';
 import logoImage from '../../assets/images/logo.png';
-import logoText from '../../assets/images/logo_text.png';
+import logoText from '../../assets/images/logo_white_text.png';
 
 const Footer = () => {
   return (
@@ -17,7 +17,7 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="transform transition duration-500 hover:translate-y-[-8px]">
             <div className="flex items-center mb-4">
-              <img src={logoImage} alt="Petzify Logo" className="h-10 w-auto mr-2" />
+              {/*<img src={logoImage} alt="Petzify Logo" className="h-10 w-auto mr-2" />*/}
               <img src={logoText} alt="Petzify" className="h-8 w-auto" />
             </div>
             <p className="mb-4">

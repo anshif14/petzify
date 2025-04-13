@@ -12,7 +12,7 @@ export async function initializeContactInfo() {
       // If it doesn't exist, create it with default values
       const defaultContactInfo = {
         email: "petzify.business@gmail.com",
-        phone: "+91 8129008634",
+        phone: "+91 94976 72523",
         address: "Kochi",
         state: "Kerala",
         country: "India",

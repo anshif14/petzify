@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import StatisticsCounter from '../components/StatisticsCounter';
 import TestimonialsSection from '../components/TestimonialsSection';
+import CountdownTimer from '../components/home/CountdownTimer';
 import { initializeTestimonials } from '../firebase/seedTestimonials';
 
 const Home = () => {
@@ -49,6 +50,9 @@ const Home = () => {
           </div>
         </div>
       </section>
+
+      {/* Countdown Timer Section */}
+      {/*<CountdownTimer />*/}
 
       {/* Statistics Counter Section */}
       <StatisticsCounter />
@@ -272,7 +276,7 @@ const Home = () => {
             <div className="bg-white rounded-lg p-8 shadow-md text-center hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
               <div className="text-4xl mb-4 text-primary">📱</div>
               <h3 className="text-xl font-semibold text-primary mb-2">Call Us</h3>
-              <p className="text-gray-600">+91 8129008634</p>
+              <p className="text-gray-600">+91 94976 72523</p>
               <div className="flex justify-center space-x-4 mt-4">
                 <a 
                   href="https://www.linkedin.com/company/petzifyinofficial/posts/?feedView=all" 

@@ -55,14 +55,14 @@ const Navbar = () => {
       <div className="container mx-auto px-6 py-4">
         <div className="flex justify-between items-center">
           {/* Logo */}
-          <Link to="/" className="flex items-center">
+          <Link to="/home" className="flex items-center">
             {/*<img src={logoImage} alt="Petzify Logo" className="h-10 w-auto" />*/}
             <img src={logoText} alt="Petzify" className="h-8 ml-2 w-auto" />
           </Link>
 
           {/* Desktop Menu */}
           <div className="hidden md:flex items-center space-x-8">
-            <NavLink end to="/" className={({isActive}) => isActive ? activeClass : inactiveClass}>
+            <NavLink end to="/home" className={({isActive}) => isActive ? activeClass : inactiveClass}>
               Home
             </NavLink>
 
@@ -140,7 +140,7 @@ const Navbar = () => {
       {isMobileMenuOpen && (
         <div className="md:hidden bg-white shadow-lg">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-            <NavLink end to="/" 
+            <NavLink end to="/home" 
               className={({isActive}) => 
                 `block px-3 py-2 rounded-md text-base font-medium ${isActive ? 'bg-primary text-white' : 'text-gray-700 hover:bg-gray-100'}`
               }

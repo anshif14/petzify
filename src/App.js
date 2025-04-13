@@ -10,6 +10,7 @@ import AppDownloadComing from './components/common/AppDownloadComing';
 
 // Import pages
 import Home from './pages/Home';
+import LaunchPage from './pages/LaunchPage';
 import About from './pages/About';
 import Services from './pages/Services';
 import Blog from './pages/Blog';
@@ -59,7 +60,11 @@ function App() {
       <UserProvider>
         <Router>
           <Routes>
-            <Route path="/" element={<Layout><Home /></Layout>} />
+            {/* Landing Page with Countdown Timer */}
+            <Route path="/" element={<LaunchPage />} />
+            
+            {/* Main Website Routes */}
+            <Route path="/home" element={<Layout><Home /></Layout>} />
             <Route path="/about" element={<Layout><About /></Layout>} />
             <Route path="/services" element={<Layout><Services /></Layout>} />
             <Route path="/blog" element={<Layout><Blog /></Layout>} />
