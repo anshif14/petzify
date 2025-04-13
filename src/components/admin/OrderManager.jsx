@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getFirestore, collection, query, orderBy, getDocs, doc, updateDoc, where } from 'firebase/firestore';
+import { getFirestore, collection, query, orderBy, getDocs, doc, updateDoc, where, Timestamp } from 'firebase/firestore';
 import { app } from '../../firebase/config';
 import OrderStepper from './OrderStepper';
 
@@ -9,14 +9,33 @@ const OrderManager = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [courierDetails, setCourierDetails] = useState({ company: '', trackingNumber: '' });
   const [showCourierModal, setShowCourierModal] = useState(false);
-  const [expandedOrderId, setExpandedOrderId] = useState(null);
+  const [orderStats, setOrderStats] = useState({
+    total: 0,
+    pending: 0,
+    confirmed: 0,
+    dispatched: 0,
+    delivered: 0,
+    cancelled: 0,
+    totalRevenue: 0,
+    recentOrders: []
+  });
+  const [siteStats, setSiteStats] = useState({
+    totalVisitors: 0,
+    totalUsers: 0,
+    totalProducts: 0,
+    pendingPets: 0,
+    totalBookings: 0,
+    pendingMessages: 0
+  });
 
   useEffect(() => {
     fetchOrders();
+    fetchSiteStats();
   }, []);
 
   const fetchOrders = async () => {
     try {
+      setLoading(true);
       const db = getFirestore(app);
       const ordersQuery = query(
         collection(db, 'orders'),
@@ -28,10 +47,88 @@ const OrderManager = () => {
         ...doc.data()
       }));
       setOrders(ordersData);
+
+      // Calculate order statistics
+      let pending = 0, confirmed = 0, dispatched = 0, delivered = 0, cancelled = 0;
+      let totalRevenue = 0;
+      
+      ordersData.forEach(order => {
+        switch(order.status?.toLowerCase()) {
+          case 'pending': pending++; break;
+          case 'confirmed': confirmed++; break;
+          case 'dispatched': dispatched++; break;
+          case 'delivered': delivered++; break;
+          case 'cancelled': cancelled++; break;
+          default: break;
+        }
+        
+        // Add to revenue if not cancelled
+        if (order.status?.toLowerCase() !== 'cancelled') {
+          totalRevenue += order.totalAmount || 0;
+        }
+      });
+      
+      setOrderStats({
+        total: ordersData.length,
+        pending,
+        confirmed,
+        dispatched,
+        delivered,
+        cancelled,
+        totalRevenue,
+        recentOrders: ordersData.slice(0, 5) // Get 5 most recent orders
+      });
+      
       setLoading(false);
     } catch (error) {
       console.error('Error fetching orders:', error);
       setLoading(false);
+    }
+  };
+
+  const fetchSiteStats = async () => {
+    try {
+      const db = getFirestore(app);
+      
+      // Get visitors count (mock data - implement your actual analytics)
+      const visitors = Math.floor(Math.random() * 500) + 200;
+      
+      // Get users count
+      const usersQuery = query(collection(db, 'users'));
+      const usersSnapshot = await getDocs(usersQuery);
+      
+      // Get products count
+      const productsQuery = query(collection(db, 'products'));
+      const productsSnapshot = await getDocs(productsQuery);
+      
+      // Get pending pets
+      const petsQuery = query(
+        collection(db, 'rehoming_pets'),
+        where('status', '==', 'pending')
+      );
+      const petsSnapshot = await getDocs(petsQuery);
+      
+      // Get bookings count
+      const bookingsQuery = query(collection(db, 'appointments'));
+      const bookingsSnapshot = await getDocs(bookingsQuery);
+      
+      // Get pending messages
+      const messagesQuery = query(
+        collection(db, 'messages'),
+        where('read', '==', false)
+      );
+      const messagesSnapshot = await getDocs(messagesQuery);
+      
+      setSiteStats({
+        totalVisitors: visitors,
+        totalUsers: usersSnapshot.size,
+        totalProducts: productsSnapshot.size,
+        pendingPets: petsSnapshot.size,
+        totalBookings: bookingsSnapshot.size,
+        pendingMessages: messagesSnapshot.size
+      });
+    } catch (error) {
+      console.error('Error fetching site stats:', error);
     }
   };
 
@@ -67,38 +164,6 @@ const OrderManager = () => {
     }
   };
 
-  const getNextStatus = (currentStatus) => {
-    const statusFlow = {
-      'pending': 'confirmed',
-      'confirmed': 'dispatched',
-      'dispatched': 'delivered'
-    };
-    return statusFlow[currentStatus] || null;
-  };
-
-  const formatDate = (timestamp) => {
-    if (!timestamp) return '';
-    const date = timestamp.toDate();
-    return new Intl.DateTimeFormat('en-US', {
-      dateStyle: 'medium',
-      timeStyle: 'short'
-    }).format(date);
-  };
-
-  const getStatusColor = (status) => {
-    const colors = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      confirmed: 'bg-blue-100 text-blue-800',
-      dispatched: 'bg-purple-100 text-purple-800',
-      delivered: 'bg-green-100 text-green-800'
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
-  };
-
-  const toggleOrderExpand = (orderId) => {
-    setExpandedOrderId(expandedOrderId === orderId ? null : orderId);
-  };
-
   const formatCurrency = (amount) => {
     if (!amount && amount !== 0) return 'N/A';
     return new Intl.NumberFormat('en-IN', {
@@ -106,6 +171,30 @@ const OrderManager = () => {
       currency: 'INR',
       maximumFractionDigits: 0
     }).format(amount);
+  };
+
+  const formatDate = (timestamp) => {
+    if (!timestamp) return 'N/A';
+    try {
+      const date = timestamp.toDate();
+      return new Intl.DateTimeFormat('en-US', {
+        dateStyle: 'medium',
+        timeStyle: 'short'
+      }).format(date);
+    } catch (e) {
+      return 'Invalid Date';
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch(status?.toLowerCase()) {
+      case 'pending': return 'bg-yellow-500';
+      case 'confirmed': return 'bg-blue-500';
+      case 'dispatched': return 'bg-purple-500';
+      case 'delivered': return 'bg-green-500';
+      case 'cancelled': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
   };
 
   if (loading) {
@@ -118,165 +207,209 @@ const OrderManager = () => {
 
   return (
     <div className="p-6">
-      <h2 className="text-2xl font-bold mb-6">Order Management</h2>
+      <h2 className="text-2xl font-bold mb-6">Dashboard Overview</h2>
       
-      {orders.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-gray-500">No orders found</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {orders.map((order) => (
-            <div key={order.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
-              {/* Order Header - Always visible and clickable */}
-              <div 
-                className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
-                onClick={() => toggleOrderExpand(order.id)}
-              >
-                <div className="flex items-center space-x-4">
-                  <div className={`w-3 h-3 rounded-full ${order.status === 'pending' ? 'bg-yellow-400' : 
-                    order.status === 'confirmed' ? 'bg-blue-400' : 
-                    order.status === 'dispatched' ? 'bg-purple-400' : 
-                    order.status === 'delivered' ? 'bg-green-400' : 'bg-gray-400'}`} 
-                  />
-                  <div>
-                    <h3 className="font-medium">Order #{order.id.slice(-6)}</h3>
-                    <p className="text-sm text-gray-500">{formatDate(order.createdAt)}</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <div className="text-right">
-                    <p className="text-sm font-medium">{order.customerName}</p>
-                    <p className="text-sm text-gray-500">Subtotal: {formatCurrency(order.subtotal || order.totalAmount)}</p>
-                  </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-                    {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                  </span>
-                  <svg 
-                    className={`w-5 h-5 text-gray-400 transform transition-transform ${expandedOrderId === order.id ? 'rotate-180' : ''}`} 
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
-                </div>
-              </div>
-
-              {/* Order Details - Only visible when expanded */}
-              {expandedOrderId === order.id && (
-                <div className="border-t border-gray-100 p-4 bg-gray-50">
-                  <OrderStepper 
-                    currentStatus={order.status} 
-                    courierDetails={order.courierDetails}
-                  />
-                  
-                  <div className="mt-6 grid md:grid-cols-2 gap-6">
-                    {/* Customer Details */}
-                    <div className="bg-white p-4 rounded-lg shadow-sm">
-                      <h4 className="font-medium mb-3 text-gray-700">Customer Details</h4>
-                      <div className="space-y-2">
-                        <p className="flex items-center text-sm">
-                          <span className="w-24 text-gray-500">Name:</span>
-                          <span className="font-medium">{order.customerName || 'N/A'}</span>
-                        </p>
-                        <p className="flex items-center text-sm">
-                          <span className="w-24 text-gray-500">Email:</span>
-                          <span className="font-medium">{order.customerEmail || order.userId || 'N/A'}</span>
-                        </p>
-                        <p className="flex items-center text-sm">
-                          <span className="w-24 text-gray-500">Phone:</span>
-                          <span className="font-medium">{order.customerPhone || 'N/A'}</span>
-                        </p>
-                        <p className="flex items-start text-sm">
-                          <span className="w-24 text-gray-500">Address:</span>
-                          <span className="font-medium">{order.shippingAddress || 'N/A'}</span>
-                        </p>
-                      </div>
-                    </div>
-                    
-                    {/* Order Items */}
-                    <div className="bg-white p-4 rounded-lg shadow-sm">
-                      <h4 className="font-medium mb-3 text-gray-700">Order Items</h4>
-                      <div className="max-h-60 overflow-y-auto pr-2">
-                        {order.items?.map((item, index) => (
-                          <div key={index} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
-                            <div className="flex items-center space-x-3">
-                              {item.imageUrl && (
-                                <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-md border border-gray-200">
-                                  <img
-                                    src={item.imageUrl}
-                                    alt={item.name}
-                                    className="h-full w-full object-cover object-center"
-                                  />
-                                </div>
-                              )}
-                              <div>
-                                <p className="text-sm font-medium">{item.name}</p>
-                                <p className="text-xs text-gray-500">{formatCurrency(item.price)} × {item.quantity}</p>
-                              </div>
-                            </div>
-                            <p className="text-sm font-medium">{formatCurrency(item.price * item.quantity)}</p>
-                          </div>
-                        ))}
-                      </div>
-                      
-                      <div className="mt-4 pt-3 border-t border-gray-200">
-                        <div className="flex justify-between text-sm">
-                          <span className="font-medium">Subtotal:</span>
-                          <span>{formatCurrency(order.subtotal || order.totalAmount)}</span>
-                        </div>
-                        {order.shippingCost > 0 && (
-                          <div className="flex justify-between text-sm mt-1">
-                            <span className="font-medium">Shipping:</span>
-                            <span>{formatCurrency(order.shippingCost)}</span>
-                          </div>
-                        )}
-                        <div className="flex justify-between text-sm font-semibold mt-2">
-                          <span>Grand Total:</span>
-                          <span>{formatCurrency(order.totalAmount)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Action Buttons */}
-                  {order.status !== 'delivered' && (
-                    <div className="mt-6 flex justify-end">
-                      {order.status === 'confirmed' && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedOrder(order.id);
-                            setShowCourierModal(true);
-                          }}
-                          className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 mr-2"
-                        >
-                          Add Courier Details
-                        </button>
-                      )}
-                      {getNextStatus(order.status) && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleStatusChange(order.id, getNextStatus(order.status));
-                          }}
-                          className="bg-primary text-white px-4 py-2 rounded-md hover:bg-primary-dark"
-                        >
-                          Mark as {getNextStatus(order.status)}
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
+      {/* Top Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-primary">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-gray-500 text-sm">Total Orders</p>
+              <p className="text-2xl font-bold">{orderStats.total}</p>
             </div>
-          ))}
+            <div className="bg-primary-light p-3 rounded-full">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+              </svg>
+            </div>
+          </div>
         </div>
-      )}
-
+        
+        <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-gray-500 text-sm">Total Revenue</p>
+              <p className="text-2xl font-bold">{formatCurrency(orderStats.totalRevenue)}</p>
+            </div>
+            <div className="bg-green-100 p-3 rounded-full">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-gray-500 text-sm">Website Visitors</p>
+              <p className="text-2xl font-bold">{siteStats.totalVisitors}</p>
+            </div>
+            <div className="bg-blue-100 p-3 rounded-full">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-500">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-gray-500 text-sm">Total Users</p>
+              <p className="text-2xl font-bold">{siteStats.totalUsers}</p>
+            </div>
+            <div className="bg-purple-100 p-3 rounded-full">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Order Status Cards */}
+      <h3 className="text-xl font-semibold mb-4">Order Statistics</h3>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+        <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-yellow-700 font-medium">Pending</p>
+            <span className="bg-yellow-500 text-white text-xs px-2 py-1 rounded-full">{orderStats.pending}</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-yellow-500 h-2 rounded-full" 
+              style={{ width: `${orderStats.total ? (orderStats.pending / orderStats.total * 100) : 0}%` }} 
+            />
+          </div>
+        </div>
+        
+        <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-blue-700 font-medium">Confirmed</p>
+            <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">{orderStats.confirmed}</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-blue-500 h-2 rounded-full" 
+              style={{ width: `${orderStats.total ? (orderStats.confirmed / orderStats.total * 100) : 0}%` }} 
+            />
+          </div>
+        </div>
+        
+        <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-purple-700 font-medium">Dispatched</p>
+            <span className="bg-purple-500 text-white text-xs px-2 py-1 rounded-full">{orderStats.dispatched}</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-purple-500 h-2 rounded-full" 
+              style={{ width: `${orderStats.total ? (orderStats.dispatched / orderStats.total * 100) : 0}%` }} 
+            />
+          </div>
+        </div>
+        
+        <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-green-700 font-medium">Delivered</p>
+            <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">{orderStats.delivered}</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-green-500 h-2 rounded-full" 
+              style={{ width: `${orderStats.total ? (orderStats.delivered / orderStats.total * 100) : 0}%` }} 
+            />
+          </div>
+        </div>
+        
+        <div className="bg-red-50 rounded-lg p-4 border border-red-200">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-red-700 font-medium">Cancelled</p>
+            <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">{orderStats.cancelled}</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-red-500 h-2 rounded-full" 
+              style={{ width: `${orderStats.total ? (orderStats.cancelled / orderStats.total * 100) : 0}%` }} 
+            />
+          </div>
+        </div>
+      </div>
+      
+      {/* More Site Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-lg font-semibold mb-4">Website Activity</h3>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <p className="text-gray-600">Total Products</p>
+              <p className="font-semibold">{siteStats.totalProducts}</p>
+            </div>
+            <div className="flex justify-between items-center">
+              <p className="text-gray-600">Pending Pet Requests</p>
+              <p className="font-semibold">{siteStats.pendingPets}</p>
+            </div>
+            <div className="flex justify-between items-center">
+              <p className="text-gray-600">Total Bookings</p>
+              <p className="font-semibold">{siteStats.totalBookings}</p>
+            </div>
+            <div className="flex justify-between items-center">
+              <p className="text-gray-600">Unread Messages</p>
+              <p className="font-semibold">{siteStats.pendingMessages}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-lg shadow-md p-6 md:col-span-2">
+          <h3 className="text-lg font-semibold mb-4">Recent Orders</h3>
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead>
+                <tr className="bg-gray-50">
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {orderStats.recentOrders.map((order) => (
+                  <tr key={order.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900">#{order.id.slice(-6)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{order.customerName || order.userId || 'Anonymous'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{formatDate(order.createdAt)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{formatCurrency(order.totalAmount)}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full text-white ${getStatusColor(order.status)}`}>
+                        {order.status?.charAt(0).toUpperCase() + order.status?.slice(1) || 'Pending'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+                {orderStats.recentOrders.length === 0 && (
+                  <tr>
+                    <td colSpan="5" className="px-4 py-3 text-sm text-gray-500 text-center">No recent orders</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-4 text-right">
+            <button 
+              className="text-primary hover:text-primary-dark text-sm font-medium"
+            >
+              View All Orders →
+            </button>
+          </div>
+        </div>
+      </div>
+      
       {/* Courier Details Modal */}
       {showCourierModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-96">
             <h3 className="text-lg font-semibold mb-4">Enter Courier Details</h3>
             <div className="space-y-4">

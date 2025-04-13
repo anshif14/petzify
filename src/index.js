@@ -7,9 +7,6 @@ import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { initializeContactInfo } from './firebase/initContactInfo';
 
-// Polyfill for process (after imports but before code)
-window.process = window.process || { env: {} };
-
 // Initialize contact information in Firestore
 initializeContactInfo()
   .then(() => console.log("Contact information initialized"))
@@ -17,9 +14,7 @@ initializeContactInfo()
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
+  <App />
 );
 
 // If you want to start measuring performance in your app, pass a function
