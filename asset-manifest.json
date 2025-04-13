@@ -1,17 +1,17 @@
 {
   "files": {
     "main.css": "/petzify/static/css/main.e9f6296d.css",
-    "main.js": "/petzify/static/js/main.f0253cf7.js",
+    "main.js": "/petzify/static/js/main.35845ded.js",
     "static/js/453.b261231d.chunk.js": "/petzify/static/js/453.b261231d.chunk.js",
     "static/media/logo_text.png": "/petzify/static/media/logo_text.917a5316f76381f7bb22.png",
     "static/media/logo.png": "/petzify/static/media/logo.6c70a4ebe3f10b867ef3.png",
     "index.html": "/petzify/index.html",
     "main.e9f6296d.css.map": "/petzify/static/css/main.e9f6296d.css.map",
-    "main.f0253cf7.js.map": "/petzify/static/js/main.f0253cf7.js.map",
+    "main.35845ded.js.map": "/petzify/static/js/main.35845ded.js.map",
     "453.b261231d.chunk.js.map": "/petzify/static/js/453.b261231d.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.e9f6296d.css",
-    "static/js/main.f0253cf7.js"
+    "static/js/main.35845ded.js"
   ]
 }
