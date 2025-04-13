@@ -1,17 +1,17 @@
 {
   "files": {
-    "main.css": "/static/css/main.e9f6296d.css",
-    "main.js": "/static/js/main.252df2ff.js",
-    "static/js/453.b261231d.chunk.js": "/static/js/453.b261231d.chunk.js",
-    "static/media/logo_text.png": "/static/media/logo_text.917a5316f76381f7bb22.png",
-    "static/media/logo.png": "/static/media/logo.6c70a4ebe3f10b867ef3.png",
-    "index.html": "/index.html",
-    "main.e9f6296d.css.map": "/static/css/main.e9f6296d.css.map",
-    "main.252df2ff.js.map": "/static/js/main.252df2ff.js.map",
-    "453.b261231d.chunk.js.map": "/static/js/453.b261231d.chunk.js.map"
+    "main.css": "/petzify-website/static/css/main.e9f6296d.css",
+    "main.js": "/petzify-website/static/js/main.2bdff73b.js",
+    "static/js/453.b261231d.chunk.js": "/petzify-website/static/js/453.b261231d.chunk.js",
+    "static/media/logo_text.png": "/petzify-website/static/media/logo_text.917a5316f76381f7bb22.png",
+    "static/media/logo.png": "/petzify-website/static/media/logo.6c70a4ebe3f10b867ef3.png",
+    "index.html": "/petzify-website/index.html",
+    "main.e9f6296d.css.map": "/petzify-website/static/css/main.e9f6296d.css.map",
+    "main.2bdff73b.js.map": "/petzify-website/static/js/main.2bdff73b.js.map",
+    "453.b261231d.chunk.js.map": "/petzify-website/static/js/453.b261231d.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.e9f6296d.css",
-    "static/js/main.252df2ff.js"
+    "static/js/main.2bdff73b.js"
   ]
 }
