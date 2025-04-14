@@ -412,20 +412,46 @@ const PetBoardingRegistration = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('Form submission triggered', formData);
+    
+    // Basic validation check
+    if (formStep !== 5) {
+      alert("Please complete all steps before submitting");
+      return;
+    }
+    
+    // Required fields check for last step
+    if (!formData.perDayCharge) {
+      alert("Please enter a per day charge");
+      return;
+    }
+    
     setSubmitting(true);
     
     try {
-      // Add document to Firestore (simplified)
-      const docRef = await addDoc(collection(db, 'petBoardingCenters'), {
+      console.log('Submitting to Firestore', formData);
+      
+      // Clean up formData (remove file objects that can't be stored in Firestore)
+      const firestoreData = {
         ...formData,
+        // Replace File objects with null, we'd normally upload these separately
+        profilePicture: null,
+        idProof: null,
+        galleryImages: [],
+        // Keep the URLs which would normally be from storage
+        status: 'pending',
         createdAt: serverTimestamp(),
-      });
+      };
+      
+      // Add document to Firestore
+      const docRef = await addDoc(collection(db, 'petBoardingCenters'), firestoreData);
       
       console.log("Document written with ID: ", docRef.id);
       setSuccess(true);
       window.scrollTo(0, 0);
     } catch (error) {
       console.error("Error adding document: ", error);
+      alert(`Error submitting form: ${error.message}`);
     } finally {
       setSubmitting(false);
     }
@@ -697,16 +723,207 @@ const PetBoardingRegistration = () => {
           </div>
         )}
         
-        {/* Placeholder for other steps */}
-        {formStep > 2 && (
+        {/* Step 3: Availability & Services */}
+        {formStep === 3 && (
           <div className="space-y-6">
-            <h3 className="text-xl font-semibold text-gray-800">
-              {formStep === 3 && "📅 Availability & Services"}
-              {formStep === 4 && "💰 Pricing"}
-              {formStep === 5 && "📸 Gallery & Final Details"}
-            </h3>
+            <h3 className="text-xl font-semibold text-gray-800">📅 Availability & Services</h3>
             
-            <p className="text-gray-600">This step will be implemented later.</p>
+            {/* Operating Days */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Operating Days*</label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {Object.keys(formData.operatingDays).map((day) => (
+                  <div key={day} className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id={`day-${day}`}
+                      checked={formData.operatingDays[day]}
+                      onChange={() => {
+                        setFormData({
+                          ...formData,
+                          operatingDays: {
+                            ...formData.operatingDays,
+                            [day]: !formData.operatingDays[day]
+                          }
+                        });
+                      }}
+                      className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                    />
+                    <label htmlFor={`day-${day}`} className="ml-2 block text-sm text-gray-700 capitalize">
+                      {day}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Operating Hours */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Opening Time*</label>
+                <input
+                  type="time"
+                  name="openingTime"
+                  required
+                  value={formData.openingTime}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Closing Time*</label>
+                <input
+                  type="time"
+                  name="closingTime"
+                  required
+                  value={formData.closingTime}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
+                />
+              </div>
+            </div>
+            
+            {/* Holiday Notice */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Holiday Notice (optional)</label>
+              <textarea
+                name="holidayNotice"
+                value={formData.holidayNotice}
+                onChange={handleInputChange}
+                placeholder="Specify any upcoming holidays or special closing days"
+                rows="2"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
+              ></textarea>
+            </div>
+            
+            <hr className="my-6" />
+            
+            <h4 className="text-lg font-medium text-gray-800">🐾 Pet Details</h4>
+            
+            {/* Pet Types Accepted */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Pet Types Accepted*</label>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {Object.keys(formData.petTypesAccepted).map((petType) => (
+                  <div key={petType} className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id={`pet-${petType}`}
+                      checked={formData.petTypesAccepted[petType]}
+                      onChange={() => {
+                        setFormData({
+                          ...formData,
+                          petTypesAccepted: {
+                            ...formData.petTypesAccepted,
+                            [petType]: !formData.petTypesAccepted[petType]
+                          }
+                        });
+                      }}
+                      className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                    />
+                    <label htmlFor={`pet-${petType}`} className="ml-2 block text-sm text-gray-700 capitalize">
+                      {petType}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Pet Size Limit */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Pet Size Limit</label>
+              <div className="flex flex-wrap gap-2">
+                {['small', 'medium', 'large'].map((size) => (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => {
+                      const updatedSizes = formData.petSizeLimit.includes(size)
+                        ? formData.petSizeLimit.filter(s => s !== size)
+                        : [...formData.petSizeLimit, size];
+                      
+                      setFormData({
+                        ...formData,
+                        petSizeLimit: updatedSizes
+                      });
+                    }}
+                    className={`px-3 py-1 rounded-full text-sm ${
+                      formData.petSizeLimit.includes(size)
+                        ? 'bg-primary text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {size.charAt(0).toUpperCase() + size.slice(1)}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-gray-500">Select all sizes that you accept</p>
+            </div>
+            
+            {/* Capacity */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Max Capacity</label>
+              <input
+                type="number"
+                name="capacity"
+                value={formData.capacity}
+                onChange={handleInputChange}
+                placeholder="How many pets can you accommodate at once?"
+                min="1"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
+              />
+            </div>
+            
+            {/* Pet Age Limit */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Pet Age Limit (optional)</label>
+              <input
+                type="text"
+                name="petAgeLimit"
+                value={formData.petAgeLimit}
+                onChange={handleInputChange}
+                placeholder="e.g. Minimum 3 months, Maximum 12 years"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
+              />
+            </div>
+            
+            <hr className="my-6" />
+            
+            <h4 className="text-lg font-medium text-gray-800">🛎️ Services Offered</h4>
+            
+            {/* Services Offered */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Select Services</label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {Object.keys(formData.servicesOffered).map((service) => (
+                  <div key={service} className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id={`service-${service}`}
+                      checked={formData.servicesOffered[service]}
+                      onChange={() => {
+                        setFormData({
+                          ...formData,
+                          servicesOffered: {
+                            ...formData.servicesOffered,
+                            [service]: !formData.servicesOffered[service]
+                          }
+                        });
+                      }}
+                      className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                    />
+                    <label htmlFor={`service-${service}`} className="ml-2 block text-sm text-gray-700">
+                      {service === 'boarding' && 'Boarding / Accommodation'}
+                      {service === 'food' && 'Food Included'}
+                      {service === 'playArea' && 'Play Area / Regular Walks'}
+                      {service === 'grooming' && 'Grooming Services'}
+                      {service === 'vetAssistance' && 'Veterinary Assistance'}
+                      {service === 'liveUpdates' && 'Live Updates / CCTV Access'}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
             
             <div className="flex justify-between mt-8">
               <button
@@ -716,23 +933,299 @@ const PetBoardingRegistration = () => {
               >
                 Previous
               </button>
-              {formStep < 5 ? (
-                <button
-                  type="button"
-                  onClick={nextStep}
-                  className="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-                >
-                  Next
-                </button>
-              ) : (
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50"
-                >
-                  {submitting ? 'Submitting...' : 'Submit Registration'}
-                </button>
+              <button
+                type="button"
+                onClick={nextStep}
+                className="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {/* Step 4: Pricing */}
+        {formStep === 4 && (
+          <div className="space-y-6">
+            <h3 className="text-xl font-semibold text-gray-800">💰 Pricing</h3>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Per Day Charge (₹)*</label>
+              <div className="mt-1 relative rounded-md shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <span className="text-gray-500 sm:text-sm">₹</span>
+                </div>
+                <input
+                  type="number"
+                  name="perDayCharge"
+                  required
+                  value={formData.perDayCharge}
+                  onChange={handleInputChange}
+                  min="0"
+                  step="50"
+                  placeholder="0"
+                  className="focus:ring-primary focus:border-primary block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md py-2"
+                />
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                  <span className="text-gray-500 sm:text-sm">per day</span>
+                </div>
+              </div>
+              <p className="mt-1 text-sm text-gray-500">Set a reasonable price that reflects the quality of your services</p>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Discounts / Packages (optional)</label>
+              <textarea
+                name="discounts"
+                value={formData.discounts}
+                onChange={handleInputChange}
+                rows="3"
+                placeholder="Describe any special offers, packages, or discounts you provide (e.g. 10% off for stays longer than 5 days, package deals, etc.)"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
+              ></textarea>
+            </div>
+            
+            <div className="bg-blue-50 p-4 rounded-md">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-blue-800">Pricing Tips</h3>
+                  <div className="mt-2 text-sm text-blue-700">
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>Research competitors in your area to set competitive prices</li>
+                      <li>Consider offering discounts for long-term stays</li>
+                      <li>Be transparent about additional charges if any</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-between mt-8">
+              <button
+                type="button"
+                onClick={prevStep}
+                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                onClick={nextStep}
+                className="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {/* Step 5: Gallery & Final Details */}
+        {formStep === 5 && (
+          <div className="space-y-6">
+            <h3 className="text-xl font-semibold text-gray-800">📸 Gallery & Final Details</h3>
+            
+            {/* Gallery Images */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Upload Photos of Your Facility</label>
+              <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                <div className="space-y-1 text-center">
+                  <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <div className="flex text-sm text-gray-600">
+                    <label htmlFor="gallery-images" className="relative cursor-pointer bg-white rounded-md font-medium text-primary hover:text-primary-dark focus-within:outline-none">
+                      <span>Upload images</span>
+                      <input 
+                        id="gallery-images" 
+                        type="file" 
+                        accept="image/*" 
+                        multiple 
+                        className="sr-only" 
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files);
+                          if (files.length > 0) {
+                            const newImageURLs = files.map(file => URL.createObjectURL(file));
+                            
+                            setFormData({
+                              ...formData,
+                              galleryImages: [...formData.galleryImages, ...files],
+                              galleryImageURLs: [...formData.galleryImageURLs, ...newImageURLs]
+                            });
+                          }
+                        }}
+                      />
+                    </label>
+                    <p className="pl-1">or drag and drop</p>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    PNG, JPG, GIF up to 10MB each
+                  </p>
+                </div>
+              </div>
+              {formData.galleryImageURLs.length > 0 && (
+                <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {formData.galleryImageURLs.map((url, index) => (
+                    <div key={index} className="relative">
+                      <img 
+                        src={url} 
+                        alt={`Gallery ${index + 1}`} 
+                        className="h-24 w-full object-cover rounded-md border border-gray-300"
+                      />
+                      <button
+                        type="button"
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md"
+                        onClick={() => {
+                          // Remove this image from the gallery
+                          const newGalleryImages = [...formData.galleryImages];
+                          const newGalleryImageURLs = [...formData.galleryImageURLs];
+                          
+                          newGalleryImages.splice(index, 1);
+                          newGalleryImageURLs.splice(index, 1);
+                          
+                          setFormData({
+                            ...formData,
+                            galleryImages: newGalleryImages,
+                            galleryImageURLs: newGalleryImageURLs
+                          });
+                        }}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
               )}
+            </div>
+            
+            <hr className="my-6" />
+            
+            <h4 className="text-lg font-medium text-gray-800">🔖 Additional Requirements</h4>
+            
+            {/* Additional Preferences */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="vaccinationRequired"
+                  checked={formData.vaccinationRequired}
+                  onChange={() => setFormData({
+                    ...formData,
+                    vaccinationRequired: !formData.vaccinationRequired
+                  })}
+                  className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                />
+                <label htmlFor="vaccinationRequired" className="ml-2 block text-sm text-gray-700">
+                  Require vaccination proof for pets
+                </label>
+              </div>
+              
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="petFoodProvided"
+                  checked={formData.petFoodProvided}
+                  onChange={() => setFormData({
+                    ...formData,
+                    petFoodProvided: !formData.petFoodProvided
+                  })}
+                  className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                />
+                <label htmlFor="petFoodProvided" className="ml-2 block text-sm text-gray-700">
+                  Pet food provided
+                </label>
+              </div>
+              
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="pickupDropAvailable"
+                  checked={formData.pickupDropAvailable}
+                  onChange={() => setFormData({
+                    ...formData,
+                    pickupDropAvailable: !formData.pickupDropAvailable
+                  })}
+                  className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                />
+                <label htmlFor="pickupDropAvailable" className="ml-2 block text-sm text-gray-700">
+                  Pickup/drop-off service available
+                </label>
+              </div>
+            </div>
+            
+            {/* ID Proof & License */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">ID Proof / Business License*</label>
+              <input
+                type="file"
+                accept="image/*,application/pdf"
+                onChange={(e) => handleFileChange(e, 'idProof')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
+              />
+              {formData.idProofURL && (
+                <div className="mt-2 flex items-center">
+                  <div className="p-1 border border-gray-300 rounded bg-gray-50">
+                    <svg className="h-6 w-6 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <span className="ml-2 text-sm text-gray-700">Document uploaded</span>
+                </div>
+              )}
+              <p className="mt-1 text-xs text-gray-500">Upload ID proof or business license for verification</p>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">License Number (if applicable)</label>
+              <input
+                type="text"
+                name="licenseNumber"
+                value={formData.licenseNumber}
+                onChange={handleInputChange}
+                placeholder="Enter your business license number"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
+              />
+            </div>
+            
+            <div className="bg-yellow-50 p-4 rounded-md">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-yellow-800">Important Note</h3>
+                  <div className="mt-2 text-sm text-yellow-700">
+                    <p>
+                      Your registration will be reviewed by our team before being approved. Make sure all information is accurate and complete. You'll receive a notification once your boarding center is approved.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-between mt-8">
+              <button
+                type="button"
+                onClick={prevStep}
+                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+              >
+                Previous
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50"
+              >
+                {submitting ? 'Submitting...' : 'Submit Registration'}
+              </button>
             </div>
           </div>
         )}
