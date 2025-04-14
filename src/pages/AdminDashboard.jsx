@@ -13,6 +13,7 @@ import TestimonialsManager from '../components/admin/TestimonialsManager';
 import LoadingScreen from '../components/common/LoadingScreen';
 import PetParentingManager from '../components/admin/PetParentingManager';
 import OrderManager from '../components/admin/OrderManager';
+import PetBoardingAdmin from './admin/PetBoardingAdmin';
 
 const AdminDashboard = () => {
   const [activeComponent, setActiveComponent] = useState('dashboard');
@@ -208,6 +209,13 @@ const AdminDashboard = () => {
                     <p className="text-gray-600">Manage customer testimonials</p>
                   </div>
                 )}
+                
+                {canManageUsers && (
+                  <div className="bg-primary-light rounded-lg p-6 cursor-pointer" onClick={() => setActiveComponent('pet-boarding')}>
+                    <h3 className="text-lg font-bold text-white mb-2">Pet Boarding Management</h3>
+                    <p className="text-gray-600">Manage pet boarding center applications</p>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -222,6 +230,7 @@ const AdminDashboard = () => {
           {activeComponent === 'pet-parenting' && canManagePetParenting && <PetParentingManager />}
           {activeComponent === 'orders' && canManageOrders && <OrderManager />}
           {activeComponent === 'testimonials' && canEditContacts && <TestimonialsManager />}
+          {activeComponent === 'pet-boarding' && <PetBoardingAdmin />}
         </div>
       </div>
     </div>

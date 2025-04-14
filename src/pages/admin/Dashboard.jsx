@@ -154,6 +154,21 @@ const Dashboard = () => {
               </li>
               <li>
                 <Link
+                  to="/admin/pet-boarding"
+                  className={`flex items-center px-4 py-3 ${
+                    location.pathname.includes('/admin/pet-boarding')
+                      ? 'bg-primary text-white'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                  Pet Boarding
+                </Link>
+              </li>
+              <li>
+                <Link
                   to="/admin/dashboard/pet-parenting"
                   className={`flex items-center px-4 py-3 ${
                     isActive('/admin/dashboard/pet-parenting')
@@ -205,6 +220,29 @@ const Dashboard = () => {
         {/* Main Content */}
         <div className="flex-1 p-8">
           <Outlet />
+          {/* Add a Pet Boarding Management card */}
+          <div 
+            onClick={() => navigate('/admin/pet-boarding')}
+            className="bg-white rounded-lg shadow hover:shadow-lg cursor-pointer transition-shadow p-6 mt-8"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-gray-900">Pet Boarding Management</h3>
+              <div className="rounded-full bg-blue-100 p-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              </div>
+            </div>
+            <p className="text-gray-600 mb-4">
+              Manage pet boarding center registrations, approvals, and monitoring.
+            </p>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Manage boarding centers</span>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-primary" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </div>
+          </div>
         </div>
       </div>
     </div>

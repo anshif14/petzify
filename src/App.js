@@ -30,6 +30,7 @@ import PetRehoming from './pages/PetRehoming';
 import FindFurrySoulmate from './pages/FindFurrySoulmate';
 import PetDetails from './pages/PetDetails';
 import PetBoarding from './pages/PetBoarding';
+import PetBoardingAdmin from './pages/admin/PetBoardingAdmin';
 
 // Import context providers
 import { AlertProvider } from './context/AlertContext';

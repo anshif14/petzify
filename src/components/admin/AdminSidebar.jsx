@@ -12,12 +12,14 @@ const AdminSidebar = ({
   canManageProducts,
   canManageBookings,
   canManagePetParenting,
-  canManageOrders
+  canManageOrders,
+  canManageServices = true
 }) => {
   const navigate = useNavigate();
   const [pendingPetCount, setPendingPetCount] = useState(0);
   const [pendingProductCount, setPendingProductCount] = useState(0);
   const [pendingOrderCount, setPendingOrderCount] = useState(0);
+  const [pendingBoardingCount, setPendingBoardingCount] = useState(0);
 
   useEffect(() => {
     const fetchCounts = async () => {
@@ -59,6 +61,18 @@ const AdminSidebar = ({
           console.log('Pending orders count:', ordersSnapshot.size);
           setPendingOrderCount(ordersSnapshot.size);
         }
+
+        // Fetch pending boarding center count
+        if (canManageServices) {
+          console.log('Fetching pending boarding center count...');
+          const boardingQuery = query(
+            collection(db, 'petBoardingCenters'),
+            where('status', '==', 'pending')
+          );
+          const boardingSnapshot = await getDocs(boardingQuery);
+          console.log('Pending boarding centers count:', boardingSnapshot.size);
+          setPendingBoardingCount(boardingSnapshot.size);
+        }
       } catch (error) {
         console.error('Error fetching counts:', error);
       }
@@ -72,6 +86,7 @@ const AdminSidebar = ({
     let unsubscribePets;
     let unsubscribeProducts;
     let unsubscribeOrders;
+    let unsubscribeBoarding;
 
     if (canManagePetParenting) {
       const petsQuery = query(
@@ -106,13 +121,26 @@ const AdminSidebar = ({
       });
     }
 
+    // Add listener for pet boarding centers
+    if (canManageServices) {
+      const boardingQuery = query(
+        collection(db, 'petBoardingCenters'),
+        where('status', '==', 'pending')
+      );
+      unsubscribeBoarding = onSnapshot(boardingQuery, (snapshot) => {
+        console.log('Real-time boarding centers update:', snapshot.size);
+        setPendingBoardingCount(snapshot.size);
+      });
+    }
+
     // Cleanup listeners
     return () => {
       if (unsubscribePets) unsubscribePets();
       if (unsubscribeProducts) unsubscribeProducts();
       if (unsubscribeOrders) unsubscribeOrders();
+      if (unsubscribeBoarding) unsubscribeBoarding();
     };
-  }, [canManagePetParenting, canManageProducts, canManageOrders]);
+  }, [canManagePetParenting, canManageProducts, canManageOrders, canManageServices]);
 
   const handleLogout = () => {
     localStorage.removeItem('adminAuth');
@@ -214,6 +242,29 @@ const AdminSidebar = ({
                 {pendingProductCount > 0 && (
                   <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
                     {pendingProductCount}
+                  </span>
+                )}
+              </button>
+            </li>
+          )}
+
+          {canManageServices && (
+            <li>
+              <button
+                onClick={() => setActiveComponent('pet-boarding')}
+                className={`flex items-center w-full px-6 py-3 text-left transition-colors ${
+                  activeComponent === 'pet-boarding'
+                    ? 'bg-primary text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                Pet Boarding
+                {pendingBoardingCount > 0 && (
+                  <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
+                    {pendingBoardingCount}
                   </span>
                 )}
               </button>
