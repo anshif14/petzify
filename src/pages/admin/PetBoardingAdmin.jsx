@@ -9,6 +9,9 @@ const PetBoardingAdmin = () => {
   const [activeTab, setActiveTab] = useState('pending');
   const [selectedCenter, setSelectedCenter] = useState(null);
   const [updateStatus, setUpdateStatus] = useState({ loading: false, error: null });
+  // Add states for WhatsApp sharing
+  const [showPhoneDialog, setShowPhoneDialog] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState('');
 
   useEffect(() => {
     const fetchBoardingRequests = async () => {
@@ -65,6 +68,88 @@ const PetBoardingAdmin = () => {
 
   const closeDetails = () => {
     setSelectedCenter(null);
+  };
+
+  // Function to generate WhatsApp share URL
+  const shareToWhatsApp = () => {
+    // Get the phone number without any non-numeric characters
+    const cleanedNumber = phoneNumber.replace(/\D/g, '');
+    
+    if (!cleanedNumber || cleanedNumber.length < 10) {
+      alert('Please enter a valid phone number');
+      return;
+    }
+    
+    // Format the center information for WhatsApp
+    let petTypesText = '';
+    if (selectedCenter.petTypesAccepted) {
+      petTypesText = Object.entries(selectedCenter.petTypesAccepted)
+        .filter(([_, value]) => value)
+        .map(([type]) => type)
+        .join(', ');
+    }
+    
+    let servicesText = '';
+    if (selectedCenter.servicesOffered) {
+      servicesText = Object.entries(selectedCenter.servicesOffered)
+        .filter(([_, value]) => value)
+        .map(([service]) => service)
+        .join(', ');
+    }
+    
+    // Format operating days
+    let operatingDaysText = '';
+    if (selectedCenter.operatingDays) {
+      operatingDaysText = Object.entries(selectedCenter.operatingDays)
+        .filter(([_, isOpen]) => isOpen)
+        .map(([day]) => day)
+        .join(', ');
+    }
+
+    // Create Google Maps link using latitude and longitude
+    const latitude = selectedCenter.latitude || selectedCenter.location?.latitude;
+    const longitude = selectedCenter.longitude || selectedCenter.location?.longitude;
+    
+    let locationMapLink = '';
+    if (latitude && longitude) {
+      locationMapLink = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+    }
+
+    // Format the message for WhatsApp with improved emojis
+    const message = `
+🏡 *Pet Boarding Center: ${selectedCenter.centerName}*
+
+👤 *Owner:* ${selectedCenter.ownerName}  
+📧 *Email:* ${selectedCenter.email}  
+📞 *Contact:* ${selectedCenter.phoneNumber}  
+💰 *Price:* ₹${selectedCenter.perDayCharge}/day  
+📆 *Operating Days:* ${operatingDaysText}  
+
+🐕🐈 *Pet Types Accepted:* ${petTypesText}  
+✅ *Services Offered:* ${servicesText}  
+
+📍 *Address:* ${selectedCenter.address}, ${selectedCenter.city}, ${selectedCenter.pincode}
+${locationMapLink ? `🗺️ *Map Location:* ${locationMapLink}\n` : ''}
+
+📅 *Registration Date:* ${selectedCenter.createdAt ? new Date(selectedCenter.createdAt.seconds * 1000).toLocaleDateString() : 'N/A'}  
+🏷️ *Status:* ${selectedCenter.status?.charAt(0).toUpperCase() + selectedCenter.status?.slice(1)}  
+
+${selectedCenter.galleryImageURLs && selectedCenter.galleryImageURLs.length > 0 ? '🖼️ *Gallery Links:*' : ''}
+${selectedCenter.galleryImageURLs ? selectedCenter.galleryImageURLs.slice(0, 3).map((url, i) => `${url}`).join('\n') : ''}
+    `;
+    
+    // Encode the message for URL
+    const encodedMessage = encodeURIComponent(message);
+    
+    // Generate the WhatsApp share URL
+    const whatsappURL = `https://wa.me/${cleanedNumber}?text=${encodedMessage}`;
+    
+    // Open in a new tab
+    window.open(whatsappURL, '_blank');
+    
+    // Reset the phone number and close the dialog
+    setPhoneNumber('');
+    setShowPhoneDialog(false);
   };
 
   // Render the request list view
@@ -191,9 +276,21 @@ const PetBoardingAdmin = () => {
               Back to list
             </button>
             
-            <div>
+            <div className="flex space-x-3">
+              {/* WhatsApp Share Button */}
+              <button 
+                onClick={() => setShowPhoneDialog(true)}
+                className="px-4 py-2 bg-green-500 text-white text-sm rounded hover:bg-green-600 flex items-center"
+              >
+                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                  <path d="M12 0C5.373 0 0 5.373 0 12c0 6.628 5.373 12 12 12 6.628 0 12-5.373 12-12 0-6.628-5.373-12-12-12zm.029 18.88a6.942 6.942 0 01-3.333-.855L4.586 19l.977-3.562a6.9 6.9 0 01-.933-3.457c0-3.825 3.116-6.937 6.937-6.937s6.937 3.112 6.937 6.937c.001 3.825-3.115 6.899-6.937 6.899z" fillRule="nonzero"/>
+                </svg>
+                Send to WhatsApp
+              </button>
+              
               {activeTab === 'pending' && (
-                <div className="flex space-x-3">
+                <>
                   <button 
                     onClick={() => handleStatusChange(selectedCenter.id, 'approved')}
                     className="px-4 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700"
@@ -208,7 +305,7 @@ const PetBoardingAdmin = () => {
                   >
                     Reject
                   </button>
-                </div>
+                </>
               )}
               
               {activeTab === 'approved' && (
@@ -416,6 +513,42 @@ const PetBoardingAdmin = () => {
       
       {/* Main content */}
       {selectedCenter ? renderCenterDetails() : renderRequestsList()}
+      
+      {/* Phone Number Dialog */}
+      {showPhoneDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Enter WhatsApp Number</h3>
+            <p className="text-gray-600 mb-4">Enter the phone number to share this boarding center information via WhatsApp.</p>
+            
+            <input
+              type="text"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              placeholder="e.g., +91 98765 43210"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md mb-4 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            />
+            
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowPhoneDialog(false);
+                  setPhoneNumber('');
+                }}
+                className="px-4 py-2 text-gray-700 rounded hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={shareToWhatsApp}
+                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+              >
+                Send
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
