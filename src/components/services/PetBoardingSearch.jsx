@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../firebase/config.js';
 import useGoogleMaps from '../../utils/useGoogleMaps';
@@ -127,105 +127,103 @@ const PetBoardingSearch = () => {
     setSelectedCenter(null);
   };
 
-  // Google Maps loading function
-  const loadDetailMap = (center) => {
-    if (!center || !center.latitude || !center.longitude) {
-      console.warn('Invalid center coordinates for map');
+  const initializeDetailMap = () => {
+    if (!selectedCenter || !selectedCenter.latitude || !selectedCenter.longitude) {
+      console.log('No center selected or missing location data');
       return;
     }
 
-    // Check if script already exists
-    const existingScript = document.getElementById(mapScriptId);
+    console.log('Initializing detail map for:', selectedCenter.centerName);
+    console.log('Location data:', selectedCenter.latitude, selectedCenter.longitude);
     
-    if (window.google && window.google.maps) {
-      // Google Maps API is already loaded
-      setMapLoaded(true);
-      initializeDetailMap(center);
-    } else if (existingScript) {
-      // Script exists but may not be loaded yet
-      if (existingScript.getAttribute('data-loaded') === 'true') {
-        setMapLoaded(true);
-        initializeDetailMap(center);
-      } else {
-        // Add load listener if not already loaded
-        const loadHandler = () => {
-          existingScript.setAttribute('data-loaded', 'true');
-          setMapLoaded(true);
-          initializeDetailMap(center);
-        };
-        existingScript.addEventListener('load', loadHandler);
-        // Store the handler to clean up later
-        existingScript.loadHandler = loadHandler;
-      }
-    } else {
-      // Script doesn't exist, create and append it
-      const script = document.createElement('script');
-      script.id = mapScriptId;
-      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyDs_HDyac8lBXdLnAa8zbDjwf1v-2bFjpI`;
-      script.async = true;
-      script.defer = true;
-      
-      const loadHandler = () => {
-        script.setAttribute('data-loaded', 'true');
-        setMapLoaded(true);
-        initializeDetailMap(center);
+    const mapContainer = document.getElementById('detailMapContainer');
+    if (!mapContainer) {
+      console.log('Map container element not found');
+      return;
+    }
+    
+    try {
+      const center = { 
+        lat: parseFloat(selectedCenter.latitude), 
+        lng: parseFloat(selectedCenter.longitude) 
       };
       
-      script.addEventListener('load', loadHandler);
-      // Store the handler to clean up later
-      script.loadHandler = loadHandler;
+      console.log('Map center:', center);
       
-      document.head.appendChild(script);
+      const mapOptions = {
+        center: center,
+        zoom: 15,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+      };
+      
+      // Create a new map and save it to the ref
+      const map = new window.google.maps.Map(mapContainer, mapOptions);
+      mapObjectsRef.current.map = map;
+      
+      // Add a marker for the boarding center
+      const marker = new window.google.maps.Marker({
+        position: center,
+        map: map,
+        title: selectedCenter.centerName,
+        animation: window.google.maps.Animation.DROP
+      });
+      
+      mapObjectsRef.current.marker = marker;
+      
+      console.log('Map and marker created successfully');
+    } catch (error) {
+      console.error('Error initializing map:', error);
     }
   };
 
-  // Function to initialize the map in detail view
-  const initializeDetailMap = (center) => {
-    if (!mapContainerRef.current || !window.google || !window.google.maps) return;
+  const loadDetailMap = useCallback(() => {
+    if (!selectedCenter) return;
     
-    try {
-      const position = { 
-        lat: parseFloat(center.latitude), 
-        lng: parseFloat(center.longitude) 
-      };
+    const mapScriptId = 'google-maps-script';
+    const existingScript = document.getElementById(mapScriptId);
+    
+    const handleScriptLoad = () => {
+      initializeDetailMap();
+      setMapLoaded(true);
+    };
+
+    if (existingScript) {
+      // Script already exists, add a load event listener
+      if (window.google && window.google.maps) {
+        // Maps API already loaded
+        initializeDetailMap();
+        setMapLoaded(true);
+      } else {
+        // API script is there but not loaded yet
+        existingScript.addEventListener('load', handleScriptLoad);
+      }
+    } else {
+      // No script exists, create and append it
+      const script = document.createElement('script');
+      script.id = mapScriptId;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyDs_HDyac8lBXdLnAa8zbDjwf1v-2bFjpI&libraries=places`;
+      script.async = true;
+      script.defer = true;
       
-      const mapOptions = {
-        center: position,
-        zoom: 15,
-        mapTypeControl: true,
-        streetViewControl: true,
-        fullscreenControl: true,
-        zoomControl: true
-      };
-      
-      const mapInstance = new window.google.maps.Map(mapContainerRef.current, mapOptions);
-      mapInstanceRef.current = mapInstance;
-      
-      // Add marker for the center location
-      const marker = new window.google.maps.Marker({
-        position: position,
-        map: mapInstance,
-        animation: window.google.maps.Animation.DROP,
-        title: center.centerName
-      });
-      markerRef.current = marker;
-      
-      // Add info window with center name
-      const infoWindow = new window.google.maps.InfoWindow({
-        content: `<div class="font-bold">${center.centerName}</div>
-                  <div>${center.address}</div>`
-      });
-      
-      marker.addListener('click', () => {
-        infoWindow.open(mapInstance, marker);
-      });
-      
-      // Open info window by default
-      infoWindow.open(mapInstance, marker);
-    } catch (error) {
-      console.error('Error initializing detail map:', error);
+      script.addEventListener('load', handleScriptLoad);
+      document.head.appendChild(script);
     }
-  };
+    
+    // Cleanup function
+    return () => {
+      const script = document.getElementById(mapScriptId);
+      if (script) {
+        script.removeEventListener('load', handleScriptLoad);
+      }
+      
+      // Clear any map listeners if map exists
+      if (window.google && mapObjectsRef.current.map) {
+        window.google.maps.event.clearInstanceListeners(mapObjectsRef.current.map);
+      }
+    };
+  }, [selectedCenter]);
 
   // Function to view center details
   const viewCenterDetails = (center) => {
@@ -233,26 +231,17 @@ const PetBoardingSearch = () => {
     setShowModal(true);
   };
 
-  // Load map when selected center changes
+  // Load map when selected center changes and modal is shown
   useEffect(() => {
+    let cleanup = null;
     if (selectedCenter && showModal) {
-      loadDetailMap(selectedCenter);
+      cleanup = loadDetailMap();
     }
     
-    // Cleanup function
     return () => {
-      // Don't remove the script, just remove event listeners
-      const script = document.getElementById(mapScriptId);
-      if (script && script.loadHandler) {
-        script.removeEventListener('load', script.loadHandler);
-      }
-      
-      // Clean up any Google Maps listeners
-      if (markerRef.current && window.google && window.google.maps) {
-        window.google.maps.event.clearInstanceListeners(markerRef.current);
-      }
+      if (cleanup) cleanup();
     };
-  }, [selectedCenter, showModal]);
+  }, [selectedCenter, showModal, loadDetailMap]);
 
   if (loading) {
     return (
@@ -452,24 +441,35 @@ const PetBoardingSearch = () => {
                   
                   <div className="mb-4">
                     <h3 className="text-lg font-semibold mb-2 text-indigo-600">Contact</h3>
-                    <p className="text-gray-700 mb-1">Phone: {selectedCenter.phone}</p>
+                    <p className="text-gray-700 mb-1">Phone: {selectedCenter.phoneNumber}</p>
                     <p className="text-gray-700">Email: {selectedCenter.email}</p>
                   </div>
                   
                   <div className="mb-4">
                     <h3 className="text-lg font-semibold mb-2 text-indigo-600">Hours</h3>
-                    <p className="text-gray-700">
-                      {selectedCenter.operatingHours || "24/7 operation"}
-                    </p>
+                    <div className="grid grid-cols-2 gap-1">
+                      {selectedCenter.operatingDays && Object.entries(selectedCenter.operatingDays).map(([day, isOpen]) => (
+                        <p key={day} className="text-gray-700 flex justify-between">
+                          <span className="capitalize">{day}:</span>
+                          <span className={isOpen ? "text-green-600" : "text-red-500"}>
+                            {isOpen ? 
+                             `${selectedCenter.openingTime || '9:00'} - ${selectedCenter.closingTime || '18:00'}` : 
+                             'Closed'}
+                          </span>
+                        </p>
+                      ))}
+                    </div>
                   </div>
                   
                   <div className="mb-4">
                     <h3 className="text-lg font-semibold mb-2 text-indigo-600">Pet Details</h3>
                     <div className="flex flex-wrap gap-2">
-                      {selectedCenter.acceptedPets && selectedCenter.acceptedPets.map((pet, index) => (
-                        <span key={index} className="bg-indigo-100 text-indigo-800 py-1 px-3 rounded-full text-sm">
-                          {pet}
-                        </span>
+                      {selectedCenter.petTypesAccepted && Object.entries(selectedCenter.petTypesAccepted)
+                        .filter(([_, accepted]) => accepted)
+                        .map(([type]) => (
+                          <span key={type} className="bg-indigo-100 text-indigo-800 py-1 px-3 rounded-full text-sm capitalize">
+                            {type}
+                          </span>
                       ))}
                     </div>
                   </div>
@@ -477,10 +477,14 @@ const PetBoardingSearch = () => {
                   <div className="mb-4">
                     <h3 className="text-lg font-semibold mb-2 text-indigo-600">Services</h3>
                     <div className="flex flex-wrap gap-2">
-                      {selectedCenter.services && selectedCenter.services.map((service, index) => (
-                        <span key={index} className="bg-green-100 text-green-800 py-1 px-3 rounded-full text-sm">
-                          {service}
-                        </span>
+                      {selectedCenter.servicesOffered && Object.entries(selectedCenter.servicesOffered)
+                        .filter(([_, offered]) => offered)
+                        .map(([service]) => (
+                          <span key={service} className="bg-green-100 text-green-800 py-1 px-3 rounded-full text-sm capitalize">
+                            {service === 'vetAssistance' ? 'Vet Assistance' : 
+                             service === 'liveUpdates' ? 'Live Updates' : 
+                             service === 'playArea' ? 'Play Area' : service}
+                          </span>
                       ))}
                     </div>
                   </div>
@@ -493,21 +497,27 @@ const PetBoardingSearch = () => {
                 
                 {/* Map Section */}
                 <div>
-                  <div
+                  <div 
+                    id="detailMapContainer"
                     ref={mapContainerRef}
-                    className="w-full h-96 rounded-lg shadow-md mb-4"
-                  ></div>
+                    className="w-full h-96 rounded-lg shadow-md mb-4 relative bg-gray-100"
+                  >
+                    {!mapLoaded && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75">
+                        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-indigo-600 border-r-transparent"></div>
+                        <span className="ml-2 text-gray-600">Loading map...</span>
+                      </div>
+                    )}
+                  </div>
                   
                   <div className="mt-4">
                     <button
                       onClick={() => {
-                        // Open contact form or booking form
-                        setShowModal(false);
-                        // navigation logic would go here
+                        window.open(`tel:${selectedCenter.phoneNumber}`);
                       }}
                       className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-md font-medium transition duration-300"
                     >
-                      Contact Center
+                      Call Center
                     </button>
                   </div>
                 </div>

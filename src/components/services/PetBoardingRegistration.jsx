@@ -129,56 +129,65 @@ const PetBoardingRegistration = () => {
     
     if (window.google && window.google.maps) {
       // Google Maps API is already loaded
+      console.log('Google Maps API already loaded');
       setMapLoaded(true);
       if (window.google.maps.places) {
         setPlacesLoaded(true);
-        initializeMap();
+        setTimeout(() => {
+          initializeMap();
+        }, 200); // Short delay to ensure DOM is ready
       }
-    } else if (existingScript) {
+      return;
+    }
+    
+    if (existingScript) {
       // Script exists but may not be loaded yet
-      if (existingScript.getAttribute('data-loaded') === 'true') {
-        setMapLoaded(true);
-        if (window.google.maps.places) {
-          setPlacesLoaded(true);
-          initializeMap();
-        }
-      } else {
-        // Add load listener if not already loaded
-        const loadHandler = () => {
-          existingScript.setAttribute('data-loaded', 'true');
-          setMapLoaded(true);
-          if (window.google.maps.places) {
-            setPlacesLoaded(true);
-            initializeMap();
-          }
-        };
-        existingScript.addEventListener('load', loadHandler);
-        // Store the handler to clean up later
-        existingScript.loadHandler = loadHandler;
-      }
-    } else {
-      // Script doesn't exist, create and append it
-      const script = document.createElement('script');
-      script.id = mapScriptId;
-      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyDs_HDyac8lBXdLnAa8zbDjwf1v-2bFjpI&libraries=places`;
-      script.async = true;
-      script.defer = true;
-      
+      console.log('Script exists, adding event listener');
       const loadHandler = () => {
-        script.setAttribute('data-loaded', 'true');
+        console.log('Existing script loaded via handler');
         setMapLoaded(true);
         if (window.google.maps.places) {
           setPlacesLoaded(true);
-          initializeMap();
+          setTimeout(() => {
+            initializeMap();
+          }, 200);
         }
       };
       
-      script.addEventListener('load', loadHandler);
-      // Store the handler to clean up later
-      script.loadHandler = loadHandler;
+      // Clean up any existing handlers to avoid duplicates
+      const oldHandler = existingScript.loadHandler;
+      if (oldHandler) {
+        existingScript.removeEventListener('load', oldHandler);
+      }
       
-      document.head.appendChild(script);
+      existingScript.addEventListener('load', loadHandler);
+      existingScript.loadHandler = loadHandler;
+      return;
     }
+    
+    // Script doesn't exist, create and append it
+    console.log('Creating new Google Maps script');
+    const script = document.createElement('script');
+    script.id = mapScriptId;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyDs_HDyac8lBXdLnAa8zbDjwf1v-2bFjpI&libraries=places`;
+    script.async = true;
+    script.defer = true;
+    
+    const loadHandler = () => {
+      console.log('New script loaded via handler');
+      setMapLoaded(true);
+      if (window.google && window.google.maps && window.google.maps.places) {
+        setPlacesLoaded(true);
+        setTimeout(() => {
+          initializeMap();
+        }, 200);
+      }
+    };
+    
+    script.addEventListener('load', loadHandler);
+    script.loadHandler = loadHandler;
+    
+    document.head.appendChild(script);
   };
 
   // Function to initialize the map
