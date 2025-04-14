@@ -117,7 +117,7 @@ const DoctorBooking = () => {
       // Format the date to get just the day (YYYY-MM-DD)
       const selectedDateStr = selectedDate.toISOString().split('T')[0];
       
-      // Query Firestore for available slots on the selected date
+      // Query Firestore for available slots on the selected date uploaded by the doctor
       const slotsQuery = query(
         collection(db, 'doctorSlots'),
         where('doctorId', '==', selectedDoctor.username),
@@ -457,7 +457,7 @@ const DoctorBooking = () => {
             {/* Step 2: Select Date and Time */}
             {step === 2 && selectedDoctor && (
               <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Choose Date & Time</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Choose from Available Doctor Slots</h3>
                 
                 <div className="flex flex-col md:flex-row gap-6">
                   <div className="md:w-1/2">
@@ -474,7 +474,7 @@ const DoctorBooking = () => {
                   </div>
                   
                   <div className="md:w-1/2">
-                    <p className="text-gray-700 mb-2">Available Time Slots:</p>
+                    <p className="text-gray-700 mb-2">Available Time Slots Provided by Dr. {selectedDoctor.name}:</p>
                     
                     {loading ? (
                       <div className="flex justify-center items-center h-40">
@@ -500,7 +500,7 @@ const DoctorBooking = () => {
                       ) : (
                         <div className="bg-yellow-50 p-4 rounded-md border border-yellow-200">
                           <p className="text-yellow-800">No available slots for this date.</p>
-                          <p className="text-sm text-yellow-600 mt-1">Please select another date or doctor.</p>
+                          <p className="text-sm text-yellow-600 mt-1">Dr. {selectedDoctor.name} hasn't uploaded any available slots for this date. Please select another date or doctor.</p>
                         </div>
                       )
                     )}
