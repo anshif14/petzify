@@ -81,7 +81,7 @@ const Services = () => {
       title: 'Pet Boarding',
       description: 'Safe and comfortable accommodation for your pets when you\'re away for longer periods.',
       icon: '🏨',
-      comingSoon: true,
+      link: '/services/boarding',
       image: 'https://doggyvilleindia.in/wp-content/uploads/2024/09/how-to-choose-the-best-dog-boarding-facility-for-your-pet.jpg'
     },
     {
@@ -119,7 +119,6 @@ const Services = () => {
       'Dog Walking': "Our dog walking service is almost ready! Soon you'll be able to schedule regular walks with experienced dog walkers who will provide exercise, companionship, and fun for your furry friend.",
       'Pet Grooming': "We're putting the finishing touches on our grooming service. Soon you'll be able to book professional groomers for everything from baths and haircuts to nail trimming and specialized treatments.",
       'Pet Training': "Our team of certified trainers is preparing to offer personalized training programs for your pets, including obedience training, behavior modification, and specialized skills. Stay tuned!",
-      'Pet Boarding': "We're carefully selecting partner facilities to provide safe, comfortable accommodation for your pets when you're away. You'll soon be able to browse boarding options and book stays directly through our platform.",
       'Pet Transportation': "Our pet transportation service is coming soon! We're partnering with experienced pet transporters to provide safe, comfortable rides for your pets to vet appointments, grooming sessions, or any destination you need.",
       'Pet Mating': "We're developing a carefully curated matching service for pet breeding. Soon you'll be able to connect with compatible pets, view detailed profiles, and arrange safe, responsible breeding through our platform."
     };
