@@ -2,7 +2,6 @@
 
 const MAPS_API_KEY = 'AIzaSyDs_HDyac8lBXdLnAa8zbDjwf1v-2bFjpI';
 const SCRIPT_ID = 'google-maps-script';
-const CALLBACK_NAME = 'googleMapsCallback';
 
 let mapLoadingPromise = null;
 // Keep track of all event listeners we add to DOM elements for safe cleanup
@@ -11,92 +10,95 @@ const activeListeners = new Map();
 /**
  * Loads the Google Maps script once and returns a promise
  * @param {Array} libraries - Optional array of libraries to load (e.g. ['places'])
- * @param {boolean} forceReload - Force a reload of the script even if already loading
  * @returns {Promise<void>} A promise that resolves when the script is loaded
  */
-export const loadGoogleMapsScript = (libraries = [], forceReload = false) => {
+export const loadGoogleMapsScript = (libraries = []) => {
   // 1. Check if already loaded
-  if (window.google && window.google.maps && !forceReload) {
+  if (window.google && window.google.maps) {
     return Promise.resolve();
   }
 
   // 2. Check if loading is already in progress
-  if (mapLoadingPromise && !forceReload) {
+  if (mapLoadingPromise) {
     return mapLoadingPromise;
   }
-  
-  // Reset the promise if forcing reload
-  if (forceReload) {
-    mapLoadingPromise = null;
-    
-    // Try to remove any existing script
-    const existingScript = document.getElementById(SCRIPT_ID);
-    if (existingScript && existingScript.parentNode) {
-      try {
-        existingScript.parentNode.removeChild(existingScript);
-        console.log("Removed existing Google Maps script for reload");
-      } catch (err) {
-        console.warn("Failed to remove existing script:", err);
-      }
-    }
+
+  // 3. Check if script tag exists but google object is not yet available
+  const existingScriptElement = document.getElementById(SCRIPT_ID);
+  if (existingScriptElement && !(window.google && window.google.maps)) {
+    // Re-create the promise to wait for the existing script tag to load/error
+    mapLoadingPromise = new Promise((resolve, reject) => {
+      const handleLoad = () => {
+        // Clean up listeners
+        removeEventListener(existingScriptElement, 'load', handleLoad);
+        removeEventListener(existingScriptElement, 'error', handleError);
+        
+        if (window.google && window.google.maps) {
+          resolve();
+        } else {
+          // Should not happen if 'load' fired, but handle defensively
+          console.error('Google Maps script loaded but window.google not found.');
+          reject(new Error('Google Maps loaded but window.google not found.'));
+          mapLoadingPromise = null; // Reset promise
+        }
+      };
+      
+      const handleError = (error) => {
+        // Clean up listeners
+        removeEventListener(existingScriptElement, 'load', handleLoad);
+        removeEventListener(existingScriptElement, 'error', handleError);
+        
+        console.error('Error loading existing Google Maps script:', error);
+        reject(new Error('Google Maps script failed to load'));
+        mapLoadingPromise = null; // Reset promise
+      };
+
+      // Add listeners to the *existing* script tag
+      addEventListener(existingScriptElement, 'load', handleLoad);
+      addEventListener(existingScriptElement, 'error', handleError);
+    });
+    return mapLoadingPromise;
   }
 
-  // 3. Create a promise that will be resolved when the callback is called
+  // 4. If script doesn't exist, create and load it
   mapLoadingPromise = new Promise((resolve, reject) => {
-    // Create a global callback that Google Maps can call when loaded
-    window[CALLBACK_NAME] = () => {
-      // Check if Google Maps is available
+    const script = document.createElement('script');
+    script.id = SCRIPT_ID;
+    script.type = 'text/javascript';
+    script.async = true;
+    script.defer = true;
+    
+    const librariesParam = libraries.length > 0 ? `&libraries=${libraries.join(',')}` : '';
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_API_KEY}${librariesParam}`;
+    
+    const handleLoad = () => {
+      // Clean up listeners
+      removeEventListener(script, 'load', handleLoad);
+      removeEventListener(script, 'error', handleError);
+      
       if (window.google && window.google.maps) {
         resolve();
       } else {
+        console.error('Google Maps script loaded but window.google not found.');
         reject(new Error('Google Maps loaded but window.google not found.'));
+        mapLoadingPromise = null; // Reset promise
       }
-      // Clean up the global callback
-      delete window[CALLBACK_NAME];
+    };
+    
+    const handleError = (event) => {
+      // Clean up listeners
+      removeEventListener(script, 'load', handleLoad);
+      removeEventListener(script, 'error', handleError);
+      
+      console.error('Error loading new Google Maps script:', event);
+      reject(new Error('Google Maps script failed to load'));
+      mapLoadingPromise = null; // Reset promise
     };
 
-    try {
-      // Check if script tag already exists
-      const existingScript = document.getElementById(SCRIPT_ID);
-      if (existingScript) {
-        // If it exists but Google isn't defined, the script is still loading
-        if (!(window.google && window.google.maps)) {
-          // Just wait for the existing script to load - our callback should still be called
-          return;
-        }
-      }
-
-      // Create a new script tag
-      const script = document.createElement('script');
-      script.id = SCRIPT_ID;
-      script.type = 'text/javascript';
-      
-      // Add libraries if specified
-      const librariesParam = libraries.length > 0 ? `&libraries=${libraries.join(',')}` : '';
-      
-      // Use the recommended loading pattern with callback
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_API_KEY}${librariesParam}&callback=${CALLBACK_NAME}&loading=async`;
-      
-      // Add error handling
-      script.onerror = (err) => {
-        console.error('Error loading Google Maps script:', err);
-        reject(new Error('Google Maps script failed to load'));
-        mapLoadingPromise = null;
-        
-        // Clean up the global callback
-        delete window[CALLBACK_NAME];
-      };
-      
-      // Append the script to the document
-      document.head.appendChild(script);
-    } catch (err) {
-      console.error('Error setting up Google Maps script:', err);
-      reject(err);
-      mapLoadingPromise = null;
-      
-      // Clean up the global callback
-      delete window[CALLBACK_NAME];
-    }
+    addEventListener(script, 'load', handleLoad);
+    addEventListener(script, 'error', handleError);
+    
+    document.head.appendChild(script);
   });
   
   return mapLoadingPromise;

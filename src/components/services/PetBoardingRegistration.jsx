@@ -3,20 +3,19 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db } from '../../firebase/config.js';
 import useGoogleMaps from '../../utils/useGoogleMaps';
-import { cleanupEventListeners } from '../../utils/mapLoader';
+import { cleanupEventListeners } from '../../utils/mapLoader.js';
 
 const PetBoardingRegistration = () => {
   const [formStep, setFormStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [geolocationError, setGeolocationError] = useState(null);
-  const [placesLoaded, setPlacesLoaded] = useState(false);
-  const mapContainerRef = useRef(null);
-  const mapInstanceRef = useRef(null);
+  const [mapError, setMapError] = useState(null);
+  const mapRef = useRef(null);
   const markerRef = useRef(null);
   const autocompleteRef = useRef(null);
-  const mapScriptId = 'google-maps-script';
+  // Reference to store map-related objects for cleanup
+  const mapObjectsRef = useRef({ map: null });
   
   const [formData, setFormData] = useState({
     // Boarding Center Info
@@ -94,27 +93,23 @@ const PetBoardingRegistration = () => {
 
   // Use our custom hook for Google Maps
   const { isLoaded, loadError, loadMap } = useGoogleMaps(['places']);
-  
-  // Helper function to extract address components from geocoding results
+
+  // Helper function to extract address components - moved outside useEffect to be globally accessible
   const extractAddressData = (place) => {
+    const components = place.address_components;
     let city = '';
     let pincode = '';
     
-    if (place.address_components) {
-      for (const component of place.address_components) {
-        const componentType = component.types[0];
+    if (components) {
+      for (const component of components) {
+        const types = component.types;
         
-        switch (componentType) {
-          case 'locality':
-            city = component.long_name;
-            break;
-          case 'administrative_area_level_2':
-            // If city is not found in locality, use district as fallback
-            if (!city) city = component.long_name;
-            break;
-          case 'postal_code':
-            pincode = component.long_name;
-            break;
+        if (types.includes('locality') || types.includes('administrative_area_level_2')) {
+          city = component.long_name;
+        }
+        
+        if (types.includes('postal_code')) {
+          pincode = component.long_name;
         }
       }
     }
@@ -122,246 +117,268 @@ const PetBoardingRegistration = () => {
     return { city, pincode };
   };
 
-  // Function to load the Google Maps script
-  const loadGoogleMapsScript = () => {
-    // Check if script already exists
-    const existingScript = document.getElementById(mapScriptId);
+  // Load Google Maps when we reach the location step
+  useEffect(() => {
+    let map = null;
+    let marker = null;
+    let autocomplete = null;
+    const MAP_API_KEY = 'AIzaSyDs_HDyac8lBXdLnAa8zbDjwf1v-2bFjpI';
     
-    if (window.google && window.google.maps) {
-      // Google Maps API is already loaded
-      console.log('Google Maps API already loaded');
-      setMapLoaded(true);
-      if (window.google.maps.places) {
-        setPlacesLoaded(true);
-        setTimeout(() => {
-          initializeMap();
-        }, 200); // Short delay to ensure DOM is ready
-      }
-      return;
-    }
+    // Only load the map when we're on step 2
+    if (formStep !== 2 || !mapRef.current) return;
     
-    if (existingScript) {
-      // Script exists but may not be loaded yet
-      console.log('Script exists, adding event listener');
-      const loadHandler = () => {
-        console.log('Existing script loaded via handler');
-        setMapLoaded(true);
-        if (window.google.maps.places) {
-          setPlacesLoaded(true);
-          setTimeout(() => {
-            initializeMap();
-          }, 200);
+    // Function to extract address components from Google Places result
+    const extractAddressData = (place) => {
+      let city = '';
+      let pincode = '';
+      
+      if (place.address_components) {
+        for (const component of place.address_components) {
+          if (component.types.includes('locality') || component.types.includes('administrative_area_level_2')) {
+            city = component.long_name;
+          }
+          
+          if (component.types.includes('postal_code')) {
+            pincode = component.long_name;
+          }
         }
+      }
+      
+      return { city, pincode };
+    };
+
+    // Load Google Maps script
+    const loadGoogleMapsScript = () => {
+      // Check if script is already loaded
+      if (window.google && window.google.maps) {
+        initializeMap();
+        return;
+      }
+      
+      // Create script element
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${MAP_API_KEY}&libraries=places`;
+      script.async = true;
+      script.defer = true;
+      
+      script.onload = () => {
+        initializeMap();
       };
       
-      // Clean up any existing handlers to avoid duplicates
-      const oldHandler = existingScript.loadHandler;
-      if (oldHandler) {
-        existingScript.removeEventListener('load', oldHandler);
-      }
+      script.onerror = () => {
+        console.error('Failed to load Google Maps');
+      };
       
-      existingScript.addEventListener('load', loadHandler);
-      existingScript.loadHandler = loadHandler;
-      return;
-    }
-    
-    // Script doesn't exist, create and append it
-    console.log('Creating new Google Maps script');
-    const script = document.createElement('script');
-    script.id = mapScriptId;
-    script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyDs_HDyac8lBXdLnAa8zbDjwf1v-2bFjpI&libraries=places`;
-    script.async = true;
-    script.defer = true;
-    
-    const loadHandler = () => {
-      console.log('New script loaded via handler');
-      setMapLoaded(true);
-      if (window.google && window.google.maps && window.google.maps.places) {
-        setPlacesLoaded(true);
-        setTimeout(() => {
-          initializeMap();
-        }, 200);
-      }
+      document.head.appendChild(script);
     };
     
-    script.addEventListener('load', loadHandler);
-    script.loadHandler = loadHandler;
-    
-    document.head.appendChild(script);
-  };
-
-  // Function to initialize the map
-  const initializeMap = () => {
-    if (!mapContainerRef.current || !window.google || !window.google.maps) return;
-    
-    try {
-      // Default location (India center)
+    // Initialize map
+    const initializeMap = () => {
+      if (!window.google || !window.google.maps) return;
+      
+      // Default location (center of India)
       const defaultLocation = { lat: 20.5937, lng: 78.9629 };
       
-      // Get location from form data if available
-      const locationFromForm = formData.latitude && formData.longitude
-        ? { lat: parseFloat(formData.latitude), lng: parseFloat(formData.longitude) }
-        : defaultLocation;
-      
-      // Create map instance
-      const mapOptions = {
-        center: locationFromForm,
-        zoom: 15,
+      // Create map
+      map = new window.google.maps.Map(mapRef.current, {
+        zoom: 10,
+        center: defaultLocation,
         mapTypeControl: true,
-        streetViewControl: true,
+        streetViewControl: false,
         fullscreenControl: true,
-      };
+        zoomControl: true
+      });
       
-      const mapInstance = new window.google.maps.Map(mapContainerRef.current, mapOptions);
-      mapInstanceRef.current = mapInstance;
-      
-      // Add marker for the selected location
-      const marker = new window.google.maps.Marker({
-        position: locationFromForm,
-        map: mapInstance,
+      // Create marker
+      marker = new window.google.maps.Marker({
+        position: defaultLocation,
+        map: map,
         draggable: true,
         animation: window.google.maps.Animation.DROP,
+        title: 'Drag to set location'
       });
+      
       markerRef.current = marker;
       
-      // Update form data when marker is dragged
+      // Add marker drag event
       marker.addListener('dragend', () => {
         const position = marker.getPosition();
-        const lat = position.lat();
-        const lng = position.lng();
-        
-        // Update form data with new coordinates
-        setFormData(prev => ({
-          ...prev,
-          latitude: lat,
-          longitude: lng
-        }));
-        
-        // Reverse geocode to get address
-        const geocoder = new window.google.maps.Geocoder();
-        geocoder.geocode({ location: { lat, lng } }, (results, status) => {
-          if (status === 'OK' && results[0]) {
-            setFormData(prev => ({
-              ...prev,
-              address: results[0].formatted_address
-            }));
-          }
-        });
+        updateLocationFromPosition(position);
       });
       
-      // Initialize Places autocomplete for address input
-      if (window.google.maps.places) {
-        const options = {
-          componentRestrictions: { country: 'in' },
-          fields: ['address_components', 'formatted_address', 'geometry', 'name'],
-        };
+      // Create autocomplete search box
+      const input = document.createElement('input');
+      input.placeholder = 'Search for a location';
+      input.className = 'map-search-input';
+      input.style.margin = '10px';
+      input.style.width = '300px';
+      input.style.padding = '8px 12px';
+      input.style.borderRadius = '4px';
+      input.style.border = '1px solid #ccc';
+      input.style.boxShadow = '0 2px 6px rgba(0, 0, 0, 0.3)';
+      input.style.fontSize = '14px';
+      
+      map.controls[window.google.maps.ControlPosition.TOP_CENTER].push(input);
+      
+      // Initialize autocomplete
+      autocomplete = new window.google.maps.places.Autocomplete(input);
+      autocomplete.bindTo('bounds', map);
+      autocompleteRef.current = autocomplete;
+      
+      // Handle place selection
+      autocomplete.addListener('place_changed', () => {
+        const place = autocomplete.getPlace();
         
-        const addressInput = document.getElementById('address');
-        if (addressInput) {
-          const autocomplete = new window.google.maps.places.Autocomplete(addressInput, options);
-          autocompleteRef.current = autocomplete;
-          
-          autocomplete.addListener('place_changed', () => {
-            const place = autocomplete.getPlace();
-            
-            if (!place.geometry || !place.geometry.location) {
-              console.log('No details available for the place');
-              return;
-            }
-            
-            // Update map and marker
-            mapInstance.setCenter(place.geometry.location);
-            marker.setPosition(place.geometry.location);
-            
-            // Update form data
-            setFormData(prev => ({
-              ...prev,
-              address: place.formatted_address,
-              latitude: place.geometry.location.lat(),
-              longitude: place.geometry.location.lng()
-            }));
-          });
+        if (!place.geometry) return;
+        
+        // Center map on selected place
+        if (place.geometry.viewport) {
+          map.fitBounds(place.geometry.viewport);
+        } else {
+          map.setCenter(place.geometry.location);
+          map.setZoom(17);
         }
-      }
-    } catch (error) {
-      console.error('Error initializing map:', error);
-    }
-  };
-
-  // Load Google Maps when component mounts
-  useEffect(() => {
+        
+        // Update marker position
+        marker.setPosition(place.geometry.location);
+        
+        // Update form data
+        const addressData = extractAddressData(place);
+        
+        setFormData(prevData => ({
+          ...prevData,
+          address: place.formatted_address,
+          city: addressData.city || prevData.city,
+          pincode: addressData.pincode || prevData.pincode,
+          latitude: place.geometry.location.lat().toString(),
+          longitude: place.geometry.location.lng().toString()
+        }));
+      });
+      
+      // Add current location button
+      const locationButton = document.createElement('button');
+      locationButton.innerHTML = '<img src="https://maps.google.com/mapfiles/ms/icons/blue-dot.png" style="width:20px;height:20px;" alt="My Location" />';
+      locationButton.style.marginLeft = '10px';
+      locationButton.style.padding = '8px';
+      locationButton.style.background = 'white';
+      locationButton.style.borderRadius = '4px';
+      locationButton.style.border = '1px solid #ccc';
+      locationButton.style.boxShadow = '0 2px 6px rgba(0, 0, 0, 0.3)';
+      locationButton.style.cursor = 'pointer';
+      locationButton.title = 'Use my current location';
+      
+      // Add click handler for locationButton
+      locationButton.addEventListener('click', handleGetCurrentLocation);
+      
+      // Add location button next to search
+      const searchBoxWrapper = document.createElement('div');
+      searchBoxWrapper.style.display = 'flex';
+      searchBoxWrapper.style.alignItems = 'center';
+      searchBoxWrapper.appendChild(input);
+      searchBoxWrapper.appendChild(locationButton);
+      
+      map.controls[window.google.maps.ControlPosition.TOP_CENTER].push(searchBoxWrapper);
+    };
+    
+    // Update location from map marker position
+    const updateLocationFromPosition = (position) => {
+      // Update latitude/longitude in form
+      setFormData(prevData => ({
+        ...prevData,
+        latitude: position.lat().toString(),
+        longitude: position.lng().toString()
+      }));
+      
+      // Reverse geocode to get address
+      const geocoder = new window.google.maps.Geocoder();
+      geocoder.geocode({ location: position }, (results, status) => {
+        if (status === 'OK' && results[0]) {
+          const addressData = extractAddressData(results[0]);
+          
+          setFormData(prevData => ({
+            ...prevData,
+            address: results[0].formatted_address,
+            city: addressData.city || prevData.city,
+            pincode: addressData.pincode || prevData.pincode
+          }));
+        }
+      });
+    };
+    
+    // Load the map
     loadGoogleMapsScript();
     
-    // Clean up function
+    // Cleanup function
     return () => {
-      // Don't remove the script, just remove event listeners
-      const script = document.getElementById(mapScriptId);
-      if (script && script.loadHandler) {
-        script.removeEventListener('load', script.loadHandler);
+      if (marker && window.google && window.google.maps) {
+        window.google.maps.event.clearInstanceListeners(marker);
+        marker.setMap(null);
       }
       
-      // Clean up any Google Maps listeners
-      if (markerRef.current && window.google && window.google.maps) {
-        window.google.maps.event.clearInstanceListeners(markerRef.current);
-      }
-      
-      if (autocompleteRef.current && window.google && window.google.maps) {
-        window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
+      if (autocomplete && window.google && window.google.maps) {
+        window.google.maps.event.clearInstanceListeners(autocomplete);
       }
     };
-  }, []);
+  }, [formStep]);
 
-  // Updated current location handler
+  // Handle getting current location
   const handleGetCurrentLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const lat = position.coords.latitude;
-          const lng = position.coords.longitude;
-          
-          // Update map and marker if loaded
-          if (mapLoaded && markerRef.current) {
-            const location = new window.google.maps.LatLng(lat, lng);
-            markerRef.current.setPosition(location);
-            const map = markerRef.current.getMap();
-            map.setCenter(location);
-            map.setZoom(17); // Zoom in when using current location
-            
-            // Update form data based on the marker position
-            const geocoder = new window.google.maps.Geocoder();
-            geocoder.geocode({ location }, (results, status) => {
-              if (status === 'OK' && results[0]) {
-                // Set the complete form data at once to avoid multiple re-renders
-                const addressData = extractAddressData(results[0]);
-                
-                setFormData(prevData => ({
-                  ...prevData,
-                  address: results[0].formatted_address,
-                  city: addressData.city || prevData.city,
-                  pincode: addressData.pincode || prevData.pincode,
-                  latitude: lat.toString(),
-                  longitude: lng.toString()
-                }));
-              }
-            });
-          } else {
-            // Just update coordinates if map is not loaded yet
-            setFormData(prevData => ({
-              ...prevData,
-              latitude: lat.toString(),
-              longitude: lng.toString()
-            }));
-          }
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-          alert('Unable to get your current location. Please enter it manually.');
-        },
-        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-      );
-    } else {
+    if (!navigator.geolocation) {
       alert('Geolocation is not supported by your browser. Please enter your location manually.');
+      return;
     }
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        
+        // Update map and marker
+        if (markerRef.current && window.google && window.google.maps) {
+          const location = new window.google.maps.LatLng(lat, lng);
+          const marker = markerRef.current;
+          marker.setPosition(location);
+          
+          const map = marker.getMap();
+          map.setCenter(location);
+          map.setZoom(17);
+          
+          // Reverse geocode to get address
+          const geocoder = new window.google.maps.Geocoder();
+          geocoder.geocode({ location }, (results, status) => {
+            if (status === 'OK' && results[0]) {
+              const addressComponents = results[0].address_components;
+              let city = '';
+              let pincode = '';
+              
+              for (const component of addressComponents) {
+                if (component.types.includes('locality') || component.types.includes('administrative_area_level_2')) {
+                  city = component.long_name;
+                }
+                
+                if (component.types.includes('postal_code')) {
+                  pincode = component.long_name;
+                }
+              }
+              
+              setFormData(prevData => ({
+                ...prevData,
+                address: results[0].formatted_address,
+                city: city || prevData.city,
+                pincode: pincode || prevData.pincode,
+                latitude: lat.toString(),
+                longitude: lng.toString()
+              }));
+            }
+          });
+        }
+      },
+      (error) => {
+        console.error('Error getting location:', error);
+        alert('Unable to get your current location. Please enter it manually.');
+      },
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+    );
   };
 
   const handleInputChange = (e) => {
@@ -372,32 +389,6 @@ const PetBoardingRegistration = () => {
     });
   };
 
-  const handleCheckboxChange = (category, item) => {
-    setFormData({
-      ...formData,
-      [category]: {
-        ...formData[category],
-        [item]: !formData[category][item]
-      }
-    });
-  };
-
-  const handleMultiSelectChange = (item) => {
-    const updatedSizes = [...formData.petSizeLimit];
-    
-    if (updatedSizes.includes(item)) {
-      const index = updatedSizes.indexOf(item);
-      updatedSizes.splice(index, 1);
-    } else {
-      updatedSizes.push(item);
-    }
-    
-    setFormData({
-      ...formData,
-      petSizeLimit: updatedSizes
-    });
-  };
-
   const handleFileChange = (e, field) => {
     const file = e.target.files[0];
     if (file) {
@@ -405,19 +396,6 @@ const PetBoardingRegistration = () => {
         ...formData,
         [field]: file,
         [`${field}URL`]: URL.createObjectURL(file)
-      });
-    }
-  };
-
-  const handleGalleryImages = (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length > 0) {
-      const newImageURLs = files.map(file => URL.createObjectURL(file));
-      
-      setFormData({
-        ...formData,
-        galleryImages: [...formData.galleryImages, ...files],
-        galleryImageURLs: [...formData.galleryImageURLs, ...newImageURLs]
       });
     }
   };
@@ -437,16 +415,10 @@ const PetBoardingRegistration = () => {
     setSubmitting(true);
     
     try {
-      // Upload image files and get URLs here
-      // For demo, we'll skip the actual uploading
-      
-      // Add document to Firestore
+      // Add document to Firestore (simplified)
       const docRef = await addDoc(collection(db, 'petBoardingCenters'), {
         ...formData,
         createdAt: serverTimestamp(),
-        profilePictureURL: "https://example.com/placeholder.jpg", // Replace with actual upload
-        idProofURL: "https://example.com/placeholder.jpg", // Replace with actual upload
-        galleryImageURLs: ["https://example.com/placeholder1.jpg", "https://example.com/placeholder2.jpg"], // Replace with actual uploads
       });
       
       console.log("Document written with ID: ", docRef.id);
@@ -621,7 +593,6 @@ const PetBoardingRegistration = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">Full Address*</label>
               <div className="relative">
                 <textarea
-                  id="boardingAddress"
                   name="address"
                   required
                   value={formData.address}
@@ -629,7 +600,6 @@ const PetBoardingRegistration = () => {
                   rows="3"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
                   placeholder="Your address will update automatically when you select a location on the map"
-                  readOnly
                 ></textarea>
                 <div className="mt-1 text-sm text-gray-500">
                   Use the map below to select your location or search for an address
@@ -647,44 +617,14 @@ const PetBoardingRegistration = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <span className="text-sm text-gray-600">
-                  You can search for a location, use your current location, or drag the marker to set the exact spot
+                  Search for a location, use your current location, or drag the marker to set the exact spot
                 </span>
               </div>
-              
-              {geolocationError ? (
-                <div className="bg-red-50 p-6 rounded-md text-center">
-                  <div className="text-red-600 text-sm mb-3">{geolocationError}</div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setGeolocationError(null);
-                      loadMap(true).then(() => {
-                        console.log("Retrying map initialization");
-                      });
-                    }}
-                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-                  >
-                    <svg className="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    Retry Loading Map
-                  </button>
-                </div>
-              ) : (
-                <div 
-                  ref={mapContainerRef} 
-                  className="w-full h-80 rounded-md border border-gray-300 bg-gray-100 shadow-inner"
-                  style={{ minHeight: '300px' }}
-                >
-                  {!mapLoaded && (
-                    <div className="w-full h-full flex flex-col items-center justify-center">
-                      <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent mb-4"></div>
-                      <span className="text-gray-600 text-center">Loading map...</span>
-                      <span className="text-gray-500 text-sm mt-2">This may take a few moments</span>
-                    </div>
-                  )}
-                </div>
-              )}
+              <div 
+                ref={mapRef} 
+                className="w-full h-80 rounded-md border border-gray-300 bg-gray-100 shadow-inner"
+                style={{ minHeight: '300px' }}
+              ></div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
@@ -722,7 +662,6 @@ const PetBoardingRegistration = () => {
                   value={formData.latitude}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary bg-gray-50"
-                  placeholder="Auto-fetched"
                   readOnly
                 />
               </div>
@@ -734,7 +673,6 @@ const PetBoardingRegistration = () => {
                   value={formData.longitude}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary bg-gray-50"
-                  placeholder="Auto-fetched"
                   readOnly
                 />
               </div>
@@ -759,9 +697,7 @@ const PetBoardingRegistration = () => {
           </div>
         )}
         
-        {/* Additional steps will be implemented in the other files */}
-        
-        {/* This is just a placeholder for testing navigation */}
+        {/* Placeholder for other steps */}
         {formStep > 2 && (
           <div className="space-y-6">
             <h3 className="text-xl font-semibold text-gray-800">
@@ -770,7 +706,7 @@ const PetBoardingRegistration = () => {
               {formStep === 5 && "📸 Gallery & Final Details"}
             </h3>
             
-            <p className="text-gray-600">This step will be implemented in separate files.</p>
+            <p className="text-gray-600">This step will be implemented later.</p>
             
             <div className="flex justify-between mt-8">
               <button

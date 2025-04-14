@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../firebase/config.js';
 import useGoogleMaps from '../../utils/useGoogleMaps';
@@ -17,12 +17,10 @@ const PetBoardingSearch = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedCenter, setSelectedCenter] = useState(null);
-  const [showModal, setShowModal] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const detailMapRef = useRef(null);
   const mapContainerRef = useRef(null);
-  const mapInstanceRef = useRef(null);
-  const markerRef = useRef(null);
-  const mapScriptId = 'google-maps-script';
   
   // Use our custom hook for Google Maps
   const { isLoaded, loadMap } = useGoogleMaps();
@@ -118,130 +116,218 @@ const PetBoardingSearch = () => {
     setSelectedCenter(center);
   };
   
-  const handleViewDetails = (center) => {
-    // For now just select the center, but this could navigate to a details page
+  const viewCenterDetails = (center) => {
+    console.log('Viewing details for:', center.centerName);
     setSelectedCenter(center);
+    setShowModal(true);
+    
+    // Use a timeout to ensure the modal is displayed before initializing the map
+    if (isLoaded) {
+      setTimeout(() => {
+        initializeDetailMap(center);
+      }, 500);
+    }
   };
   
   const closeDetails = () => {
     setSelectedCenter(null);
+    setShowModal(false);
   };
+
+  // Update the useEffect to trigger map loading when modal is shown
+  useEffect(() => {
+    if (selectedCenter && showModal) {
+      console.log("Modal is shown, initializing map");
+      // Wait for modal to be fully rendered
+      setTimeout(() => {
+        initializeDetailMap();
+      }, 300);
+    }
+  }, [selectedCenter, showModal]);
 
   const initializeDetailMap = () => {
-    if (!selectedCenter || !selectedCenter.latitude || !selectedCenter.longitude) {
-      console.log('No center selected or missing location data');
+    if (!selectedCenter || !mapContainerRef.current) {
+      console.error("Missing selectedCenter or mapContainerRef");
       return;
     }
 
-    console.log('Initializing detail map for:', selectedCenter.centerName);
-    console.log('Location data:', selectedCenter.latitude, selectedCenter.longitude);
+    console.log("Initializing detail map", selectedCenter);
     
-    const mapContainer = document.getElementById('detailMapContainer');
-    if (!mapContainer) {
-      console.log('Map container element not found');
-      return;
-    }
-    
-    try {
-      const center = { 
-        lat: parseFloat(selectedCenter.latitude), 
-        lng: parseFloat(selectedCenter.longitude) 
-      };
-      
-      console.log('Map center:', center);
-      
-      const mapOptions = {
-        center: center,
-        zoom: 15,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: false,
-      };
-      
-      // Create a new map and save it to the ref
-      const map = new window.google.maps.Map(mapContainer, mapOptions);
-      mapObjectsRef.current.map = map;
-      
-      // Add a marker for the boarding center
-      const marker = new window.google.maps.Marker({
-        position: center,
-        map: map,
-        title: selectedCenter.centerName,
-        animation: window.google.maps.Animation.DROP
+    // Make sure container has dimensions
+    const container = mapContainerRef.current;
+    container.style.width = '100%';
+    container.style.height = '300px';
+
+    // Ensure Google Maps is loaded
+    if (!window.google || !window.google.maps) {
+      console.log("Google Maps not loaded yet, trying to load");
+      loadMap().then(() => {
+        // Retry after Google Maps loads
+        setTimeout(initializeDetailMap, 300);
       });
-      
-      mapObjectsRef.current.marker = marker;
-      
-      console.log('Map and marker created successfully');
-    } catch (error) {
-      console.error('Error initializing map:', error);
+      return;
     }
-  };
 
-  const loadDetailMap = useCallback(() => {
-    if (!selectedCenter) return;
+    // Get coordinates
+    // Check both location object and direct lat/lng fields for backward compatibility
+    const lat = selectedCenter.location?.latitude || selectedCenter.latitude || 0;
+    const lng = selectedCenter.location?.longitude || selectedCenter.longitude || 0;
     
-    const mapScriptId = 'google-maps-script';
-    const existingScript = document.getElementById(mapScriptId);
-    
-    const handleScriptLoad = () => {
-      initializeDetailMap();
-      setMapLoaded(true);
+    const position = {
+      lat: parseFloat(lat),
+      lng: parseFloat(lng)
     };
 
-    if (existingScript) {
-      // Script already exists, add a load event listener
+    console.log("Center coordinates:", position);
+
+    // Clear any previous map instances
+    if (mapObjectsRef.current.map) {
+      console.log('Clearing existing map instance');
       if (window.google && window.google.maps) {
-        // Maps API already loaded
-        initializeDetailMap();
-        setMapLoaded(true);
-      } else {
-        // API script is there but not loaded yet
-        existingScript.addEventListener('load', handleScriptLoad);
-      }
-    } else {
-      // No script exists, create and append it
-      const script = document.createElement('script');
-      script.id = mapScriptId;
-      script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyDs_HDyac8lBXdLnAa8zbDjwf1v-2bFjpI&libraries=places`;
-      script.async = true;
-      script.defer = true;
-      
-      script.addEventListener('load', handleScriptLoad);
-      document.head.appendChild(script);
-    }
-    
-    // Cleanup function
-    return () => {
-      const script = document.getElementById(mapScriptId);
-      if (script) {
-        script.removeEventListener('load', handleScriptLoad);
-      }
-      
-      // Clear any map listeners if map exists
-      if (window.google && mapObjectsRef.current.map) {
         window.google.maps.event.clearInstanceListeners(mapObjectsRef.current.map);
       }
-    };
-  }, [selectedCenter]);
+      mapObjectsRef.current.map = null;
+      mapObjectsRef.current.marker = null;
+      mapObjectsRef.current.infoWindow = null;
+    }
 
-  // Function to view center details
-  const viewCenterDetails = (center) => {
-    setSelectedCenter(center);
-    setShowModal(true);
+    // Map options
+    const mapOptions = {
+      center: position,
+      zoom: 15,
+      mapTypeControl: true,
+      fullscreenControl: true,
+      streetViewControl: true,
+      zoomControl: true,
+    };
+
+    // Create map
+    const map = new window.google.maps.Map(container, mapOptions);
+    
+    // Add marker
+    const marker = new window.google.maps.Marker({
+      position: position,
+      map: map,
+      title: selectedCenter.centerName,
+      animation: window.google.maps.Animation.DROP
+    });
+
+    // Add info window
+    const infoWindow = new window.google.maps.InfoWindow({
+      content: `
+        <div style="max-width: 200px">
+          <h3 style="font-weight: bold; margin-bottom: 5px">${selectedCenter.centerName}</h3>
+          <p>${selectedCenter.address}</p>
+          <p>₹${selectedCenter.perDayCharge}/day</p>
+        </div>
+      `
+    });
+
+    marker.addListener('click', () => {
+      infoWindow.open(map, marker);
+    });
+    
+    // Open info window by default
+    infoWindow.open(map, marker);
+
+    // Store map objects for cleanup
+    mapObjectsRef.current = { map, marker, infoWindow };
+
+    // Trigger a resize event to ensure the map displays correctly
+    setTimeout(() => {
+      window.google.maps.event.trigger(map, 'resize');
+      map.setCenter(position);
+    }, 100);
+    
+    setMapLoaded(true);
   };
 
-  // Load map when selected center changes and modal is shown
+  // Update the useEffect for map loading
   useEffect(() => {
-    let cleanup = null;
-    if (selectedCenter && showModal) {
-      cleanup = loadDetailMap();
+    if (selectedCenter) {
+      setMapLoaded(false);
+      loadDetailMap();
     }
     
+    // Enhanced cleanup function
     return () => {
-      if (cleanup) cleanup();
+      // 1. Close info window if open (prevents race conditions)
+      if (mapObjectsRef.current.infoWindow) {
+        try {
+          mapObjectsRef.current.infoWindow.close();
+        } catch (err) {
+          console.warn('Error closing info window:', err);
+        }
+      }
+      
+      // 2. Clear event listeners on map objects
+      ['marker', 'infoWindow', 'map'].forEach(objectKey => {
+        const mapObject = mapObjectsRef.current[objectKey];
+        if (mapObject && window.google && window.google.maps) {
+          try {
+            window.google.maps.event.clearInstanceListeners(mapObject);
+          } catch (err) {
+            console.warn(`Error clearing listeners for ${objectKey}:`, err);
+          }
+        }
+      });
+      
+      // 3. Clean up any saved event listeners
+      if (cleanupInfo && cleanupInfo.listeners) {
+        cleanupInfo.listeners.forEach(({ target, type, listener }) => {
+          try {
+            if (target && typeof target.removeListener === 'function') {
+              target.removeListener(type, listener);
+            } else if (target && typeof target.removeEventListener === 'function') {
+              target.removeEventListener(type, listener);
+            }
+          } catch (err) {
+            console.warn(`Error removing event listener ${type}:`, err);
+          }
+        });
+      }
+      
+      // 4. Clean up any created DOM elements
+      if (cleanupInfo && cleanupInfo.elements) {
+        cleanupInfo.elements.forEach(element => {
+          try {
+            if (element && element.parentNode) {
+              element.parentNode.removeChild(element);
+            }
+          } catch (err) {
+            console.warn('Error removing created DOM element:', err);
+          }
+        });
+      }
+      
+      // 5. Remove marker from map
+      if (mapObjectsRef.current.marker && mapObjectsRef.current.marker.setMap) {
+        try {
+          mapObjectsRef.current.marker.setMap(null);
+        } catch (err) {
+          console.warn('Error removing marker from map:', err);
+        }
+      }
+      
+      // 6. Reset references and state
+      mapObjectsRef.current = { marker: null, infoWindow: null, map: null };
+      setCleanupInfo({ elements: [], listeners: [] });
     };
-  }, [selectedCenter, showModal, loadDetailMap]);
+  }, [selectedCenter, isLoaded, cleanupInfo]);
+
+  // Define loadDetailMap function
+  const loadDetailMap = () => {
+    if (!selectedCenter || !selectedCenter.latitude || !selectedCenter.longitude) return;
+     
+    // If Google Maps is already loaded, initialize map, otherwise load it first
+    if (isLoaded) {
+      initializeDetailMap();
+    } else {
+      loadMap().then(() => {
+        initializeDetailMap();
+      });
+    }
+  };
 
   if (loading) {
     return (
@@ -401,125 +487,210 @@ const PetBoardingSearch = () => {
         )}
       </div>
       
-      {/* Detail Modal */}
-      {showModal && selectedCenter && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg w-full max-w-4xl max-h-90vh overflow-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <h2 className="text-2xl font-bold text-indigo-700">{selectedCenter.centerName}</h2>
-                <button 
-                  onClick={() => setShowModal(false)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+      {/* Center Details Modal */}
+      {selectedCenter && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="relative">
+              {/* Close button */}
+              <button
+                onClick={closeDetails}
+                className="absolute right-4 top-4 bg-white rounded-full p-2 shadow-md z-10"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              
+              {/* Header with image */}
+              <div className="h-64 bg-gray-200 relative">
+                {selectedCenter.galleryImageURLs && selectedCenter.galleryImageURLs.length > 0 ? (
+                  <img 
+                    src={selectedCenter.galleryImageURLs[0]} 
+                    alt={selectedCenter.centerName} 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                    <span className="text-gray-500">No image available</span>
+                  </div>
+                )}
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Center Details */}
-                <div>
-                  <div className="mb-4">
-                    <h3 className="text-lg font-semibold mb-2 text-indigo-600">Location</h3>
-                    <p className="text-gray-700 mb-1">{selectedCenter.address}</p>
-                    <p className="text-gray-700">
-                      <a 
-                        href={`https://www.google.com/maps/dir/?api=1&destination=${selectedCenter.latitude},${selectedCenter.longitude}`} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-indigo-600 hover:underline flex items-center"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                        </svg>
-                        Get Directions
-                      </a>
-                    </p>
+              {/* Content */}
+              <div className="p-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">{selectedCenter.centerName}</h2>
+                    <p className="text-gray-600">{selectedCenter.address}, {selectedCenter.city}, {selectedCenter.pincode}</p>
                   </div>
-                  
-                  <div className="mb-4">
-                    <h3 className="text-lg font-semibold mb-2 text-indigo-600">Contact</h3>
-                    <p className="text-gray-700 mb-1">Phone: {selectedCenter.phoneNumber}</p>
-                    <p className="text-gray-700">Email: {selectedCenter.email}</p>
-                  </div>
-                  
-                  <div className="mb-4">
-                    <h3 className="text-lg font-semibold mb-2 text-indigo-600">Hours</h3>
-                    <div className="grid grid-cols-2 gap-1">
-                      {selectedCenter.operatingDays && Object.entries(selectedCenter.operatingDays).map(([day, isOpen]) => (
-                        <p key={day} className="text-gray-700 flex justify-between">
-                          <span className="capitalize">{day}:</span>
-                          <span className={isOpen ? "text-green-600" : "text-red-500"}>
-                            {isOpen ? 
-                             `${selectedCenter.openingTime || '9:00'} - ${selectedCenter.closingTime || '18:00'}` : 
-                             'Closed'}
-                          </span>
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  <div className="mb-4">
-                    <h3 className="text-lg font-semibold mb-2 text-indigo-600">Pet Details</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedCenter.petTypesAccepted && Object.entries(selectedCenter.petTypesAccepted)
-                        .filter(([_, accepted]) => accepted)
-                        .map(([type]) => (
-                          <span key={type} className="bg-indigo-100 text-indigo-800 py-1 px-3 rounded-full text-sm capitalize">
-                            {type}
-                          </span>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  <div className="mb-4">
-                    <h3 className="text-lg font-semibold mb-2 text-indigo-600">Services</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedCenter.servicesOffered && Object.entries(selectedCenter.servicesOffered)
-                        .filter(([_, offered]) => offered)
-                        .map(([service]) => (
-                          <span key={service} className="bg-green-100 text-green-800 py-1 px-3 rounded-full text-sm capitalize">
-                            {service === 'vetAssistance' ? 'Vet Assistance' : 
-                             service === 'liveUpdates' ? 'Live Updates' : 
-                             service === 'playArea' ? 'Play Area' : service}
-                          </span>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  <div className="mt-6">
-                    <h3 className="text-lg font-semibold mb-2 text-indigo-600">Charge</h3>
-                    <p className="text-xl font-bold text-indigo-700">₹{selectedCenter.perDayCharge} <span className="text-sm font-normal text-gray-600">per day</span></p>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-primary">₹{selectedCenter.perDayCharge}</p>
+                    <p className="text-sm text-gray-600">per day</p>
                   </div>
                 </div>
                 
-                {/* Map Section */}
-                <div>
+                <hr className="my-6" />
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-3">Contact Information</h3>
+                    <ul className="space-y-2 text-gray-600">
+                      <li className="flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        {selectedCenter.ownerName}
+                      </li>
+                      <li className="flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                        </svg>
+                        {selectedCenter.phoneNumber}
+                      </li>
+                      <li className="flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        {selectedCenter.email}
+                      </li>
+                      {selectedCenter.website && (
+                        <li className="flex items-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                          </svg>
+                          <a href={selectedCenter.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                            {selectedCenter.website}
+                          </a>
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-3">Operating Hours</h3>
+                    <ul className="space-y-1 text-gray-600">
+                      {selectedCenter.operatingDays && Object.entries(selectedCenter.operatingDays).map(([day, isOpen]) => (
+                        <li key={day} className="flex justify-between">
+                          <span className="capitalize">{day}</span>
+                          {isOpen ? (
+                            <span>{selectedCenter.openingTime} - {selectedCenter.closingTime}</span>
+                          ) : (
+                            <span className="text-red-500">Closed</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+                
+                {/* Map section */}
+                <div className="mt-6">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-3">Location</h3>
                   <div 
-                    id="detailMapContainer"
-                    ref={mapContainerRef}
-                    className="w-full h-96 rounded-lg shadow-md mb-4 relative bg-gray-100"
+                    ref={detailMapRef} 
+                    className="w-full h-64 rounded-md border border-gray-300 bg-gray-100 mb-4"
                   >
                     {!mapLoaded && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75">
-                        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-indigo-600 border-r-transparent"></div>
+                      <div className="w-full h-full flex items-center justify-center">
+                        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
                         <span className="ml-2 text-gray-600">Loading map...</span>
                       </div>
                     )}
                   </div>
-                  
-                  <div className="mt-4">
-                    <button
-                      onClick={() => {
-                        window.open(`tel:${selectedCenter.phoneNumber}`);
-                      }}
-                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-md font-medium transition duration-300"
-                    >
-                      Call Center
-                    </button>
+                  <p className="text-sm text-gray-600">
+                    <strong>Address:</strong> {selectedCenter.address}, {selectedCenter.city}, {selectedCenter.pincode}
+                  </p>
+                  {selectedCenter.latitude && selectedCenter.longitude && (
+                    <p className="text-sm text-gray-600">
+                      <a 
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${selectedCenter.latitude},${selectedCenter.longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        Get Directions
+                      </a>
+                    </p>
+                  )}
+                </div>
+                
+                <hr className="my-6" />
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-3">Pet Details</h3>
+                    <ul className="space-y-2 text-gray-600">
+                      <li className="flex items-start">
+                        <span className="text-gray-700 font-medium mr-2">Accepts:</span>
+                        <div className="flex flex-wrap gap-1">
+                          {selectedCenter.petTypesAccepted && Object.entries(selectedCenter.petTypesAccepted)
+                            .filter(([_, value]) => value)
+                            .map(([petType]) => (
+                              <span 
+                                key={petType} 
+                                className="px-2 py-1 bg-primary-light text-primary text-xs rounded-full"
+                              >
+                                {petType.charAt(0).toUpperCase() + petType.slice(1)}
+                              </span>
+                            ))
+                          }
+                        </div>
+                      </li>
+                      <li>
+                        <span className="text-gray-700 font-medium">Size Limit:</span>{' '}
+                        {selectedCenter.petSizeLimit && selectedCenter.petSizeLimit.length > 0 
+                          ? selectedCenter.petSizeLimit.map(size => size.charAt(0).toUpperCase() + size.slice(1)).join(', ')
+                          : 'No limit'
+                        }
+                      </li>
+                      <li>
+                        <span className="text-gray-700 font-medium">Max Capacity:</span> {selectedCenter.capacity || 'Not specified'}
+                      </li>
+                      {selectedCenter.petAgeLimit && (
+                        <li>
+                          <span className="text-gray-700 font-medium">Age Limit:</span> {selectedCenter.petAgeLimit}
+                        </li>
+                      )}
+                    </ul>
                   </div>
+                  
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-3">Services Offered</h3>
+                    <ul className="space-y-1 text-gray-600">
+                      {selectedCenter.servicesOffered && Object.entries(selectedCenter.servicesOffered).map(([service, isOffered]) => (
+                        isOffered && (
+                          <li key={service} className="flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span className="capitalize">
+                              {service === 'boarding' && 'Boarding'}
+                              {service === 'food' && 'Food Included'}
+                              {service === 'playArea' && 'Play Area / Walks'}
+                              {service === 'grooming' && 'Grooming'}
+                              {service === 'vetAssistance' && 'Veterinary Assistance'}
+                              {service === 'liveUpdates' && 'Live Updates / CCTV Access'}
+                            </span>
+                          </li>
+                        )
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+                
+                <div className="mt-8 flex justify-end">
+                  <button
+                    onClick={closeDetails}
+                    className="mr-3 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                  >
+                    Close
+                  </button>
+                  <button
+                    className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
+                  >
+                    Contact Center
+                  </button>
                 </div>
               </div>
             </div>

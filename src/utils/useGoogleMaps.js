@@ -1,6 +1,6 @@
 // useGoogleMaps.js - Custom React hook for Google Maps integration
-import { useState, useEffect, useCallback } from 'react';
-import { loadGoogleMapsScript, cleanupEventListeners, isGoogleMapsLoaded } from './mapLoader';
+import { useState, useEffect } from 'react';
+import { loadGoogleMapsScript, cleanupEventListeners } from './mapLoader';
 
 /**
  * A custom React hook to handle Google Maps loading and initialization
@@ -10,37 +10,20 @@ import { loadGoogleMapsScript, cleanupEventListeners, isGoogleMapsLoaded } from 
  * @returns {Object} Map state and loading functions
  */
 const useGoogleMaps = (libraries = [], onMapLoad = null, loadOnMount = false) => {
-  const [isLoaded, setIsLoaded] = useState(isGoogleMapsLoaded());
+  const [isLoaded, setIsLoaded] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
   // Function to load Google Maps
-  const loadMap = useCallback(async (forceReload = false) => {
-    if ((isLoaded || isLoading) && !forceReload) return;
+  const loadMap = async () => {
+    if (isLoaded || isLoading) return;
     
     setIsLoading(true);
-    setLoadError(null);
     
     try {
-      // If forcing reload, try to clear any existing global references to Google Maps
-      if (forceReload && window.google) {
-        try {
-          // Try to remove the script element
-          const scriptElement = document.getElementById('google-maps-script');
-          if (scriptElement && scriptElement.parentNode) {
-            scriptElement.parentNode.removeChild(scriptElement);
-          }
-          
-          // Remove global references
-          delete window.google;
-          delete window.google_maps_callback;
-        } catch (error) {
-          console.warn('Error during forced Google Maps cleanup:', error);
-        }
-      }
-      
       await loadGoogleMapsScript(libraries);
       setIsLoaded(true);
+      setLoadError(null);
       
       if (onMapLoad && typeof onMapLoad === 'function') {
         onMapLoad();
@@ -51,7 +34,7 @@ const useGoogleMaps = (libraries = [], onMapLoad = null, loadOnMount = false) =>
     } finally {
       setIsLoading(false);
     }
-  }, [libraries, onMapLoad, isLoaded, isLoading]);
+  };
 
   // Load the map on mount if specified
   useEffect(() => {
@@ -63,7 +46,7 @@ const useGoogleMaps = (libraries = [], onMapLoad = null, loadOnMount = false) =>
     return () => {
       cleanupEventListeners();
     };
-  }, [loadOnMount, loadMap]);
+  }, [loadOnMount]);
 
   return {
     isLoaded,
