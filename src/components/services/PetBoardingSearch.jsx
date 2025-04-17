@@ -23,7 +23,12 @@ const PetBoardingSearch = () => {
   // Add user location state
   const [userLocation, setUserLocation] = useState(null);
   const [locationLoading, setLocationLoading] = useState(false);
-  const detailMapRef = useRef(null);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [centersPerPage] = useState(9); // Show 9 centers per page (3x3 grid)
+  
+  // Use the same ref for both
   const mapContainerRef = useRef(null);
   
   // Use our custom hook for Google Maps
@@ -537,6 +542,63 @@ const PetBoardingSearch = () => {
     };
   }, [selectedCenter, isLoaded, loadDetailMap]);
 
+  // Helper function to get current page centers for a specific distance range
+  const getCurrentPageCenters = (centers, page, itemsPerPage, distanceRange = null) => {
+    if (!centers.length) return [];
+    
+    let filteredByDistance = centers;
+    if (distanceRange) {
+      const { min, max } = distanceRange;
+      filteredByDistance = centers.filter(c => 
+        c.distance > min && (max === Infinity ? true : c.distance <= max)
+      );
+    }
+    
+    // Calculate pagination indexes
+    const indexOfLastCenter = page * itemsPerPage;
+    const indexOfFirstCenter = indexOfLastCenter - itemsPerPage;
+    
+    // Slice the array for current page
+    return filteredByDistance.slice(indexOfFirstCenter, indexOfLastCenter);
+  };
+  
+  // Get total number of pages based on centers count
+  const getTotalPages = (centers, itemsPerPage, distanceRange = null) => {
+    if (!centers.length) return 0;
+    
+    let count = centers.length;
+    if (distanceRange) {
+      const { min, max } = distanceRange;
+      count = centers.filter(c => 
+        c.distance > min && (max === Infinity ? true : c.distance <= max)
+      ).length;
+    }
+    
+    return Math.ceil(count / itemsPerPage);
+  };
+  
+  // Change page
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+  
+  // Go to next page
+  const nextPage = (totalPages) => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+  
+  // Go to previous page
+  const prevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+  
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchParams, userLocation]);
+
   if (loading) {
     return (
       <div className="max-w-6xl mx-auto p-6">
@@ -666,70 +728,112 @@ const PetBoardingSearch = () => {
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredCenters
-                    .filter(center => center.distance <= 5)
-                    .map(center => (
-                      <div 
-                        key={center.id} 
-                        className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
-                      >
-                        <div className="h-48 bg-gray-300 relative">
-                          {center.galleryImageURLs && center.galleryImageURLs.length > 0 ? (
-                            <img 
-                              src={center.galleryImageURLs[0]} 
-                              alt={center.centerName} 
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                              <span className="text-gray-500">No image available</span>
-                            </div>
-                          )}
+                  {getCurrentPageCenters(
+                    filteredCenters.filter(center => center.distance <= 5),
+                    currentPage,
+                    centersPerPage
+                  ).map(center => (
+                    <div 
+                      key={center.id} 
+                      className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+                    >
+                      <div className="h-48 bg-gray-300 relative">
+                        {center.galleryImageURLs && center.galleryImageURLs.length > 0 ? (
+                          <img 
+                            src={center.galleryImageURLs[0]} 
+                            alt={center.centerName} 
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                            <span className="text-gray-500">No image available</span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="p-4">
+                        <h4 className="text-lg font-semibold text-gray-900 mb-2">{center.centerName}</h4>
+                        <p className="text-gray-600 text-sm mb-2">{center.city}, {center.pincode}</p>
+                        
+                        {/* Display distance if available */}
+                        {center.distance !== undefined && (
+                          <p className="text-sm text-blue-600 mb-2 flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            {center.distance.toFixed(1)} km away
+                          </p>
+                        )}
+                        
+                        <div className="flex items-center space-x-2 mb-3">
+                          <span className="text-sm text-gray-500">Accepts:</span>
+                          {center.petTypesAccepted && Object.entries(center.petTypesAccepted)
+                            .filter(([_, value]) => value)
+                            .map(([petType]) => (
+                              <span 
+                                key={petType} 
+                                className="px-2 py-1 bg-primary-light text-primary text-xs rounded-full"
+                              >
+                                {petType.charAt(0).toUpperCase() + petType.slice(1)}
+                              </span>
+                            ))
+                          }
                         </div>
                         
-                        <div className="p-4">
-                          <h4 className="text-lg font-semibold text-gray-900 mb-2">{center.centerName}</h4>
-                          <p className="text-gray-600 text-sm mb-2">{center.city}, {center.pincode}</p>
-                          
-                          {/* Display distance if available */}
-                          {center.distance !== undefined && (
-                            <p className="text-sm text-blue-600 mb-2 flex items-center">
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                              </svg>
-                              {center.distance.toFixed(1)} km away
-                            </p>
-                          )}
-                          
-                          <div className="flex items-center space-x-2 mb-3">
-                            <span className="text-sm text-gray-500">Accepts:</span>
-                            {center.petTypesAccepted && Object.entries(center.petTypesAccepted)
-                              .filter(([_, value]) => value)
-                              .map(([petType]) => (
-                                <span 
-                                  key={petType} 
-                                  className="px-2 py-1 bg-primary-light text-white text-xs rounded-full"
-                                >
-                                  {petType.charAt(0).toUpperCase() + petType.slice(1)}
-                                </span>
-                              ))
-                            }
-                          </div>
-                          
-                          <div className="flex justify-between items-center mt-4">
-                            <span className="font-semibold text-gray-900">₹{center.perDayCharge}/day</span>
-                            <button
-                              onClick={() => viewCenterDetails(center)}
-                              className="px-3 py-1 text-sm bg-primary text-white rounded hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary"
-                            >
-                              View Details
-                            </button>
-                          </div>
+                        <div className="flex justify-between items-center mt-4">
+                          <span className="font-semibold text-gray-900">₹{center.perDayCharge}/day</span>
+                          <button
+                            onClick={() => viewCenterDetails(center)}
+                            className="px-3 py-1 text-sm bg-primary text-white rounded hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary"
+                          >
+                            View Details
+                          </button>
                         </div>
                       </div>
-                    ))}
+                    </div>
+                  ))}
                 </div>
+                
+                {/* Pagination for 0-5 km group */}
+                {filteredCenters.filter(c => c.distance <= 5).length > centersPerPage && (
+                  <div className="mt-6 flex justify-center">
+                    <nav className="inline-flex rounded-md shadow-sm" aria-label="Pagination">
+                      <button
+                        onClick={() => prevPage()}
+                        disabled={currentPage === 1}
+                        className={`px-3 py-1 rounded-l-md border border-gray-300 bg-white text-sm font-medium
+                          ${currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-50'}`}
+                      >
+                        Previous
+                      </button>
+                      
+                      {[...Array(getTotalPages(filteredCenters.filter(c => c.distance <= 5), centersPerPage)).keys()].map(number => (
+                        <button
+                          key={number}
+                          onClick={() => paginate(number + 1)}
+                          className={`px-3 py-1 border border-gray-300 text-sm font-medium
+                            ${currentPage === number + 1 
+                              ? 'bg-primary text-white border-primary z-10' 
+                              : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                        >
+                          {number + 1}
+                        </button>
+                      ))}
+                      
+                      <button
+                        onClick={() => nextPage(getTotalPages(filteredCenters.filter(c => c.distance <= 5), centersPerPage))}
+                        disabled={currentPage === getTotalPages(filteredCenters.filter(c => c.distance <= 5), centersPerPage)}
+                        className={`px-3 py-1 rounded-r-md border border-gray-300 bg-white text-sm font-medium
+                          ${currentPage === getTotalPages(filteredCenters.filter(c => c.distance <= 5), centersPerPage) 
+                            ? 'text-gray-300 cursor-not-allowed' 
+                            : 'text-gray-700 hover:bg-gray-50'}`}
+                      >
+                        Next
+                      </button>
+                    </nav>
+                  </div>
+                )}
               </div>
             )}
             
@@ -989,58 +1093,111 @@ const PetBoardingSearch = () => {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredCenters.map(center => (
-                <div 
-                  key={center.id} 
-                  className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
-                >
-                  <div className="h-48 bg-gray-300 relative">
-                    {center.galleryImageURLs && center.galleryImageURLs.length > 0 ? (
-                      <img 
-                        src={center.galleryImageURLs[0]} 
-                        alt={center.centerName} 
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                        <span className="text-gray-500">No image available</span>
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {getCurrentPageCenters(filteredCenters, currentPage, centersPerPage).map(center => (
+                  <div 
+                    key={center.id} 
+                    className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+                  >
+                    <div className="h-48 bg-gray-300 relative">
+                      {center.galleryImageURLs && center.galleryImageURLs.length > 0 ? (
+                        <img 
+                          src={center.galleryImageURLs[0]} 
+                          alt={center.centerName} 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                          <span className="text-gray-500">No image available</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="p-4">
+                      <h4 className="text-lg font-semibold text-gray-900 mb-2">{center.centerName}</h4>
+                      <p className="text-gray-600 text-sm mb-2">{center.city}, {center.pincode}</p>
+                      
+                      {/* Display distance if available */}
+                      {center.distance !== undefined && (
+                        <p className="text-sm text-blue-600 mb-2 flex items-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          {center.distance.toFixed(1)} km away
+                        </p>
+                      )}
+                      
+                      <div className="flex items-center space-x-2 mb-3">
+                        <span className="text-sm text-gray-500">Accepts:</span>
+                        {center.petTypesAccepted && Object.entries(center.petTypesAccepted)
+                          .filter(([_, value]) => value)
+                          .map(([petType]) => (
+                            <span 
+                              key={petType} 
+                              className="px-2 py-1 bg-primary-light text-primary text-xs rounded-full"
+                            >
+                              {petType.charAt(0).toUpperCase() + petType.slice(1)}
+                            </span>
+                          ))
+                        }
                       </div>
-                    )}
-                  </div>
-                  
-                  <div className="p-4">
-                    <h4 className="text-lg font-semibold text-gray-900 mb-2">{center.centerName}</h4>
-                    <p className="text-gray-600 text-sm mb-2">{center.city}, {center.pincode}</p>
-                    
-                    <div className="flex items-center space-x-2 mb-3">
-                      <span className="text-sm text-gray-500">Accepts:</span>
-                      {center.petTypesAccepted && Object.entries(center.petTypesAccepted)
-                        .filter(([_, value]) => value)
-                        .map(([petType]) => (
-                          <span 
-                            key={petType} 
-                            className="px-2 py-1 bg-primary-light text-primary text-xs rounded-full"
-                          >
-                            {petType.charAt(0).toUpperCase() + petType.slice(1)}
-                          </span>
-                        ))
-                      }
+                      
+                      <div className="flex justify-between items-center mt-4">
+                        <span className="font-semibold text-gray-900">₹{center.perDayCharge}/day</span>
+                        <button
+                          onClick={() => viewCenterDetails(center)}
+                          className="px-3 py-1 text-sm bg-primary text-white rounded hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary"
+                        >
+                          View Details
+                        </button>
+                      </div>
                     </div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Pagination */}
+              {filteredCenters.length > centersPerPage && (
+                <div className="mt-6 flex justify-center">
+                  <nav className="inline-flex rounded-md shadow-sm" aria-label="Pagination">
+                    <button
+                      onClick={() => prevPage()}
+                      disabled={currentPage === 1}
+                      className={`px-3 py-1 rounded-l-md border border-gray-300 bg-white text-sm font-medium
+                        ${currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-50'}`}
+                    >
+                      Previous
+                    </button>
                     
-                    <div className="flex justify-between items-center mt-4">
-                      <span className="font-semibold text-gray-900">₹{center.perDayCharge}/day</span>
+                    {[...Array(getTotalPages(filteredCenters, centersPerPage)).keys()].map(number => (
                       <button
-                        onClick={() => viewCenterDetails(center)}
-                        className="px-3 py-1 text-sm bg-primary text-white rounded hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary"
+                        key={number}
+                        onClick={() => paginate(number + 1)}
+                        className={`px-3 py-1 border border-gray-300 text-sm font-medium
+                          ${currentPage === number + 1 
+                            ? 'bg-primary text-white border-primary z-10' 
+                            : 'bg-white text-gray-700 hover:bg-gray-50'}`}
                       >
-                        View Details
+                        {number + 1}
                       </button>
-                    </div>
-                  </div>
+                    ))}
+                    
+                    <button
+                      onClick={() => nextPage(getTotalPages(filteredCenters, centersPerPage))}
+                      disabled={currentPage === getTotalPages(filteredCenters, centersPerPage)}
+                      className={`px-3 py-1 rounded-r-md border border-gray-300 bg-white text-sm font-medium
+                        ${currentPage === getTotalPages(filteredCenters, centersPerPage) 
+                          ? 'text-gray-300 cursor-not-allowed' 
+                          : 'text-gray-700 hover:bg-gray-50'}`}
+                    >
+                      Next
+                    </button>
+                  </nav>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </div>
       )}
