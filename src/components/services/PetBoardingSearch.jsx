@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../firebase/config.js';
 import useGoogleMaps from '../../utils/useGoogleMaps';
@@ -10,6 +10,7 @@ const PetBoardingSearch = () => {
     petSize: '',
     dateFrom: '',
     dateTo: '',
+    radius: '10', // Add radius for distance filtering
   });
   
   const [boardingCenters, setBoardingCenters] = useState([]);
@@ -19,6 +20,9 @@ const PetBoardingSearch = () => {
   const [selectedCenter, setSelectedCenter] = useState(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  // Add user location state
+  const [userLocation, setUserLocation] = useState(null);
+  const [locationLoading, setLocationLoading] = useState(false);
   const detailMapRef = useRef(null);
   const mapContainerRef = useRef(null);
   
@@ -30,6 +34,135 @@ const PetBoardingSearch = () => {
   
   // Global reference to store map objects
   const mapObjectsRef = useRef({ marker: null, infoWindow: null, map: null });
+
+  // Function to calculate distance between two coordinates using the Haversine formula
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // Radius of the earth in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2); 
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+    const distance = R * c; // Distance in km
+    return distance;
+  };
+
+  // Function to filter centers by distance
+  const filterCentersByDistance = (centers, userLat, userLng, maxDistance) => {
+    if (!userLat || !userLng || !maxDistance) return centers;
+    
+    return centers.filter(center => {
+      const centerLat = parseFloat(center.latitude) || parseFloat(center.location?.latitude) || 0;
+      const centerLng = parseFloat(center.longitude) || parseFloat(center.location?.longitude) || 0;
+      
+      if (centerLat === 0 || centerLng === 0) return false;
+      
+      const distance = calculateDistance(userLat, userLng, centerLat, centerLng);
+      // Store the calculated distance in the center object
+      center.distance = distance;
+      return distance <= parseFloat(maxDistance);
+    });
+  };
+
+  // Ask for user location on component mount
+  useEffect(() => {
+    // Get user location immediately on component mount
+    getUserLocation();
+  }, []);
+  
+  // Get user location
+  const getUserLocation = () => {
+    if (!navigator.geolocation) {
+      console.log('Geolocation is not supported by your browser');
+      return;
+    }
+    
+    setLocationLoading(true);
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        console.log("Successfully got user location:", latitude, longitude);
+        setUserLocation({ latitude, longitude });
+        
+        // Reverse geocode to get address
+        if (window.google && window.google.maps) {
+          const geocoder = new window.google.maps.Geocoder();
+          geocoder.geocode({ location: { lat: latitude, lng: longitude } }, (results, status) => {
+            if (status === 'OK' && results[0]) {
+              // Extract city name from the address components
+              let cityName = '';
+              for (const component of results[0].address_components) {
+                if (component.types.includes('locality') || component.types.includes('administrative_area_level_2')) {
+                  cityName = component.long_name;
+                  break;
+                }
+              }
+              
+              // Update location with the city name instead of coordinates
+              setSearchParams(prev => ({ 
+                ...prev, 
+                location: cityName || results[0].formatted_address
+              }));
+              console.log("Location set to:", cityName || results[0].formatted_address);
+            }
+          });
+        } else {
+          // If Google Maps is not available, just use a generic label
+          setSearchParams(prev => ({ 
+            ...prev, 
+            location: `Current Location` 
+          }));
+        }
+        
+        // Process boarding centers if they're already loaded
+        if (boardingCenters.length > 0) {
+          processLocationBasedResults(latitude, longitude, boardingCenters);
+        }
+        
+        setLocationLoading(false);
+      },
+      (error) => {
+        console.error('Error getting location:', error);
+        setLocationLoading(false);
+        
+        // Don't show alert, just silently fail and let user search manually
+        if (error.code === 1) {
+          console.log("User denied geolocation permission");
+        } else {
+          console.log("Error getting location:", error.message);
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  };
+  
+  // Helper function to process centers based on location
+  const processLocationBasedResults = (latitude, longitude, centers) => {
+    console.log("Processing centers with location data");
+    const centersWithDistance = centers.map(center => {
+      const centerLat = parseFloat(center.latitude) || parseFloat(center.location?.latitude) || 0;
+      const centerLng = parseFloat(center.longitude) || parseFloat(center.location?.longitude) || 0;
+      
+      if (centerLat === 0 || centerLng === 0) {
+        center.distance = Infinity;
+      } else {
+        center.distance = calculateDistance(latitude, longitude, centerLat, centerLng);
+      }
+      return center;
+    });
+    
+    // Sort by distance
+    centersWithDistance.sort((a, b) => a.distance - b.distance);
+    
+    // Filter out centers with invalid coordinates
+    const filtered = centersWithDistance.filter(c => c.distance !== Infinity);
+    
+    console.log(`Found ${filtered.length} centers with valid coordinates`);
+    setFilteredCenters(filtered);
+  };
   
   useEffect(() => {
     const fetchBoardingCenters = async () => {
@@ -40,14 +173,22 @@ const PetBoardingSearch = () => {
           where('status', '==', 'approved')
         );
         
+        console.log("Fetching boarding centers");
         const snapshot = await getDocs(q);
         const centers = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         }));
         
+        console.log(`Found ${centers.length} approved boarding centers`);
         setBoardingCenters(centers);
-        setFilteredCenters(centers);
+        
+        // If user location is already available, filter and sort by distance
+        if (userLocation) {
+          processLocationBasedResults(userLocation.latitude, userLocation.longitude, centers);
+        } else {
+          setFilteredCenters(centers);
+        }
       } catch (err) {
         console.error('Error fetching boarding centers:', err);
         setError('Failed to load boarding centers. Please try again later.');
@@ -57,7 +198,7 @@ const PetBoardingSearch = () => {
     };
     
     fetchBoardingCenters();
-  }, []);
+  }, [userLocation?.latitude, userLocation?.longitude]);
   
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -70,13 +211,13 @@ const PetBoardingSearch = () => {
   const handleSearch = (e) => {
     e.preventDefault();
     
-    // Filter the centers based on search params
-    const filtered = boardingCenters.filter(center => {
+    // Base filtering (same as before)
+    let filtered = boardingCenters.filter(center => {
       // Location filter (city or pincode)
       const locationMatch = 
         !searchParams.location || 
-        center.city.toLowerCase().includes(searchParams.location.toLowerCase()) || 
-        center.pincode.includes(searchParams.location);
+        center.city?.toLowerCase().includes(searchParams.location.toLowerCase()) || 
+        center.pincode?.includes(searchParams.location);
       
       // Pet type filter
       const petTypeMatch = 
@@ -109,6 +250,18 @@ const PetBoardingSearch = () => {
       return locationMatch && petTypeMatch && petSizeMatch && dateMatch;
     });
     
+    // Apply distance filtering if user location is available
+    if (userLocation && searchParams.radius) {
+      filtered = filterCentersByDistance(
+        filtered,
+        userLocation.latitude,
+        userLocation.longitude,
+        parseFloat(searchParams.radius)
+      );
+      // Sort by distance
+      filtered.sort((a, b) => a.distance - b.distance);
+    }
+    
     setFilteredCenters(filtered);
   };
   
@@ -124,7 +277,7 @@ const PetBoardingSearch = () => {
     // Use a timeout to ensure the modal is displayed before initializing the map
     if (isLoaded) {
       setTimeout(() => {
-        initializeDetailMap(center);
+        initializeDetailMap();
       }, 500);
     }
   };
@@ -134,18 +287,7 @@ const PetBoardingSearch = () => {
     setShowModal(false);
   };
 
-  // Update the useEffect to trigger map loading when modal is shown
-  useEffect(() => {
-    if (selectedCenter && showModal) {
-      console.log("Modal is shown, initializing map");
-      // Wait for modal to be fully rendered
-      setTimeout(() => {
-        initializeDetailMap();
-      }, 300);
-    }
-  }, [selectedCenter, showModal]);
-
-  const initializeDetailMap = () => {
+  const initializeDetailMap = useCallback(() => {
     if (!selectedCenter || !mapContainerRef.current) {
       console.error("Missing selectedCenter or mapContainerRef");
       return;
@@ -168,17 +310,16 @@ const PetBoardingSearch = () => {
       return;
     }
 
-    // Get coordinates
-    // Check both location object and direct lat/lng fields for backward compatibility
-    const lat = selectedCenter.location?.latitude || selectedCenter.latitude || 0;
-    const lng = selectedCenter.location?.longitude || selectedCenter.longitude || 0;
+    // Get coordinates of boarding center
+    const centerLat = parseFloat(selectedCenter.latitude) || parseFloat(selectedCenter.location?.latitude) || 0;
+    const centerLng = parseFloat(selectedCenter.longitude) || parseFloat(selectedCenter.location?.longitude) || 0;
     
-    const position = {
-      lat: parseFloat(lat),
-      lng: parseFloat(lng)
+    const centerPosition = {
+      lat: centerLat,
+      lng: centerLng
     };
 
-    console.log("Center coordinates:", position);
+    console.log("Center coordinates:", centerPosition);
 
     // Clear any previous map instances
     if (mapObjectsRef.current.map) {
@@ -190,10 +331,14 @@ const PetBoardingSearch = () => {
       mapObjectsRef.current.marker = null;
       mapObjectsRef.current.infoWindow = null;
     }
+    
+    // Create LatLngBounds to include both user location and boarding center
+    const bounds = new window.google.maps.LatLngBounds();
+    bounds.extend(centerPosition);
 
     // Map options
     const mapOptions = {
-      center: position,
+      center: centerPosition,
       zoom: 15,
       mapTypeControl: true,
       fullscreenControl: true,
@@ -204,43 +349,118 @@ const PetBoardingSearch = () => {
     // Create map
     const map = new window.google.maps.Map(container, mapOptions);
     
-    // Add marker
-    const marker = new window.google.maps.Marker({
-      position: position,
+    // Add center marker with custom icon for boarding center
+    const centerMarker = new window.google.maps.Marker({
+      position: centerPosition,
       map: map,
       title: selectedCenter.centerName,
-      animation: window.google.maps.Animation.DROP
+      animation: window.google.maps.Animation.DROP,
+      icon: {
+        url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
+      }
     });
 
-    // Add info window
+    // Add info window for center
     const infoWindow = new window.google.maps.InfoWindow({
       content: `
         <div style="max-width: 200px">
           <h3 style="font-weight: bold; margin-bottom: 5px">${selectedCenter.centerName}</h3>
           <p>${selectedCenter.address}</p>
           <p>₹${selectedCenter.perDayCharge}/day</p>
+          ${selectedCenter.distance !== undefined ? `<p><strong>Distance:</strong> ${selectedCenter.distance.toFixed(1)} km</p>` : ''}
         </div>
       `
     });
 
-    marker.addListener('click', () => {
-      infoWindow.open(map, marker);
+    centerMarker.addListener('click', () => {
+      infoWindow.open(map, centerMarker);
     });
     
     // Open info window by default
-    infoWindow.open(map, marker);
+    infoWindow.open(map, centerMarker);
+    
+    // If user location is available, add a marker for it and draw a route
+    if (userLocation) {
+      const userLatLng = {
+        lat: userLocation.latitude,
+        lng: userLocation.longitude
+      };
+      
+      // Add user location to bounds
+      bounds.extend(userLatLng);
+      
+      // Add marker for user location
+      const userMarker = new window.google.maps.Marker({
+        position: userLatLng,
+        map: map,
+        title: 'Your Location',
+        icon: {
+          url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
+        }
+      });
+      
+      // Add info window for user location
+      const userInfoWindow = new window.google.maps.InfoWindow({
+        content: '<div style="text-align: center; padding: 5px;">Your Location</div>'
+      });
+      
+      userMarker.addListener('click', () => {
+        userInfoWindow.open(map, userMarker);
+      });
+      
+      // Draw a straight line between user and boarding center
+      const routePath = new window.google.maps.Polyline({
+        path: [userLatLng, centerPosition],
+        geodesic: true,
+        strokeColor: '#FF0000',
+        strokeOpacity: 0.8,
+        strokeWeight: 2
+      });
+      
+      routePath.setMap(map);
+      
+      // Fit bounds to include both points with padding
+      map.fitBounds(bounds, 50);
+    } else {
+      // If no user location, just center on the boarding center
+      map.setCenter(centerPosition);
+    }
 
     // Store map objects for cleanup
-    mapObjectsRef.current = { map, marker, infoWindow };
+    mapObjectsRef.current = { map, marker: centerMarker, infoWindow };
 
     // Trigger a resize event to ensure the map displays correctly
     setTimeout(() => {
       window.google.maps.event.trigger(map, 'resize');
-      map.setCenter(position);
     }, 100);
     
     setMapLoaded(true);
-  };
+  }, [selectedCenter, userLocation, mapContainerRef, loadMap, setMapLoaded]);
+
+  // Define loadDetailMap function
+  const loadDetailMap = useCallback(() => {
+    if (!selectedCenter || !selectedCenter.latitude || !selectedCenter.longitude) return;
+     
+    // If Google Maps is already loaded, initialize map, otherwise load it first
+    if (isLoaded) {
+      initializeDetailMap();
+    } else {
+      loadMap().then(() => {
+        initializeDetailMap();
+      });
+    }
+  }, [selectedCenter, isLoaded, loadMap, initializeDetailMap]);
+
+  // Update the useEffect to trigger map loading when modal is shown
+  useEffect(() => {
+    if (selectedCenter && showModal) {
+      console.log("Modal is shown, initializing map");
+      // Wait for modal to be fully rendered
+      setTimeout(() => {
+        initializeDetailMap();
+      }, 300);
+    }
+  }, [selectedCenter, showModal, initializeDetailMap]);
 
   // Update the useEffect for map loading
   useEffect(() => {
@@ -273,32 +493,30 @@ const PetBoardingSearch = () => {
       });
       
       // 3. Clean up any saved event listeners
-      if (cleanupInfo && cleanupInfo.listeners) {
-        cleanupInfo.listeners.forEach(({ target, type, listener }) => {
-          try {
-            if (target && typeof target.removeListener === 'function') {
-              target.removeListener(type, listener);
-            } else if (target && typeof target.removeEventListener === 'function') {
-              target.removeEventListener(type, listener);
-            }
-          } catch (err) {
-            console.warn(`Error removing event listener ${type}:`, err);
+      const listeners = cleanupInfo?.listeners || [];
+      listeners.forEach(({ target, type, listener }) => {
+        try {
+          if (target && typeof target.removeListener === 'function') {
+            target.removeListener(type, listener);
+          } else if (target && typeof target.removeEventListener === 'function') {
+            target.removeEventListener(type, listener);
           }
-        });
-      }
+        } catch (err) {
+          console.warn(`Error removing event listener ${type}:`, err);
+        }
+      });
       
       // 4. Clean up any created DOM elements
-      if (cleanupInfo && cleanupInfo.elements) {
-        cleanupInfo.elements.forEach(element => {
-          try {
-            if (element && element.parentNode) {
-              element.parentNode.removeChild(element);
-            }
-          } catch (err) {
-            console.warn('Error removing created DOM element:', err);
+      const elements = cleanupInfo?.elements || [];
+      elements.forEach(element => {
+        try {
+          if (element && element.parentNode) {
+            element.parentNode.removeChild(element);
           }
-        });
-      }
+        } catch (err) {
+          console.warn('Error removing created DOM element:', err);
+        }
+      });
       
       // 5. Remove marker from map
       if (mapObjectsRef.current.marker && mapObjectsRef.current.marker.setMap) {
@@ -311,23 +529,13 @@ const PetBoardingSearch = () => {
       
       // 6. Reset references and state
       mapObjectsRef.current = { marker: null, infoWindow: null, map: null };
-      setCleanupInfo({ elements: [], listeners: [] });
+      
+      // Reset the cleanupInfo outside of render to avoid triggering a re-render
+      setTimeout(() => {
+        setCleanupInfo({ elements: [], listeners: [] });
+      }, 0);
     };
-  }, [selectedCenter, isLoaded, cleanupInfo]);
-
-  // Define loadDetailMap function
-  const loadDetailMap = () => {
-    if (!selectedCenter || !selectedCenter.latitude || !selectedCenter.longitude) return;
-     
-    // If Google Maps is already loaded, initialize map, otherwise load it first
-    if (isLoaded) {
-      initializeDetailMap();
-    } else {
-      loadMap().then(() => {
-        initializeDetailMap();
-      });
-    }
-  };
+  }, [selectedCenter, isLoaded, loadDetailMap]);
 
   if (loading) {
     return (
@@ -357,16 +565,36 @@ const PetBoardingSearch = () => {
         <h2 className="text-2xl font-bold text-gray-900 mb-6">Find Pet Boarding</h2>
         
         <form onSubmit={handleSearch} className="space-y-4 md:space-y-0 md:grid md:grid-cols-5 md:gap-4">
-          <div>
+          <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-            <input
-              type="text"
-              name="location"
-              value={searchParams.location}
-              onChange={handleInputChange}
-              placeholder="City or Pincode"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
-            />
+            <div className="flex">
+              <input
+                type="text"
+                name="location"
+                value={searchParams.location}
+                onChange={handleInputChange}
+                placeholder="City, Pincode or Address"
+                className="w-full px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-primary focus:border-primary"
+              />
+              <button
+                type="button"
+                onClick={getUserLocation}
+                className="px-3 py-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600 flex items-center"
+                disabled={locationLoading}
+              >
+                {locationLoading ? (
+                  <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                )}
+              </button>
+            </div>
           </div>
           
           <div>
@@ -401,17 +629,6 @@ const PetBoardingSearch = () => {
             </select>
           </div>
           
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
-            <input
-              type="date"
-              name="dateFrom"
-              value={searchParams.dateFrom}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
-            />
-          </div>
-          
           <div className="flex items-end">
             <button
               type="submit"
@@ -423,69 +640,410 @@ const PetBoardingSearch = () => {
         </form>
       </div>
       
-      {/* Results */}
-      <div className="mb-8">
-        <h3 className="text-xl font-semibold text-gray-800 mb-4">Results ({filteredCenters.length})</h3>
-        
-        {filteredCenters.length === 0 ? (
-          <div className="bg-gray-50 p-6 rounded-lg text-center">
-            <p className="text-gray-600">No boarding centers found matching your criteria.</p>
+      {/* Location-based distance grouped display */}
+      {userLocation && filteredCenters.length > 0 ? (
+        <div className="mb-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">
+              Pet boarding centers {searchParams.location ? `near ${searchParams.location}` : ''}
+            </h2>
+            <p className="text-sm text-gray-600">{filteredCenters.length} results found</p>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredCenters.map(center => (
-              <div 
-                key={center.id} 
-                className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
-              >
-                <div className="h-48 bg-gray-300 relative">
-                  {center.galleryImageURLs && center.galleryImageURLs.length > 0 ? (
-                    <img 
-                      src={center.galleryImageURLs[0]} 
-                      alt={center.centerName} 
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                      <span className="text-gray-500">No image available</span>
-                    </div>
-                  )}
+          
+          {/* Distance-based grouping */}
+          <div className="space-y-8">
+            {/* 0-5 km distance group */}
+            {filteredCenters.filter(c => c.distance <= 5).length > 0 && (
+              <div>
+                <div className="border-b border-gray-300 pb-2 mb-4">
+                  <h3 className="text-lg font-medium text-gray-800">
+                    Displaying centers within 5 kms 
+                    {searchParams.location ? ` from ${searchParams.location}` : ''}
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    {filteredCenters.filter(c => c.distance <= 5).length} centers found
+                  </p>
                 </div>
                 
-                <div className="p-4">
-                  <h4 className="text-lg font-semibold text-gray-900 mb-2">{center.centerName}</h4>
-                  <p className="text-gray-600 text-sm mb-2">{center.city}, {center.pincode}</p>
-                  
-                  <div className="flex items-center space-x-2 mb-3">
-                    <span className="text-sm text-gray-500">Accepts:</span>
-                    {center.petTypesAccepted && Object.entries(center.petTypesAccepted)
-                      .filter(([_, value]) => value)
-                      .map(([petType]) => (
-                        <span 
-                          key={petType} 
-                          className="px-2 py-1 bg-primary-light text-primary text-xs rounded-full"
-                        >
-                          {petType.charAt(0).toUpperCase() + petType.slice(1)}
-                        </span>
-                      ))
-                    }
-                  </div>
-                  
-                  <div className="flex justify-between items-center mt-4">
-                    <span className="font-semibold text-gray-900">₹{center.perDayCharge}/day</span>
-                    <button
-                      onClick={() => viewCenterDetails(center)}
-                      className="px-3 py-1 text-sm bg-primary text-white rounded hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary"
-                    >
-                      View Details
-                    </button>
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredCenters
+                    .filter(center => center.distance <= 5)
+                    .map(center => (
+                      <div 
+                        key={center.id} 
+                        className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+                      >
+                        <div className="h-48 bg-gray-300 relative">
+                          {center.galleryImageURLs && center.galleryImageURLs.length > 0 ? (
+                            <img 
+                              src={center.galleryImageURLs[0]} 
+                              alt={center.centerName} 
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                              <span className="text-gray-500">No image available</span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="p-4">
+                          <h4 className="text-lg font-semibold text-gray-900 mb-2">{center.centerName}</h4>
+                          <p className="text-gray-600 text-sm mb-2">{center.city}, {center.pincode}</p>
+                          
+                          {/* Display distance if available */}
+                          {center.distance !== undefined && (
+                            <p className="text-sm text-blue-600 mb-2 flex items-center">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                              {center.distance.toFixed(1)} km away
+                            </p>
+                          )}
+                          
+                          <div className="flex items-center space-x-2 mb-3">
+                            <span className="text-sm text-gray-500">Accepts:</span>
+                            {center.petTypesAccepted && Object.entries(center.petTypesAccepted)
+                              .filter(([_, value]) => value)
+                              .map(([petType]) => (
+                                <span 
+                                  key={petType} 
+                                  className="px-2 py-1 bg-primary-light text-white text-xs rounded-full"
+                                >
+                                  {petType.charAt(0).toUpperCase() + petType.slice(1)}
+                                </span>
+                              ))
+                            }
+                          </div>
+                          
+                          <div className="flex justify-between items-center mt-4">
+                            <span className="font-semibold text-gray-900">₹{center.perDayCharge}/day</span>
+                            <button
+                              onClick={() => viewCenterDetails(center)}
+                              className="px-3 py-1 text-sm bg-primary text-white rounded hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary"
+                            >
+                              View Details
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                 </div>
               </div>
-            ))}
+            )}
+            
+            {/* 5-20 km distance group */}
+            {filteredCenters.filter(c => c.distance > 5 && c.distance <= 20).length > 0 && (
+              <div>
+                <div className="border-b border-gray-300 pb-2 mb-4">
+                  <h3 className="text-lg font-medium text-gray-800">
+                    Displaying centers within 20 kms 
+                    {searchParams.location ? ` from ${searchParams.location}` : ''}
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    {filteredCenters.filter(c => c.distance > 5 && c.distance <= 20).length} centers found
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredCenters
+                    .filter(center => center.distance > 5 && center.distance <= 20)
+                    .map(center => (
+                      <div 
+                        key={center.id} 
+                        className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+                      >
+                        <div className="h-48 bg-gray-300 relative">
+                          {center.galleryImageURLs && center.galleryImageURLs.length > 0 ? (
+                            <img 
+                              src={center.galleryImageURLs[0]} 
+                              alt={center.centerName} 
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                              <span className="text-gray-500">No image available</span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="p-4">
+                          <h4 className="text-lg font-semibold text-gray-900 mb-2">{center.centerName}</h4>
+                          <p className="text-gray-600 text-sm mb-2">{center.city}, {center.pincode}</p>
+                          
+                          {/* Display distance if available */}
+                          {center.distance !== undefined && (
+                            <p className="text-sm text-blue-600 mb-2 flex items-center">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                              {center.distance.toFixed(1)} km away
+                            </p>
+                          )}
+                          
+                          <div className="flex items-center space-x-2 mb-3">
+                            <span className="text-sm text-gray-500">Accepts:</span>
+                            {center.petTypesAccepted && Object.entries(center.petTypesAccepted)
+                              .filter(([_, value]) => value)
+                              .map(([petType]) => (
+                                <span 
+                                  key={petType} 
+                                  className="px-2 py-1 bg-white text-white text-xs rounded-full"
+                                >
+                                  {petType.charAt(0).toUpperCase() + petType.slice(1)}
+                                </span>
+                              ))
+                            }
+                          </div>
+                          
+                          <div className="flex justify-between items-center mt-4">
+                            <span className="font-semibold text-gray-900">₹{center.perDayCharge}/day</span>
+                            <button
+                              onClick={() => viewCenterDetails(center)}
+                              className="px-3 py-1 text-sm bg-primary text-white rounded hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary"
+                            >
+                              View Details
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+            
+            {/* 20-50 km distance group */}
+            {filteredCenters.filter(c => c.distance > 20 && c.distance <= 50).length > 0 && (
+              <div>
+                <div className="border-b border-gray-300 pb-2 mb-4">
+                  <h3 className="text-lg font-medium text-gray-800">
+                    Displaying centers within 50 kms 
+                    {searchParams.location ? ` from ${searchParams.location}` : ''}
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    {filteredCenters.filter(c => c.distance > 20 && c.distance <= 50).length} centers found
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredCenters
+                    .filter(center => center.distance > 20 && center.distance <= 50)
+                    .map(center => (
+                      <div 
+                        key={center.id} 
+                        className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+                      >
+                        <div className="h-48 bg-gray-300 relative">
+                          {center.galleryImageURLs && center.galleryImageURLs.length > 0 ? (
+                            <img 
+                              src={center.galleryImageURLs[0]} 
+                              alt={center.centerName} 
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                              <span className="text-gray-500">No image available</span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="p-4">
+                          <h4 className="text-lg font-semibold text-gray-900 mb-2">{center.centerName}</h4>
+                          <p className="text-gray-600 text-sm mb-2">{center.city}, {center.pincode}</p>
+                          
+                          {/* Display distance if available */}
+                          {center.distance !== undefined && (
+                            <p className="text-sm text-blue-600 mb-2 flex items-center">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                              {center.distance.toFixed(1)} km away
+                            </p>
+                          )}
+                          
+                          <div className="flex items-center space-x-2 mb-3">
+                            <span className="text-sm text-gray-500">Accepts:</span>
+                            {center.petTypesAccepted && Object.entries(center.petTypesAccepted)
+                              .filter(([_, value]) => value)
+                              .map(([petType]) => (
+                                <span 
+                                  key={petType} 
+                                  className="px-2 py-1 bg-primary-light text-primary text-xs rounded-full"
+                                >
+                                  {petType.charAt(0).toUpperCase() + petType.slice(1)}
+                                </span>
+                              ))
+                            }
+                          </div>
+                          
+                          <div className="flex justify-between items-center mt-4">
+                            <span className="font-semibold text-gray-900">₹{center.perDayCharge}/day</span>
+                            <button
+                              onClick={() => viewCenterDetails(center)}
+                              className="px-3 py-1 text-sm bg-primary text-white rounded hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary"
+                            >
+                              View Details
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+            
+            {/* 50+ km distance group */}
+            {filteredCenters.filter(c => c.distance > 50).length > 0 && (
+              <div>
+                <div className="border-b border-gray-300 pb-2 mb-4">
+                  <h3 className="text-lg font-medium text-gray-800">
+                    Displaying centers beyond 50 kms 
+                    {searchParams.location ? ` from ${searchParams.location}` : ''}
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    {filteredCenters.filter(c => c.distance > 50).length} centers found
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredCenters
+                    .filter(center => center.distance > 50)
+                    .map(center => (
+                      <div 
+                        key={center.id} 
+                        className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+                      >
+                        <div className="h-48 bg-gray-300 relative">
+                          {center.galleryImageURLs && center.galleryImageURLs.length > 0 ? (
+                            <img 
+                              src={center.galleryImageURLs[0]} 
+                              alt={center.centerName} 
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                              <span className="text-gray-500">No image available</span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="p-4">
+                          <h4 className="text-lg font-semibold text-gray-900 mb-2">{center.centerName}</h4>
+                          <p className="text-gray-600 text-sm mb-2">{center.city}, {center.pincode}</p>
+                          
+                          {/* Display distance if available */}
+                          {center.distance !== undefined && (
+                            <p className="text-sm text-blue-600 mb-2 flex items-center">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                              {center.distance.toFixed(1)} km away
+                            </p>
+                          )}
+                          
+                          <div className="flex items-center space-x-2 mb-3">
+                            <span className="text-sm text-gray-500">Accepts:</span>
+                            {center.petTypesAccepted && Object.entries(center.petTypesAccepted)
+                              .filter(([_, value]) => value)
+                              .map(([petType]) => (
+                                <span 
+                                  key={petType} 
+                                  className="px-2 py-1 bg-primary-light text-primary text-xs rounded-full"
+                                >
+                                  {petType.charAt(0).toUpperCase() + petType.slice(1)}
+                                </span>
+                              ))
+                            }
+                          </div>
+                          
+                          <div className="flex justify-between items-center mt-4">
+                            <span className="font-semibold text-gray-900">₹{center.perDayCharge}/day</span>
+                            <button
+                              onClick={() => viewCenterDetails(center)}
+                              className="px-3 py-1 text-sm bg-primary text-white rounded hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary"
+                            >
+                              View Details
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="mb-8">
+          <h3 className="text-xl font-semibold text-gray-800 mb-4">Results ({filteredCenters.length})</h3>
+          
+          {filteredCenters.length === 0 ? (
+            <div className="bg-gray-50 p-6 rounded-lg text-center">
+              <p className="text-gray-600">
+                {userLocation ? "No boarding centers found within the selected radius." : "No boarding centers found matching your criteria."}
+                {userLocation && " Try increasing the distance range."}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredCenters.map(center => (
+                <div 
+                  key={center.id} 
+                  className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+                >
+                  <div className="h-48 bg-gray-300 relative">
+                    {center.galleryImageURLs && center.galleryImageURLs.length > 0 ? (
+                      <img 
+                        src={center.galleryImageURLs[0]} 
+                        alt={center.centerName} 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                        <span className="text-gray-500">No image available</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="p-4">
+                    <h4 className="text-lg font-semibold text-gray-900 mb-2">{center.centerName}</h4>
+                    <p className="text-gray-600 text-sm mb-2">{center.city}, {center.pincode}</p>
+                    
+                    <div className="flex items-center space-x-2 mb-3">
+                      <span className="text-sm text-gray-500">Accepts:</span>
+                      {center.petTypesAccepted && Object.entries(center.petTypesAccepted)
+                        .filter(([_, value]) => value)
+                        .map(([petType]) => (
+                          <span 
+                            key={petType} 
+                            className="px-2 py-1 bg-primary-light text-primary text-xs rounded-full"
+                          >
+                            {petType.charAt(0).toUpperCase() + petType.slice(1)}
+                          </span>
+                        ))
+                      }
+                    </div>
+                    
+                    <div className="flex justify-between items-center mt-4">
+                      <span className="font-semibold text-gray-900">₹{center.perDayCharge}/day</span>
+                      <button
+                        onClick={() => viewCenterDetails(center)}
+                        className="px-3 py-1 text-sm bg-primary text-white rounded hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary"
+                      >
+                        View Details
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       
       {/* Center Details Modal */}
       {selectedCenter && (
@@ -523,6 +1081,15 @@ const PetBoardingSearch = () => {
                   <div>
                     <h2 className="text-2xl font-bold text-gray-900">{selectedCenter.centerName}</h2>
                     <p className="text-gray-600">{selectedCenter.address}, {selectedCenter.city}, {selectedCenter.pincode}</p>
+                    {selectedCenter.distance !== undefined && (
+                      <p className="text-blue-600 mt-1 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        {selectedCenter.distance.toFixed(1)} kilometers from you
+                      </p>
+                    )}
                   </div>
                   <div className="text-right">
                     <p className="text-2xl font-bold text-primary">₹{selectedCenter.perDayCharge}</p>
