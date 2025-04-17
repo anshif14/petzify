@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db } from '../../firebase/config.js';
+import { db, storage } from '../../firebase/config.js';
 import useGoogleMaps from '../../utils/useGoogleMaps';
 import { cleanupEventListeners } from '../../utils/mapLoader.js';
 
@@ -26,6 +26,7 @@ const PetBoardingRegistration = () => {
     profilePicture: null,
     profilePictureURL: '',
     website: '',
+    description: '',
     
     // Location
     address: '',
@@ -429,16 +430,70 @@ const PetBoardingRegistration = () => {
     setSubmitting(true);
     
     try {
-      console.log('Submitting to Firestore', formData);
+      console.log('Preparing to upload images and submit data');
       
-      // Clean up formData (remove file objects that can't be stored in Firestore)
+      // Array to store all upload promises
+      const uploadPromises = [];
+      let profilePictureURL = '';
+      let idProofURL = '';
+      const galleryImageURLs = [];
+      
+      // Upload profile picture if it exists
+      if (formData.profilePicture) {
+        const profilePictureRef = ref(storage, `boarding-centers/${Date.now()}_${formData.profilePicture.name}`);
+        const profileUploadPromise = uploadBytes(profilePictureRef, formData.profilePicture)
+          .then(snapshot => getDownloadURL(snapshot.ref))
+          .then(url => {
+            profilePictureURL = url;
+            console.log('Profile picture uploaded:', url);
+          });
+        
+        uploadPromises.push(profileUploadPromise);
+      }
+      
+      // Upload ID proof if it exists
+      if (formData.idProof) {
+        const idProofRef = ref(storage, `boarding-centers/documents/${Date.now()}_${formData.idProof.name}`);
+        const idProofUploadPromise = uploadBytes(idProofRef, formData.idProof)
+          .then(snapshot => getDownloadURL(snapshot.ref))
+          .then(url => {
+            idProofURL = url;
+            console.log('ID proof uploaded:', url);
+          });
+        
+        uploadPromises.push(idProofUploadPromise);
+      }
+      
+      // Upload gallery images if they exist
+      if (formData.galleryImages && formData.galleryImages.length > 0) {
+        const galleryUploadPromises = formData.galleryImages.map((image, index) => {
+          const galleryRef = ref(storage, `boarding-centers/gallery/${Date.now()}_${index}_${image.name}`);
+          return uploadBytes(galleryRef, image)
+            .then(snapshot => getDownloadURL(snapshot.ref))
+            .then(url => {
+              galleryImageURLs.push(url);
+              console.log(`Gallery image ${index + 1} uploaded:`, url);
+            });
+        });
+        
+        uploadPromises.push(...galleryUploadPromises);
+      }
+      
+      // Wait for all uploads to complete
+      await Promise.all(uploadPromises);
+      
+      console.log('All uploads completed. Submitting to Firestore');
+      
+      // Prepare Firestore data with the uploaded URLs
       const firestoreData = {
         ...formData,
-        // Replace File objects with null, we'd normally upload these separately
+        // Replace File objects with URLs
         profilePicture: null,
+        profilePictureURL: profilePictureURL,
         idProof: null,
+        idProofURL: idProofURL,
         galleryImages: [],
-        // Keep the URLs which would normally be from storage
+        galleryImageURLs: galleryImageURLs,
         status: 'pending',
         createdAt: serverTimestamp(),
       };
@@ -450,7 +505,7 @@ const PetBoardingRegistration = () => {
       setSuccess(true);
       window.scrollTo(0, 0);
     } catch (error) {
-      console.error("Error adding document: ", error);
+      console.error("Error during submission: ", error);
       alert(`Error submitting form: ${error.message}`);
     } finally {
       setSubmitting(false);
@@ -565,6 +620,20 @@ const PetBoardingRegistration = () => {
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
               />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Description*</label>
+              <textarea
+                name="description"
+                required
+                value={formData.description}
+                onChange={handleInputChange}
+                rows="4"
+                placeholder="Describe your boarding center, its unique features, and what makes it special for pet owners..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
+              ></textarea>
+              <p className="mt-1 text-xs text-gray-500">Provide a detailed description of your facility, amenities, and what makes your services unique.</p>
             </div>
             
             <div>

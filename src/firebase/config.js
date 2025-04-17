@@ -1,6 +1,7 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
@@ -40,4 +41,7 @@ try {
   throw new Error("Firestore initialization failed");
 }
 
-export { app, db }; 
+// Initialize Firebase Storage
+const storage = getStorage(app);
+
+export { app, db, storage }; 

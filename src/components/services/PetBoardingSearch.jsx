@@ -530,6 +530,13 @@ const PetBoardingSearch = () => {
                   </div>
                 </div>
                 
+                {selectedCenter.description && (
+                  <div className="mt-4 bg-gray-50 p-4 rounded-lg">
+                    <h3 className="text-md font-semibold text-gray-700 mb-2">About This Center</h3>
+                    <p className="text-gray-700">{selectedCenter.description}</p>
+                  </div>
+                )}
+                
                 <hr className="my-6" />
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
