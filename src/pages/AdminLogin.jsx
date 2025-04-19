@@ -65,6 +65,7 @@ const AdminLogin = () => {
         localStorage.setItem('adminAuth', JSON.stringify({
           name: adminData.name,
           username: adminData.username,
+          email: adminData.email,
           role: adminData.role,
           permissions: adminData.permissions || {},
           isLoggedIn: true

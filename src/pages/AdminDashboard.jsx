@@ -14,6 +14,10 @@ import LoadingScreen from '../components/common/LoadingScreen';
 import PetParentingManager from '../components/admin/PetParentingManager';
 import OrderManager from '../components/admin/OrderManager';
 import PetBoardingAdmin from './admin/PetBoardingAdmin';
+import BoardingAdminDashboard from '../components/admin/boarding/BoardingAdminDashboard';
+import { auth, db } from '../firebase/index';
+import { useNavigate } from 'react-router-dom';
+import { doc, getDoc } from 'firebase/firestore';
 
 const AdminDashboard = () => {
   const [activeComponent, setActiveComponent] = useState('dashboard');
@@ -113,6 +117,22 @@ const AdminDashboard = () => {
   
   // If user is a boarding admin, render the Boarding Admin Dashboard
   if (isBoardingAdmin) {
+    console.log("Rendering boarding admin dashboard with data:", adminData);
+    console.log("Admin email that will be used for queries:", adminData.email);
+    
+    // Dump all admin properties to identify any email-related fields
+    console.log("All admin data properties:");
+    for (const key in adminData) {
+      console.log(`${key}: ${adminData[key]}`);
+    }
+    
+    // Ensure adminData has necessary properties
+    const enhancedAdminData = {
+      ...adminData,
+      // Ensure email is available (use username as fallback if needed)
+      email: adminData.email
+    };
+    
     return (
       <div className="min-h-screen bg-gray-100">
         <div className="py-6">
@@ -123,19 +143,7 @@ const AdminDashboard = () => {
             </p>
           </div>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="text-center py-8">
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-blue-100 mb-6">
-                  <svg className="h-10 w-10 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                  </svg>
-                </div>
-                <h2 className="text-3xl font-bold text-gray-900 mb-4">Boarding Center Management</h2>
-                <p className="text-lg text-gray-600 mb-8">
-                  The boarding center management interface is under development. Please check back later.
-                </p>
-              </div>
-            </div>
+            <BoardingAdminDashboard adminData={enhancedAdminData} />
           </div>
         </div>
       </div>
