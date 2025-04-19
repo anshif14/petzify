@@ -1,0 +1,31 @@
+/* Toggle Switch Styling */
+.toggle-checkbox {
+  right: 0;
+  z-index: 1;
+  transition: all 0.3s;
+}
+
+.toggle-label {
+  transition: background-color 0.3s;
+}
+
+.toggle-checkbox:checked {
+  right: 6px;
+}
+
+.toggle-checkbox:checked + .toggle-label {
+  background-color: #10b981;
+}
+
+/* Card styling for grid layout */
+.card-image {
+  height: 150px;
+  object-fit: cover;
+}
+
+/* Responsive grid adjustments */
+@media (max-width: 768px) {
+  .grid-container {
+    grid-template-columns: 1fr;
+  }
+} 
