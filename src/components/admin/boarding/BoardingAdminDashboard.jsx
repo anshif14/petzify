@@ -60,6 +60,9 @@ const BoardingAdminDashboard = ({ adminData }) => {
   });
   const [centerAvailability, setCenterAvailability] = useState({});
 
+  // State for center details view
+  const [viewingCenter, setViewingCenter] = useState(null);
+
   // Fetch boarding centers data
   useEffect(() => {
     const fetchBoardingCenters = async () => {
@@ -250,14 +253,14 @@ const BoardingAdminDashboard = ({ adminData }) => {
       centerName: center.centerName || '',
       address: center.address || '',
       city: center.city || '',
-      pricePerDay: center.pricePerDay || '',
+      pricePerDay: center.perDayCharge || center.pricePerDay || '',
       capacity: center.capacity || '',
       description: center.description || '',
       openingTime: center.openingTime || '',
       closingTime: center.closingTime || '',
-      operatingDays: center.operatingDays || [],
-      petTypes: center.petTypes || [],
-      imageUrl: center.imageUrl || '',
+      operatingDays: Array.isArray(center.operatingDays) ? center.operatingDays : [],
+      petTypes: Array.isArray(center.petTypes) ? center.petTypes : [],
+      imageUrl: center.galleryImageURLs && center.galleryImageURLs.length > 0 ? center.galleryImageURLs[0] : (center.imageUrl || ''),
     });
   };
 
@@ -283,10 +286,12 @@ const BoardingAdminDashboard = ({ adminData }) => {
 
   // View center data functionality
   const viewCenterData = (center) => {
-    // Create a nicely formatted view of all center data
-    const centerData = JSON.stringify(center, null, 2);
-    alert(`Center Data:\n${centerData}`);
-    console.log("Center Data:", center);
+    setViewingCenter(center);
+    console.log("Viewing Center Data:", center);
+  };
+
+  const closeViewDetails = () => {
+    setViewingCenter(null);
   };
 
   const closeEditForm = () => {
@@ -885,7 +890,7 @@ const BoardingAdminDashboard = ({ adminData }) => {
                       onClick={() => viewCenterData(center)}
                       className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
                     >
-                      View Data
+                      View Details
                     </button>
                   </div>
                   <div className="flex items-center">
@@ -906,6 +911,144 @@ const BoardingAdminDashboard = ({ adminData }) => {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Center Detail View Modal */}
+      {viewingCenter && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-800">{viewingCenter.centerName}</h2>
+              <button
+                onClick={closeViewDetails}
+                className="text-gray-600 hover:text-gray-800"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {/* Image Gallery */}
+              <div className="h-64 overflow-hidden rounded-lg">
+                <img 
+                  src={viewingCenter.galleryImageURLs && viewingCenter.galleryImageURLs.length > 0 
+                    ? viewingCenter.galleryImageURLs[0] 
+                    : "https://via.placeholder.com/800x400?text=No+Image"} 
+                  alt={viewingCenter.centerName}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              
+              {/* Basic Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-3">Basic Information</h3>
+                  <div className="space-y-2">
+                    <p className="text-gray-700">
+                      <span className="font-medium">Status:</span>{' '}
+                      <span className={`${viewingCenter.isAvailable ? 'text-green-600' : 'text-red-600'} font-medium`}>
+                        {viewingCenter.isAvailable ? 'Available' : 'Unavailable'}
+                      </span>
+                    </p>
+                    <p className="text-gray-700">
+                      <span className="font-medium">Address:</span> {viewingCenter.address}
+                    </p>
+                    <p className="text-gray-700">
+                      <span className="font-medium">City:</span> {viewingCenter.city}
+                    </p>
+                    <p className="text-gray-700">
+                      <span className="font-medium">Price:</span> ₹{viewingCenter.perDayCharge || viewingCenter.pricePerDay}/day
+                    </p>
+                    <p className="text-gray-700">
+                      <span className="font-medium">Capacity:</span> {viewingCenter.capacity} pets
+                    </p>
+                  </div>
+                </div>
+                
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-3">Operating Details</h3>
+                  <div className="space-y-2">
+                    {viewingCenter.openingTime && viewingCenter.closingTime && (
+                      <p className="text-gray-700">
+                        <span className="font-medium">Hours:</span> {viewingCenter.openingTime} - {viewingCenter.closingTime}
+                      </p>
+                    )}
+                    
+                    {viewingCenter.operatingDays && viewingCenter.operatingDays.length > 0 && (
+                      <p className="text-gray-700">
+                        <span className="font-medium">Operating Days:</span> {viewingCenter.operatingDays.join(', ')}
+                      </p>
+                    )}
+                    
+                    {viewingCenter.petTypes && viewingCenter.petTypes.length > 0 && (
+                      <p className="text-gray-700">
+                        <span className="font-medium">Pet Types Accepted:</span> {viewingCenter.petTypes.join(', ')}
+                      </p>
+                    )}
+                    
+                    {viewingCenter.services && viewingCenter.services.length > 0 && (
+                      <p className="text-gray-700">
+                        <span className="font-medium">Services Offered:</span> {viewingCenter.services.join(', ')}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Description */}
+              {viewingCenter.description && (
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-3">Description</h3>
+                  <p className="text-gray-700">{viewingCenter.description}</p>
+                </div>
+              )}
+              
+              {/* Contact & Admin Info */}
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-3">Administrative Details</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <p className="text-gray-700">
+                    <span className="font-medium">Email:</span> {viewingCenter.email || 'Not provided'}
+                  </p>
+                  <p className="text-gray-700">
+                    <span className="font-medium">ID:</span> {viewingCenter.id}
+                  </p>
+                  {viewingCenter.createdAt && (
+                    <p className="text-gray-700">
+                      <span className="font-medium">Created:</span> {viewingCenter.createdAt.toDate ? viewingCenter.createdAt.toDate().toLocaleDateString() : 'Unknown'}
+                    </p>
+                  )}
+                  {viewingCenter.updatedAt && (
+                    <p className="text-gray-700">
+                      <span className="font-medium">Last Updated:</span> {viewingCenter.updatedAt.toDate ? viewingCenter.updatedAt.toDate().toLocaleDateString() : 'Unknown'}
+                    </p>
+                  )}
+                </div>
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                <button
+                  onClick={closeViewDetails}
+                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    closeViewDetails();
+                    handleEditClick(viewingCenter);
+                  }}
+                  className="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600"
+                >
+                  Edit Center
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
