@@ -82,7 +82,6 @@ const Services = () => {
       description: 'Safe and comfortable accommodation for your pets when you\'re away for longer periods.',
       icon: '🏨',
       link: '/services/boarding',
-      linkText: 'Find Boarding Centers',
       image: 'https://doggyvilleindia.in/wp-content/uploads/2024/09/how-to-choose-the-best-dog-boarding-facility-for-your-pet.jpg'
     },
     {

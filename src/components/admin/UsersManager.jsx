@@ -448,6 +448,7 @@ const UsersManager = () => {
                     <option value="editor">Editor</option>
                     <option value="admin">Admin</option>
                     <option value="doctor">Doctor</option>
+                    <option value="boarding_admin">Boarding Admin</option>
                     <option value="superadmin">Super Admin</option>
                   </select>
                 </div>

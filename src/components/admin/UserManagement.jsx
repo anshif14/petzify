@@ -35,6 +35,7 @@ const UserManagement = () => {
     { id: 'admin', label: 'Admin' },
     { id: 'editor', label: 'Editor' },
     { id: 'doctor', label: 'Doctor' },
+    { id: 'boarding_admin', label: 'Boarding Admin' },
     { id: 'assistant', label: 'Assistant' },
     { id: 'moderator', label: 'Moderator' },
     { id: 'custom', label: 'Custom Role' }
@@ -263,6 +264,14 @@ const UserManagement = () => {
           }
         }),
         ...(formData.role === 'doctor' && {
+          permissions: {
+            canEditContacts: false,
+            canManageMessages: true,
+            canManageUsers: false,
+            canEditProfile: true
+          }
+        }),
+        ...(formData.role === 'boarding_admin' && {
           permissions: {
             canEditContacts: false,
             canManageMessages: true,

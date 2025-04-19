@@ -45,6 +45,9 @@ const AdminDashboard = () => {
 
   // Determine if the user is a doctor
   const isDoctor = adminData?.role === 'doctor';
+  
+  // Determine if the user is a boarding admin
+  const isBoardingAdmin = adminData?.role === 'boarding_admin';
 
   // Define permissions based on role
   // Handle permissions as both object format (adminData.permissions.canManageUsers) 
@@ -102,6 +105,37 @@ const AdminDashboard = () => {
           </div>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
             <DoctorDashboard />
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // If user is a boarding admin, render the Boarding Admin Dashboard
+  if (isBoardingAdmin) {
+    return (
+      <div className="min-h-screen bg-gray-100">
+        <div className="py-6">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h1 className="text-2xl font-semibold text-gray-900">Boarding Center Dashboard</h1>
+            <p className="text-gray-600">
+              Welcome, {adminData.name || adminData.username}
+            </p>
+          </div>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="text-center py-8">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-blue-100 mb-6">
+                  <svg className="h-10 w-10 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                </div>
+                <h2 className="text-3xl font-bold text-gray-900 mb-4">Boarding Center Management</h2>
+                <p className="text-lg text-gray-600 mb-8">
+                  The boarding center management interface is under development. Please check back later.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

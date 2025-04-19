@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, doc, updateDoc, query, where } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, query, where, addDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config.js';
+import PasswordInput from '../../components/common/PasswordInput';
 
 const PetBoardingAdmin = () => {
   const [boardingRequests, setBoardingRequests] = useState([]);
@@ -12,6 +13,15 @@ const PetBoardingAdmin = () => {
   // Add states for WhatsApp sharing
   const [showPhoneDialog, setShowPhoneDialog] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
+  
+  // New states for password creation dialog
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    password: '',
+    confirmPassword: ''
+  });
+  const [passwordError, setPasswordError] = useState('');
+  const [centerToApprove, setCenterToApprove] = useState(null);
 
   useEffect(() => {
     const fetchBoardingRequests = async () => {
@@ -39,6 +49,17 @@ const PetBoardingAdmin = () => {
     
     fetchBoardingRequests();
   }, [activeTab, updateStatus.loading]);
+
+  // Function to handle when the Approve button is clicked
+  const handleApprovalClick = (center) => {
+    setCenterToApprove(center);
+    setShowPasswordDialog(true);
+    setPasswordData({
+      password: '',
+      confirmPassword: ''
+    });
+    setPasswordError('');
+  };
 
   const handleStatusChange = async (id, newStatus) => {
     try {
@@ -153,6 +174,86 @@ ${selectedCenter.galleryImageURLs ? selectedCenter.galleryImageURLs.slice(0, 3).
     setShowPhoneDialog(false);
   };
 
+  // Handle password form input changes
+  const handlePasswordChange = (e) => {
+    const { name, value } = e.target;
+    setPasswordData({
+      ...passwordData,
+      [name]: value
+    });
+    setPasswordError('');
+  };
+
+  // Function to create boarding admin account and approve the center
+  const createBoardingAdmin = async () => {
+    try {
+      // Validate password
+      if (!passwordData.password) {
+        setPasswordError('Password is required');
+        return;
+      }
+      
+      if (passwordData.password.length < 6) {
+        setPasswordError('Password must be at least 6 characters');
+        return;
+      }
+      
+      if (passwordData.password !== passwordData.confirmPassword) {
+        setPasswordError('Passwords do not match');
+        return;
+      }
+      
+      setUpdateStatus({ loading: true, error: null });
+      
+      // 1. Create a new admin account with boarding_admin role
+      const adminData = {
+        name: centerToApprove.ownerName,
+        username: `boarding_${centerToApprove.email.split('@')[0]}`,
+        email: centerToApprove.email,
+        password: passwordData.password,
+        role: 'boarding_admin',
+        boardingCenterId: centerToApprove.id,
+        permissions: {
+          canEditContacts: false,
+          canManageMessages: true,
+          canManageUsers: false,
+          canEditProfile: true
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      await addDoc(collection(db, 'admin'), adminData);
+      
+      // 2. Update the boarding center status to approved
+      const boardingRef = doc(db, 'petBoardingCenters', centerToApprove.id);
+      await updateDoc(boardingRef, {
+        status: 'approved',
+        updatedAt: new Date(),
+        adminCreated: true
+      });
+      
+      // Close details panel if it's the selected center
+      if (selectedCenter && selectedCenter.id === centerToApprove.id) {
+        setSelectedCenter(null);
+      }
+      
+      // Reset state
+      setShowPasswordDialog(false);
+      setCenterToApprove(null);
+      setPasswordData({
+        password: '',
+        confirmPassword: ''
+      });
+      
+      setUpdateStatus({ loading: false, error: null });
+    } catch (err) {
+      console.error('Error creating boarding admin:', err);
+      setPasswordError('Failed to create account. Please try again.');
+      setUpdateStatus({ loading: false, error: 'Failed to create account. Please try again.' });
+    }
+  };
+
   // Render the request list view
   const renderRequestsList = () => (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -213,7 +314,7 @@ ${selectedCenter.galleryImageURLs ? selectedCenter.galleryImageURLs.slice(0, 3).
                     {activeTab === 'pending' && (
                       <>
                         <button 
-                          onClick={() => handleStatusChange(center.id, 'approved')}
+                          onClick={() => handleApprovalClick(center)}
                           className="text-green-600 hover:text-green-900 mr-3"
                           disabled={updateStatus.loading}
                         >
@@ -293,7 +394,7 @@ ${selectedCenter.galleryImageURLs ? selectedCenter.galleryImageURLs.slice(0, 3).
               {activeTab === 'pending' && (
                 <>
                   <button 
-                    onClick={() => handleStatusChange(selectedCenter.id, 'approved')}
+                    onClick={() => handleApprovalClick(selectedCenter)}
                     className="px-4 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700"
                     disabled={updateStatus.loading}
                   >
@@ -552,6 +653,116 @@ ${selectedCenter.galleryImageURLs ? selectedCenter.galleryImageURLs.slice(0, 3).
                 className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
               >
                 Send
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Password Creation Dialog */}
+      {showPasswordDialog && centerToApprove && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Create Admin Account</h3>
+            <p className="text-gray-600 mb-4">
+              Create a password for the boarding center admin. This will allow them to log in and manage their center.
+            </p>
+            
+            {passwordError && (
+              <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md">
+                {passwordError}
+              </div>
+            )}
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Center Name
+              </label>
+              <input
+                type="text"
+                value={centerToApprove.centerName}
+                readOnly
+                className="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-md"
+              />
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Owner Name
+              </label>
+              <input
+                type="text"
+                value={centerToApprove.ownerName}
+                readOnly
+                className="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-md"
+              />
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email (Username)
+              </label>
+              <input
+                type="text"
+                value={centerToApprove.email}
+                readOnly
+                className="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-md"
+              />
+              <p className="mt-1 text-xs text-gray-500">This email will be used as the admin username</p>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Create Password
+              </label>
+              <PasswordInput
+                id="password"
+                name="password"
+                value={passwordData.password}
+                onChange={handlePasswordChange}
+                required={true}
+                placeholder="Enter a secure password"
+                autoComplete="new-password"
+              />
+              <p className="mt-1 text-xs text-gray-500">Password must be at least 6 characters</p>
+            </div>
+            
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Confirm Password
+              </label>
+              <PasswordInput
+                id="confirmPassword"
+                name="confirmPassword"
+                value={passwordData.confirmPassword}
+                onChange={handlePasswordChange}
+                required={true}
+                placeholder="Confirm password"
+                autoComplete="new-password"
+              />
+            </div>
+            
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowPasswordDialog(false);
+                  setCenterToApprove(null);
+                  setPasswordData({
+                    password: '',
+                    confirmPassword: ''
+                  });
+                }}
+                className="px-4 py-2 text-gray-700 rounded hover:bg-gray-100"
+                disabled={updateStatus.loading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={createBoardingAdmin}
+                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                disabled={updateStatus.loading}
+              >
+                {updateStatus.loading ? 'Creating...' : 'Create & Approve'}
               </button>
             </div>
           </div>
