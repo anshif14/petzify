@@ -9,6 +9,7 @@ import { useAlert } from '../context/AlertContext';
 const Products = () => {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
+  const [allProducts, setAllProducts] = useState([]); // Store all products for client-side pagination
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [categories, setCategories] = useState([]);
@@ -16,6 +17,11 @@ const Products = () => {
   const [sort, setSort] = useState('featured');
   const [searchQuery, setSearchQuery] = useState('');
   const { showSuccess, showError } = useAlert();
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [productsPerPage, setProductsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     // Log current path to help debug
@@ -60,7 +66,25 @@ const Products = () => {
             return a.featured ? -1 : 1;
           });
           
-          setProducts(productsData);
+          // Apply search filter
+          const filteredProducts = searchQuery
+            ? productsData.filter(product => 
+                product.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                product.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                product.category?.toLowerCase().includes(searchQuery.toLowerCase())
+              )
+            : productsData;
+          
+          // Store all filtered products
+          setAllProducts(filteredProducts);
+          
+          // Calculate total pages
+          setTotalPages(Math.ceil(filteredProducts.length / productsPerPage));
+          
+          // Get current page of products
+          const indexOfLastProduct = currentPage * productsPerPage;
+          const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
+          setProducts(filteredProducts.slice(indexOfFirstProduct, indexOfLastProduct));
           
           // Extract unique categories
           const allCategories = productsData
@@ -97,7 +121,16 @@ const Products = () => {
             )
           : productsData;
         
-        setProducts(filteredProducts);
+        // Store all filtered products
+        setAllProducts(filteredProducts);
+        
+        // Calculate total pages
+        setTotalPages(Math.ceil(filteredProducts.length / productsPerPage));
+        
+        // Get current page of products
+        const indexOfLastProduct = currentPage * productsPerPage;
+        const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
+        setProducts(filteredProducts.slice(indexOfFirstProduct, indexOfLastProduct));
         
         // Extract unique categories
         const allCategories = productsData
@@ -115,7 +148,20 @@ const Products = () => {
     };
     
     fetchProducts();
-  }, [selectedCategory, sort, searchQuery, showError]);
+  }, [selectedCategory, sort, searchQuery, currentPage, productsPerPage, showError]);
+  
+  // Handle page change
+  const handlePageChange = (pageNumber) => {
+    setCurrentPage(pageNumber);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  
+  // Handle products per page change
+  const handleProductsPerPageChange = (e) => {
+    const newProductsPerPage = parseInt(e.target.value, 10);
+    setProductsPerPage(newProductsPerPage);
+    setCurrentPage(1); // Reset to first page when changing items per page
+  };
   
   const formatPrice = (price) => {
     return new Intl.NumberFormat('en-IN', {
@@ -265,66 +311,168 @@ const Products = () => {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
-              {products.map((product) => (
-                <Link 
-                  to={`/products/${product.id}`} 
-                  key={product.id} 
-                  className="group relative bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-all duration-300"
-                >
-                  {/* Product Image */}
-                  <div className="aspect-square overflow-hidden">
-                    {product.images && product.images.length > 0 ? (
-                      <img 
-                        src={product.images[0]} 
-                        alt={product.name} 
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                        <span className="text-gray-500 text-sm">No image</span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Featured Badge */}
-                  {product.featured && (
-                    <div className="absolute top-2 right-2">
-                      <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">Featured</span>
-                    </div>
-                  )}
-                  
-                  {/* Quick Add to Cart */}
-                  <button 
-                    className="absolute right-2 bottom-2 p-2 bg-white rounded-full shadow hover:shadow-md text-primary hover:text-primary-dark transition-all z-10"
-                    onClick={(e) => handleAddToCart(e, product)}
-                    aria-label="Add to cart"
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
+                {products.map((product) => (
+                  <Link 
+                    to={`/products/${product.id}`} 
+                    key={product.id} 
+                    className="group relative bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-all duration-300"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                  </button>
-                  
-                  {/* Product Info */}
-                  <div className="p-3">
-                    <h3 className="font-medium text-gray-900 mb-1 line-clamp-1 text-sm">
-                      {product.name}
-                    </h3>
-                    
-                    <div>
-                      {product.salePrice ? (
-                        <div className="flex items-center space-x-2">
-                          <span className="font-bold text-primary">{formatPrice(product.salePrice)}</span>
-                          <span className="text-xs text-gray-500 line-through">{formatPrice(product.price)}</span>
-                        </div>
+                    {/* Product Image */}
+                    <div className="aspect-square overflow-hidden">
+                      {product.images && product.images.length > 0 ? (
+                        <img 
+                          src={product.images[0]} 
+                          alt={product.name} 
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
                       ) : (
-                        <span className="font-bold text-primary">{formatPrice(product.price)}</span>
+                        <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                          <span className="text-gray-500 text-sm">No image</span>
+                        </div>
                       )}
                     </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
+                    
+                    {/* Featured Badge */}
+                    {product.featured && (
+                      <div className="absolute top-2 right-2">
+                        <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">Featured</span>
+                      </div>
+                    )}
+                    
+                    {/* Quick Add to Cart */}
+                    <button 
+                      className="absolute right-2 bottom-2 p-2 bg-white rounded-full shadow hover:shadow-md text-primary hover:text-primary-dark transition-all z-10"
+                      onClick={(e) => handleAddToCart(e, product)}
+                      aria-label="Add to cart"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                    </button>
+                    
+                    {/* Product Info */}
+                    <div className="p-3">
+                      <h3 className="font-medium text-gray-900 mb-1 line-clamp-1 text-sm">
+                        {product.name}
+                      </h3>
+                      
+                      <div>
+                        {product.salePrice ? (
+                          <div className="flex items-center space-x-2">
+                            <span className="font-bold text-primary">{formatPrice(product.salePrice)}</span>
+                            <span className="text-xs text-gray-500 line-through">{formatPrice(product.price)}</span>
+                          </div>
+                        ) : (
+                          <span className="font-bold text-primary">{formatPrice(product.price)}</span>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+              
+              {/* Pagination Controls */}
+              <div className="mt-10 flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-600">Show:</span>
+                  <select
+                    value={productsPerPage}
+                    onChange={handleProductsPerPageChange}
+                    className="h-8 px-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent shadow-sm"
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                  </select>
+                  <span className="text-sm text-gray-600">per page</span>
+                </div>
+                
+                <div className="flex justify-center">
+                  <nav className="relative z-0 inline-flex shadow-sm -space-x-px" aria-label="Pagination">
+                    <button
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className={`relative inline-flex items-center px-2 py-2 rounded-l-md border ${
+                        currentPage === 1 
+                          ? 'border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed' 
+                          : 'border-gray-300 bg-white text-gray-500 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span className="sr-only">Previous</span>
+                      <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                    
+                    {[...Array(totalPages)].map((_, index) => {
+                      const pageNumber = index + 1;
+                      const isCurrentPage = pageNumber === currentPage;
+                      
+                      // Show only a window of page numbers around the current page
+                      if (
+                        pageNumber === 1 ||
+                        pageNumber === totalPages ||
+                        (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
+                      ) {
+                        return (
+                          <button
+                            key={pageNumber}
+                            onClick={() => handlePageChange(pageNumber)}
+                            className={`relative inline-flex items-center px-4 py-2 border ${
+                              isCurrentPage 
+                                ? 'z-10 bg-primary border-primary text-white' 
+                                : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                            }`}
+                          >
+                            {pageNumber}
+                          </button>
+                        );
+                      } else if (
+                        (pageNumber === currentPage - 2 && currentPage > 3) ||
+                        (pageNumber === currentPage + 2 && currentPage < totalPages - 2)
+                      ) {
+                        return (
+                          <span 
+                            key={pageNumber}
+                            className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-gray-700"
+                          >
+                            ...
+                          </span>
+                        );
+                      }
+                      
+                      return null;
+                    })}
+                    
+                    <button
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage === totalPages || totalPages === 0}
+                      className={`relative inline-flex items-center px-2 py-2 rounded-r-md border ${
+                        currentPage === totalPages || totalPages === 0
+                          ? 'border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed' 
+                          : 'border-gray-300 bg-white text-gray-500 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span className="sr-only">Next</span>
+                      <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </nav>
+                </div>
+                
+                <div className="text-sm text-gray-600">
+                  Showing <span className="font-medium">{allProducts.length > 0 ? (currentPage - 1) * productsPerPage + 1 : 0}</span> to{' '}
+                  <span className="font-medium">
+                    {Math.min(currentPage * productsPerPage, allProducts.length)}
+                  </span>{' '}
+                  of <span className="font-medium">{allProducts.length}</span> products
+                </div>
+              </div>
+            </>
           )}
         </div>
       </main>
