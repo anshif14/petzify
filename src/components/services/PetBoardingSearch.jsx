@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../firebase/config.js';
 import useGoogleMaps from '../../utils/useGoogleMaps';
+import { Link, useNavigate } from 'react-router-dom';
 
 // Create a separate Map component to isolate the Google Maps rendering
 const DetailMap = ({ center, userLocation, isLoaded, loadMap }) => {
@@ -175,6 +176,7 @@ const PetBoardingSearch = () => {
   
   // Add state to track elements for cleanup
   const [cleanupInfo, setCleanupInfo] = useState({ elements: [], listeners: [] });
+  const navigate = useNavigate();
 
   // Function to calculate distance between two coordinates using the Haversine formula
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
@@ -411,9 +413,15 @@ const PetBoardingSearch = () => {
   };
   
   const viewCenterDetails = (center) => {
-    console.log('Viewing details for:', center.centerName);
-    setSelectedCenter(center);
-    setShowModal(true);
+    // Navigate to detailed page with parameters
+    const params = new URLSearchParams({
+      dateFrom: searchParams.dateFrom,
+      dateTo: searchParams.dateTo,
+      petType: searchParams.petType,
+      petSize: searchParams.petSize
+    }).toString();
+    
+    navigate(`/services/boarding/${center.id}?${params}`);
   };
   
   const closeDetails = () => {
@@ -660,16 +668,15 @@ const PetBoardingSearch = () => {
                       key={center.id} 
                       className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
                     >
-                      <div className="h-48 bg-gray-300 relative">
-                        {center.galleryImageURLs && center.galleryImageURLs.length > 0 ? (
-                          <img 
-                            src={center.galleryImageURLs[0]} 
-                            alt={center.centerName} 
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                            <span className="text-gray-500">No image available</span>
+                      <div className="relative h-48">
+                        <img 
+                          src={center.galleryImageURLs?.[0] || "https://doggyvilleindia.in/wp-content/uploads/2024/09/how-to-choose-the-best-dog-boarding-facility-for-your-pet.jpg"} 
+                          alt={center.centerName}
+                          className="w-full h-full object-cover"
+                        />
+                        {center.distance && (
+                          <div className="absolute top-2 right-2 bg-primary text-white text-sm px-2 py-1 rounded-md">
+                            {center.distance.toFixed(1)} km away
                           </div>
                         )}
                       </div>
@@ -678,25 +685,24 @@ const PetBoardingSearch = () => {
                         <h4 className="text-lg font-semibold text-gray-900 mb-2">{center.centerName}</h4>
                         <p className="text-gray-600 text-sm mb-2">{center.city}, {center.pincode}</p>
                         
-                        {/* Display distance if available */}
-                        {center.distance !== undefined && (
-                          <p className="text-sm text-blue-600 mb-2 flex items-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                            {center.distance.toFixed(1)} km away
-                          </p>
-                        )}
+                        <div className="flex items-center mb-2">
+                          <div className="flex text-amber-500">
+                            {[...Array(5)].map((_, i) => (
+                              <svg key={i} className={`h-4 w-4 ${i < (center.rating || 0) ? 'text-amber-500' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                              </svg>
+                            ))}
+                            <span className="ml-1 text-sm text-gray-700">{center.rating || 0} ({center.reviewCount || 0})</span>
+                          </div>
+                        </div>
                         
-                        <div className="flex items-center space-x-2 mb-3">
-                          <span className="text-sm text-gray-500">Accepts:</span>
+                        <div className="flex flex-wrap gap-1 mb-3">
                           {center.petTypesAccepted && Object.entries(center.petTypesAccepted)
                             .filter(([_, value]) => value)
                             .map(([petType]) => (
                               <span 
                                 key={petType} 
-                                className="px-2 py-1 bg-primary-light text-primary text-xs rounded-full"
+                                className="inline-block bg-primary-light text-primary text-xs px-2 py-1 rounded-full"
                               >
                                 {petType.charAt(0).toUpperCase() + petType.slice(1)}
                               </span>
@@ -704,13 +710,19 @@ const PetBoardingSearch = () => {
                           }
                         </div>
                         
-                        <div className="flex justify-between items-center mt-4">
-                          <span className="font-semibold text-gray-900">₹{center.perDayCharge}/day</span>
+                        <div className="border-t border-gray-200 pt-3 flex justify-between items-center">
+                          <div className="text-primary font-semibold">
+                            ₹{center.perDayCharge}
+                          </div>
+                          
                           <button
                             onClick={() => viewCenterDetails(center)}
-                            className="px-3 py-1 text-sm bg-primary text-white rounded hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary"
+                            className="flex items-center text-primary hover:text-primary-dark"
                           >
                             View Details
+                            <svg className="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
                           </button>
                         </div>
                       </div>
@@ -781,16 +793,15 @@ const PetBoardingSearch = () => {
                         key={center.id} 
                         className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
                       >
-                        <div className="h-48 bg-gray-300 relative">
-                          {center.galleryImageURLs && center.galleryImageURLs.length > 0 ? (
-                            <img 
-                              src={center.galleryImageURLs[0]} 
-                              alt={center.centerName} 
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                              <span className="text-gray-500">No image available</span>
+                        <div className="relative h-48">
+                          <img 
+                            src={center.galleryImageURLs?.[0] || "https://doggyvilleindia.in/wp-content/uploads/2024/09/how-to-choose-the-best-dog-boarding-facility-for-your-pet.jpg"} 
+                            alt={center.centerName}
+                            className="w-full h-full object-cover"
+                          />
+                          {center.distance && (
+                            <div className="absolute top-2 right-2 bg-primary text-white text-sm px-2 py-1 rounded-md">
+                              {center.distance.toFixed(1)} km away
                             </div>
                           )}
                         </div>
@@ -799,25 +810,24 @@ const PetBoardingSearch = () => {
                           <h4 className="text-lg font-semibold text-gray-900 mb-2">{center.centerName}</h4>
                           <p className="text-gray-600 text-sm mb-2">{center.city}, {center.pincode}</p>
                           
-                          {/* Display distance if available */}
-                          {center.distance !== undefined && (
-                            <p className="text-sm text-blue-600 mb-2 flex items-center">
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                              </svg>
-                              {center.distance.toFixed(1)} km away
-                            </p>
-                          )}
+                          <div className="flex items-center mb-2">
+                            <div className="flex text-amber-500">
+                              {[...Array(5)].map((_, i) => (
+                                <svg key={i} className={`h-4 w-4 ${i < (center.rating || 0) ? 'text-amber-500' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                </svg>
+                              ))}
+                              <span className="ml-1 text-sm text-gray-700">{center.rating || 0} ({center.reviewCount || 0})</span>
+                            </div>
+                          </div>
                           
-                          <div className="flex items-center space-x-2 mb-3">
-                            <span className="text-sm text-gray-500">Accepts:</span>
+                          <div className="flex flex-wrap gap-1 mb-3">
                             {center.petTypesAccepted && Object.entries(center.petTypesAccepted)
                               .filter(([_, value]) => value)
                               .map(([petType]) => (
                                 <span 
                                   key={petType} 
-                                  className="px-2 py-1 bg-white text-white text-xs rounded-full"
+                                  className="inline-block bg-primary-light text-primary text-xs px-2 py-1 rounded-full"
                                 >
                                   {petType.charAt(0).toUpperCase() + petType.slice(1)}
                                 </span>
@@ -825,13 +835,19 @@ const PetBoardingSearch = () => {
                             }
                           </div>
                           
-                          <div className="flex justify-between items-center mt-4">
-                            <span className="font-semibold text-gray-900">₹{center.perDayCharge}/day</span>
+                          <div className="border-t border-gray-200 pt-3 flex justify-between items-center">
+                            <div className="text-primary font-semibold">
+                              ₹{center.perDayCharge}
+                            </div>
+                            
                             <button
                               onClick={() => viewCenterDetails(center)}
-                              className="px-3 py-1 text-sm bg-primary text-white rounded hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary"
+                              className="flex items-center text-primary hover:text-primary-dark"
                             >
                               View Details
+                              <svg className="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
                             </button>
                           </div>
                         </div>
@@ -862,16 +878,15 @@ const PetBoardingSearch = () => {
                         key={center.id} 
                         className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
                       >
-                        <div className="h-48 bg-gray-300 relative">
-                          {center.galleryImageURLs && center.galleryImageURLs.length > 0 ? (
-                            <img 
-                              src={center.galleryImageURLs[0]} 
-                              alt={center.centerName} 
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                              <span className="text-gray-500">No image available</span>
+                        <div className="relative h-48">
+                          <img 
+                            src={center.galleryImageURLs?.[0] || "https://doggyvilleindia.in/wp-content/uploads/2024/09/how-to-choose-the-best-dog-boarding-facility-for-your-pet.jpg"} 
+                            alt={center.centerName}
+                            className="w-full h-full object-cover"
+                          />
+                          {center.distance && (
+                            <div className="absolute top-2 right-2 bg-primary text-white text-sm px-2 py-1 rounded-md">
+                              {center.distance.toFixed(1)} km away
                             </div>
                           )}
                         </div>
@@ -880,25 +895,24 @@ const PetBoardingSearch = () => {
                           <h4 className="text-lg font-semibold text-gray-900 mb-2">{center.centerName}</h4>
                           <p className="text-gray-600 text-sm mb-2">{center.city}, {center.pincode}</p>
                           
-                          {/* Display distance if available */}
-                          {center.distance !== undefined && (
-                            <p className="text-sm text-blue-600 mb-2 flex items-center">
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                              </svg>
-                              {center.distance.toFixed(1)} km away
-                            </p>
-                          )}
+                          <div className="flex items-center mb-2">
+                            <div className="flex text-amber-500">
+                              {[...Array(5)].map((_, i) => (
+                                <svg key={i} className={`h-4 w-4 ${i < (center.rating || 0) ? 'text-amber-500' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                </svg>
+                              ))}
+                              <span className="ml-1 text-sm text-gray-700">{center.rating || 0} ({center.reviewCount || 0})</span>
+                            </div>
+                          </div>
                           
-                          <div className="flex items-center space-x-2 mb-3">
-                            <span className="text-sm text-gray-500">Accepts:</span>
+                          <div className="flex flex-wrap gap-1 mb-3">
                             {center.petTypesAccepted && Object.entries(center.petTypesAccepted)
                               .filter(([_, value]) => value)
                               .map(([petType]) => (
                                 <span 
                                   key={petType} 
-                                  className="px-2 py-1 bg-primary-light text-primary text-xs rounded-full"
+                                  className="inline-block bg-primary-light text-primary text-xs px-2 py-1 rounded-full"
                                 >
                                   {petType.charAt(0).toUpperCase() + petType.slice(1)}
                                 </span>
@@ -906,13 +920,19 @@ const PetBoardingSearch = () => {
                             }
                           </div>
                           
-                          <div className="flex justify-between items-center mt-4">
-                            <span className="font-semibold text-gray-900">₹{center.perDayCharge}/day</span>
+                          <div className="border-t border-gray-200 pt-3 flex justify-between items-center">
+                            <div className="text-primary font-semibold">
+                              ₹{center.perDayCharge}
+                            </div>
+                            
                             <button
                               onClick={() => viewCenterDetails(center)}
-                              className="px-3 py-1 text-sm bg-primary text-white rounded hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary"
+                              className="flex items-center text-primary hover:text-primary-dark"
                             >
                               View Details
+                              <svg className="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
                             </button>
                           </div>
                         </div>
@@ -943,16 +963,15 @@ const PetBoardingSearch = () => {
                         key={center.id} 
                         className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
                       >
-                        <div className="h-48 bg-gray-300 relative">
-                          {center.galleryImageURLs && center.galleryImageURLs.length > 0 ? (
-                            <img 
-                              src={center.galleryImageURLs[0]} 
-                              alt={center.centerName} 
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                              <span className="text-gray-500">No image available</span>
+                        <div className="relative h-48">
+                          <img 
+                            src={center.galleryImageURLs?.[0] || "https://doggyvilleindia.in/wp-content/uploads/2024/09/how-to-choose-the-best-dog-boarding-facility-for-your-pet.jpg"} 
+                            alt={center.centerName}
+                            className="w-full h-full object-cover"
+                          />
+                          {center.distance && (
+                            <div className="absolute top-2 right-2 bg-primary text-white text-sm px-2 py-1 rounded-md">
+                              {center.distance.toFixed(1)} km away
                             </div>
                           )}
                         </div>
@@ -961,25 +980,24 @@ const PetBoardingSearch = () => {
                           <h4 className="text-lg font-semibold text-gray-900 mb-2">{center.centerName}</h4>
                           <p className="text-gray-600 text-sm mb-2">{center.city}, {center.pincode}</p>
                           
-                          {/* Display distance if available */}
-                          {center.distance !== undefined && (
-                            <p className="text-sm text-blue-600 mb-2 flex items-center">
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                              </svg>
-                              {center.distance.toFixed(1)} km away
-                            </p>
-                          )}
+                          <div className="flex items-center mb-2">
+                            <div className="flex text-amber-500">
+                              {[...Array(5)].map((_, i) => (
+                                <svg key={i} className={`h-4 w-4 ${i < (center.rating || 0) ? 'text-amber-500' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                </svg>
+                              ))}
+                              <span className="ml-1 text-sm text-gray-700">{center.rating || 0} ({center.reviewCount || 0})</span>
+                            </div>
+                          </div>
                           
-                          <div className="flex items-center space-x-2 mb-3">
-                            <span className="text-sm text-gray-500">Accepts:</span>
+                          <div className="flex flex-wrap gap-1 mb-3">
                             {center.petTypesAccepted && Object.entries(center.petTypesAccepted)
                               .filter(([_, value]) => value)
                               .map(([petType]) => (
                                 <span 
                                   key={petType} 
-                                  className="px-2 py-1 bg-primary-light text-primary text-xs rounded-full"
+                                  className="inline-block bg-primary-light text-primary text-xs px-2 py-1 rounded-full"
                                 >
                                   {petType.charAt(0).toUpperCase() + petType.slice(1)}
                                 </span>
@@ -987,13 +1005,19 @@ const PetBoardingSearch = () => {
                             }
                           </div>
                           
-                          <div className="flex justify-between items-center mt-4">
-                            <span className="font-semibold text-gray-900">₹{center.perDayCharge}/day</span>
+                          <div className="border-t border-gray-200 pt-3 flex justify-between items-center">
+                            <div className="text-primary font-semibold">
+                              ₹{center.perDayCharge}
+                            </div>
+                            
                             <button
                               onClick={() => viewCenterDetails(center)}
-                              className="px-3 py-1 text-sm bg-primary text-white rounded hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary"
+                              className="flex items-center text-primary hover:text-primary-dark"
                             >
                               View Details
+                              <svg className="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
                             </button>
                           </div>
                         </div>
@@ -1018,62 +1042,70 @@ const PetBoardingSearch = () => {
           ) : (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {getCurrentPageCenters(filteredCenters, currentPage, centersPerPage).map(center => (
+                {getCurrentPageCenters(filteredCenters, currentPage, centersPerPage).map((center) => (
                   <div 
-                    key={center.id} 
-                    className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+                    key={center.id}
+                    className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-shadow"
                   >
-                    <div className="h-48 bg-gray-300 relative">
-                      {center.galleryImageURLs && center.galleryImageURLs.length > 0 ? (
-                        <img 
-                          src={center.galleryImageURLs[0]} 
-                          alt={center.centerName} 
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                          <span className="text-gray-500">No image available</span>
+                    <div className="relative h-48">
+                      <img 
+                        src={center.galleryImageURLs?.[0] || "https://doggyvilleindia.in/wp-content/uploads/2024/09/how-to-choose-the-best-dog-boarding-facility-for-your-pet.jpg"} 
+                        alt={center.centerName}
+                        className="w-full h-full object-cover"
+                      />
+                      {center.distance && (
+                        <div className="absolute top-2 right-2 bg-primary text-white text-sm px-2 py-1 rounded-md">
+                          {center.distance.toFixed(1)} km away
                         </div>
                       )}
                     </div>
                     
                     <div className="p-4">
-                      <h4 className="text-lg font-semibold text-gray-900 mb-2">{center.centerName}</h4>
-                      <p className="text-gray-600 text-sm mb-2">{center.city}, {center.pincode}</p>
+                      <h3 className="text-lg font-semibold mb-1">{center.centerName}</h3>
                       
-                      {/* Display distance if available */}
-                      {center.distance !== undefined && (
-                        <p className="text-sm text-blue-600 mb-2 flex items-center">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                          </svg>
-                          {center.distance.toFixed(1)} km away
-                        </p>
-                      )}
-                      
-                      <div className="flex items-center space-x-2 mb-3">
-                        <span className="text-sm text-gray-500">Accepts:</span>
-                        {center.petTypesAccepted && Object.entries(center.petTypesAccepted)
-                          .filter(([_, value]) => value)
-                          .map(([petType]) => (
-                            <span 
-                              key={petType} 
-                              className="px-2 py-1 bg-primary-light text-primary text-xs rounded-full"
-                            >
-                              {petType.charAt(0).toUpperCase() + petType.slice(1)}
-                            </span>
-                          ))
-                        }
+                      <div className="flex items-center mb-2">
+                        <div className="flex text-amber-500">
+                          {[...Array(5)].map((_, i) => (
+                            <svg key={i} className={`h-4 w-4 ${i < (center.rating || 0) ? 'text-amber-500' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                          ))}
+                          <span className="ml-1 text-sm text-gray-700">{center.rating || 0} ({center.reviewCount || 0})</span>
+                        </div>
                       </div>
                       
-                      <div className="flex justify-between items-center mt-4">
-                        <span className="font-semibold text-gray-900">₹{center.perDayCharge}/day</span>
+                      <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                        {center.address}, {center.city}, {center.pincode}
+                      </p>
+                      
+                      <div className="flex flex-wrap gap-1 mb-3">
+                        {center.acceptsDogs && (
+                          <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">Dogs</span>
+                        )}
+                        {center.acceptsCats && (
+                          <span className="inline-block bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded">Cats</span>
+                        )}
+                        {center.hasCCTV && (
+                          <span className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded">CCTV</span>
+                        )}
+                        {center.has24HrStaff && (
+                          <span className="inline-block bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded">24/7 Staff</span>
+                        )}
+                      </div>
+                      
+                      <div className="border-t border-gray-200 pt-3 flex justify-between items-center">
+                        <div className="text-primary font-semibold">
+                          ₹{center.perDayCharge}
+                        </div>
+                        
                         <button
                           onClick={() => viewCenterDetails(center)}
-                          className="px-3 py-1 text-sm bg-primary text-white rounded hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary"
+                          className="flex items-center text-primary hover:text-primary-dark"
                         >
                           View Details
+                          <svg className="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
                         </button>
                       </div>
                     </div>

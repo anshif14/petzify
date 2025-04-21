@@ -30,6 +30,7 @@ import PetRehoming from './pages/PetRehoming';
 import FindFurrySoulmate from './pages/FindFurrySoulmate';
 import PetDetails from './pages/PetDetails';
 import PetBoarding from './pages/PetBoarding';
+import BoardingDetail from './pages/BoardingDetail';
 import PetBoardingAdmin from './pages/admin/PetBoardingAdmin';
 
 // Import context providers
@@ -95,6 +96,7 @@ function App() {
             <Route path="/download/android" element={<Layout><AppDownloadComing storeType="android" /></Layout>} />
             <Route path="/services/transportation" element={<Layout><PetTransportation /></Layout>} />
             <Route path="/services/boarding" element={<Layout><PetBoarding /></Layout>} />
+            <Route path="/services/boarding/:id" element={<Layout><BoardingDetail /></Layout>} />
             <Route path="/rehome" element={<Layout><PetRehoming /></Layout>} />
             <Route path="/find-furry-soulmate" element={<Layout><FindFurrySoulmate /></Layout>} />
             <Route path="/pets/:petId" element={<Layout><PetDetails /></Layout>} />
