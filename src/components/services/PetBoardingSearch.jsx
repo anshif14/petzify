@@ -3,6 +3,139 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../firebase/config.js';
 import useGoogleMaps from '../../utils/useGoogleMaps';
 
+// Create a separate Map component to isolate the Google Maps rendering
+const DetailMap = ({ center, userLocation, isLoaded, loadMap }) => {
+  const mapRef = useRef(null);
+  const [mapIsLoaded, setMapIsLoaded] = useState(false);
+  
+  useEffect(() => {
+    // Initialize map when component mounts
+    const initMap = async () => {
+      if (!mapRef.current) return;
+      
+      // Make sure container has dimensions
+      const container = mapRef.current;
+      container.style.width = '100%';
+      container.style.height = '300px';
+      
+      // Check if Google Maps is loaded
+      if (!window.google || !window.google.maps) {
+        if (typeof loadMap === 'function') {
+          await loadMap();
+        }
+        // If still not loaded, return and try again
+        if (!window.google || !window.google.maps) {
+          setTimeout(initMap, 300);
+          return;
+        }
+      }
+      
+      // Get coordinates of boarding center
+      const centerLat = parseFloat(center.latitude) || parseFloat(center.location?.latitude) || 0;
+      const centerLng = parseFloat(center.longitude) || parseFloat(center.location?.longitude) || 0;
+      
+      const centerPosition = {
+        lat: centerLat,
+        lng: centerLng
+      };
+      
+      // Map options
+      const mapOptions = {
+        center: centerPosition,
+        zoom: 15,
+        mapTypeControl: true,
+        fullscreenControl: true,
+        streetViewControl: true,
+        zoomControl: true,
+      };
+      
+      // Create map
+      const map = new window.google.maps.Map(container, mapOptions);
+      
+      // Add marker for boarding center
+      new window.google.maps.Marker({
+        position: centerPosition,
+        map: map,
+        title: center.centerName,
+        icon: {
+          url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
+        }
+      });
+      
+      // If user location is available, add a marker for it
+      if (userLocation) {
+        const userLatLng = {
+          lat: userLocation.latitude,
+          lng: userLocation.longitude
+        };
+        
+        // Add marker for user location
+        new window.google.maps.Marker({
+          position: userLatLng,
+          map: map,
+          title: 'Your Location',
+          icon: {
+            url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
+          }
+        });
+        
+        // Create bounds to fit both points
+        const bounds = new window.google.maps.LatLngBounds();
+        bounds.extend(centerPosition);
+        bounds.extend(userLatLng);
+        map.fitBounds(bounds);
+      }
+      
+      setMapIsLoaded(true);
+    };
+    
+    initMap();
+    
+    // Cleanup function - no need to handle DOM manipulation
+    return () => {
+      // Only need to handle references that might persist
+      if (window.google && window.google.maps && mapRef.current?.__gm) {
+        try {
+          window.google.maps.event.clearInstanceListeners(mapRef.current);
+        } catch (err) {
+          console.warn('Error clearing map listeners:', err);
+        }
+      }
+    };
+  }, [center, userLocation, loadMap]);
+  
+  return (
+    <div>
+      <div 
+        ref={mapRef} 
+        className="w-full h-64 rounded-md border border-gray-300 bg-gray-100 mb-4"
+      >
+        {!mapIsLoaded && (
+          <div className="w-full h-full flex items-center justify-center">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+            <span className="ml-2 text-gray-600">Loading map...</span>
+          </div>
+        )}
+      </div>
+      <p className="text-sm text-gray-600">
+        <strong>Address:</strong> {center.address}, {center.city}, {center.pincode}
+      </p>
+      {center.latitude && center.longitude && (
+        <p className="text-sm text-gray-600">
+          <a 
+            href={`https://www.google.com/maps/dir/?api=1&destination=${center.latitude},${center.longitude}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline"
+          >
+            Get Directions
+          </a>
+        </p>
+      )}
+    </div>
+  );
+};
+
 const PetBoardingSearch = () => {
   const [searchParams, setSearchParams] = useState({
     location: '',
@@ -23,22 +156,25 @@ const PetBoardingSearch = () => {
   // Add user location state
   const [userLocation, setUserLocation] = useState(null);
   const [locationLoading, setLocationLoading] = useState(false);
+  // Add booking modal state
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [bookingDetails, setBookingDetails] = useState({
+    dateFrom: '',
+    dateTo: '',
+    petType: '',
+    petSize: '',
+    notes: ''
+  });
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [centersPerPage] = useState(9); // Show 9 centers per page (3x3 grid)
-  
-  // Use the same ref for both
-  const mapContainerRef = useRef(null);
   
   // Use our custom hook for Google Maps
   const { isLoaded, loadMap } = useGoogleMaps();
   
   // Add state to track elements for cleanup
   const [cleanupInfo, setCleanupInfo] = useState({ elements: [], listeners: [] });
-  
-  // Global reference to store map objects
-  const mapObjectsRef = useRef({ marker: null, infoWindow: null, map: null });
 
   // Function to calculate distance between two coordinates using the Haversine formula
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
@@ -278,269 +414,13 @@ const PetBoardingSearch = () => {
     console.log('Viewing details for:', center.centerName);
     setSelectedCenter(center);
     setShowModal(true);
-    
-    // Use a timeout to ensure the modal is displayed before initializing the map
-    if (isLoaded) {
-      setTimeout(() => {
-        initializeDetailMap();
-      }, 500);
-    }
   };
   
   const closeDetails = () => {
+    // Much simpler cleanup now
     setSelectedCenter(null);
     setShowModal(false);
   };
-
-  const initializeDetailMap = useCallback(() => {
-    if (!selectedCenter || !mapContainerRef.current) {
-      console.error("Missing selectedCenter or mapContainerRef");
-      return;
-    }
-
-    console.log("Initializing detail map", selectedCenter);
-    
-    // Make sure container has dimensions
-    const container = mapContainerRef.current;
-    container.style.width = '100%';
-    container.style.height = '300px';
-
-    // Ensure Google Maps is loaded
-    if (!window.google || !window.google.maps) {
-      console.log("Google Maps not loaded yet, trying to load");
-      loadMap().then(() => {
-        // Retry after Google Maps loads
-        setTimeout(initializeDetailMap, 300);
-      });
-      return;
-    }
-
-    // Get coordinates of boarding center
-    const centerLat = parseFloat(selectedCenter.latitude) || parseFloat(selectedCenter.location?.latitude) || 0;
-    const centerLng = parseFloat(selectedCenter.longitude) || parseFloat(selectedCenter.location?.longitude) || 0;
-    
-    const centerPosition = {
-      lat: centerLat,
-      lng: centerLng
-    };
-
-    console.log("Center coordinates:", centerPosition);
-
-    // Clear any previous map instances
-    if (mapObjectsRef.current.map) {
-      console.log('Clearing existing map instance');
-      if (window.google && window.google.maps) {
-        window.google.maps.event.clearInstanceListeners(mapObjectsRef.current.map);
-      }
-      mapObjectsRef.current.map = null;
-      mapObjectsRef.current.marker = null;
-      mapObjectsRef.current.infoWindow = null;
-    }
-    
-    // Create LatLngBounds to include both user location and boarding center
-    const bounds = new window.google.maps.LatLngBounds();
-    bounds.extend(centerPosition);
-
-    // Map options
-    const mapOptions = {
-      center: centerPosition,
-      zoom: 15,
-      mapTypeControl: true,
-      fullscreenControl: true,
-      streetViewControl: true,
-      zoomControl: true,
-    };
-
-    // Create map
-    const map = new window.google.maps.Map(container, mapOptions);
-    
-    // Add center marker with custom icon for boarding center
-    const centerMarker = new window.google.maps.Marker({
-      position: centerPosition,
-      map: map,
-      title: selectedCenter.centerName,
-      animation: window.google.maps.Animation.DROP,
-      icon: {
-        url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
-      }
-    });
-
-    // Add info window for center
-    const infoWindow = new window.google.maps.InfoWindow({
-      content: `
-        <div style="max-width: 200px">
-          <h3 style="font-weight: bold; margin-bottom: 5px">${selectedCenter.centerName}</h3>
-          <p>${selectedCenter.address}</p>
-          <p>₹${selectedCenter.perDayCharge}/day</p>
-          ${selectedCenter.distance !== undefined ? `<p><strong>Distance:</strong> ${selectedCenter.distance.toFixed(1)} km</p>` : ''}
-        </div>
-      `
-    });
-
-    centerMarker.addListener('click', () => {
-      infoWindow.open(map, centerMarker);
-    });
-    
-    // Open info window by default
-    infoWindow.open(map, centerMarker);
-    
-    // If user location is available, add a marker for it and draw a route
-    if (userLocation) {
-      const userLatLng = {
-        lat: userLocation.latitude,
-        lng: userLocation.longitude
-      };
-      
-      // Add user location to bounds
-      bounds.extend(userLatLng);
-      
-      // Add marker for user location
-      const userMarker = new window.google.maps.Marker({
-        position: userLatLng,
-        map: map,
-        title: 'Your Location',
-        icon: {
-          url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
-        }
-      });
-      
-      // Add info window for user location
-      const userInfoWindow = new window.google.maps.InfoWindow({
-        content: '<div style="text-align: center; padding: 5px;">Your Location</div>'
-      });
-      
-      userMarker.addListener('click', () => {
-        userInfoWindow.open(map, userMarker);
-      });
-      
-      // Draw a straight line between user and boarding center
-      const routePath = new window.google.maps.Polyline({
-        path: [userLatLng, centerPosition],
-        geodesic: true,
-        strokeColor: '#FF0000',
-        strokeOpacity: 0.8,
-        strokeWeight: 2
-      });
-      
-      routePath.setMap(map);
-      
-      // Fit bounds to include both points with padding
-      map.fitBounds(bounds, 50);
-    } else {
-      // If no user location, just center on the boarding center
-      map.setCenter(centerPosition);
-    }
-
-    // Store map objects for cleanup
-    mapObjectsRef.current = { map, marker: centerMarker, infoWindow };
-
-    // Trigger a resize event to ensure the map displays correctly
-    setTimeout(() => {
-      window.google.maps.event.trigger(map, 'resize');
-    }, 100);
-    
-    setMapLoaded(true);
-  }, [selectedCenter, userLocation, mapContainerRef, loadMap, setMapLoaded]);
-
-  // Define loadDetailMap function
-  const loadDetailMap = useCallback(() => {
-    if (!selectedCenter || !selectedCenter.latitude || !selectedCenter.longitude) return;
-     
-    // If Google Maps is already loaded, initialize map, otherwise load it first
-    if (isLoaded) {
-      initializeDetailMap();
-    } else {
-      loadMap().then(() => {
-        initializeDetailMap();
-      });
-    }
-  }, [selectedCenter, isLoaded, loadMap, initializeDetailMap]);
-
-  // Update the useEffect to trigger map loading when modal is shown
-  useEffect(() => {
-    if (selectedCenter && showModal) {
-      console.log("Modal is shown, initializing map");
-      // Wait for modal to be fully rendered
-      setTimeout(() => {
-        initializeDetailMap();
-      }, 300);
-    }
-  }, [selectedCenter, showModal, initializeDetailMap]);
-
-  // Update the useEffect for map loading
-  useEffect(() => {
-    if (selectedCenter) {
-      setMapLoaded(false);
-      loadDetailMap();
-    }
-    
-    // Enhanced cleanup function
-    return () => {
-      // 1. Close info window if open (prevents race conditions)
-      if (mapObjectsRef.current.infoWindow) {
-        try {
-          mapObjectsRef.current.infoWindow.close();
-        } catch (err) {
-          console.warn('Error closing info window:', err);
-        }
-      }
-      
-      // 2. Clear event listeners on map objects
-      ['marker', 'infoWindow', 'map'].forEach(objectKey => {
-        const mapObject = mapObjectsRef.current[objectKey];
-        if (mapObject && window.google && window.google.maps) {
-          try {
-            window.google.maps.event.clearInstanceListeners(mapObject);
-          } catch (err) {
-            console.warn(`Error clearing listeners for ${objectKey}:`, err);
-          }
-        }
-      });
-      
-      // 3. Clean up any saved event listeners
-      const listeners = cleanupInfo?.listeners || [];
-      listeners.forEach(({ target, type, listener }) => {
-        try {
-          if (target && typeof target.removeListener === 'function') {
-            target.removeListener(type, listener);
-          } else if (target && typeof target.removeEventListener === 'function') {
-            target.removeEventListener(type, listener);
-          }
-        } catch (err) {
-          console.warn(`Error removing event listener ${type}:`, err);
-        }
-      });
-      
-      // 4. Clean up any created DOM elements
-      const elements = cleanupInfo?.elements || [];
-      elements.forEach(element => {
-        try {
-          if (element && element.parentNode) {
-            element.parentNode.removeChild(element);
-          }
-        } catch (err) {
-          console.warn('Error removing created DOM element:', err);
-        }
-      });
-      
-      // 5. Remove marker from map
-      if (mapObjectsRef.current.marker && mapObjectsRef.current.marker.setMap) {
-        try {
-          mapObjectsRef.current.marker.setMap(null);
-        } catch (err) {
-          console.warn('Error removing marker from map:', err);
-        }
-      }
-      
-      // 6. Reset references and state
-      mapObjectsRef.current = { marker: null, infoWindow: null, map: null };
-      
-      // Reset the cleanupInfo outside of render to avoid triggering a re-render
-      setTimeout(() => {
-        setCleanupInfo({ elements: [], listeners: [] });
-      }, 0);
-    };
-  }, [selectedCenter, isLoaded, loadDetailMap]);
 
   // Helper function to get current page centers for a specific distance range
   const getCurrentPageCenters = (centers, page, itemsPerPage, distanceRange = null) => {
@@ -598,6 +478,49 @@ const PetBoardingSearch = () => {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchParams, userLocation]);
+
+  // Add booking functions
+  const openBookingModal = () => {
+    setShowBookingModal(true);
+  };
+  
+  const closeBookingModal = () => {
+    setShowBookingModal(false);
+  };
+  
+  const handleBookingInputChange = (e) => {
+    const { name, value } = e.target;
+    setBookingDetails({
+      ...bookingDetails,
+      [name]: value
+    });
+  };
+  
+  const calculateBookingDays = () => {
+    if (!bookingDetails.dateFrom || !bookingDetails.dateTo) return 0;
+    
+    const fromDate = new Date(bookingDetails.dateFrom);
+    const toDate = new Date(bookingDetails.dateTo);
+    const diffTime = Math.abs(toDate - fromDate);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // Include both start and end days
+    
+    return diffDays;
+  };
+  
+  const submitBooking = (e) => {
+    e.preventDefault();
+    // Here you would integrate with your backend to save the booking
+    
+    // For now, just show an alert with the booking details
+    const days = calculateBookingDays();
+    const totalCost = selectedCenter.perDayCharge * days;
+    
+    alert(`Booking confirmed for ${selectedCenter.centerName}!\n\nDates: ${bookingDetails.dateFrom} to ${bookingDetails.dateTo}\nPet: ${bookingDetails.petType}, ${bookingDetails.petSize} size\nTotal cost: ₹${totalCost}`);
+    
+    // Close modals
+    setShowBookingModal(false);
+    closeDetails();
+  };
 
   if (loading) {
     return (
@@ -1318,32 +1241,13 @@ const PetBoardingSearch = () => {
                 {/* Map section */}
                 <div className="mt-6">
                   <h3 className="text-lg font-semibold text-gray-800 mb-3">Location</h3>
-                  <div 
-                    ref={detailMapRef} 
-                    className="w-full h-64 rounded-md border border-gray-300 bg-gray-100 mb-4"
-                  >
-                    {!mapLoaded && (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
-                        <span className="ml-2 text-gray-600">Loading map...</span>
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    <strong>Address:</strong> {selectedCenter.address}, {selectedCenter.city}, {selectedCenter.pincode}
-                  </p>
-                  {selectedCenter.latitude && selectedCenter.longitude && (
-                    <p className="text-sm text-gray-600">
-                      <a 
-                        href={`https://www.google.com/maps/dir/?api=1&destination=${selectedCenter.latitude},${selectedCenter.longitude}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary hover:underline"
-                      >
-                        Get Directions
-                      </a>
-                    </p>
-                  )}
+                  <DetailMap 
+                    key={selectedCenter.id} 
+                    center={selectedCenter} 
+                    userLocation={userLocation}
+                    isLoaded={isLoaded}
+                    loadMap={loadMap}
+                  />
                 </div>
                 
                 <hr className="my-6" />
@@ -1418,13 +1322,138 @@ const PetBoardingSearch = () => {
                     Close
                   </button>
                   <button
+                    onClick={openBookingModal}
                     className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
                   >
-                    Contact Center
+                    Book Now
                   </button>
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Booking Modal */}
+      {selectedCenter && showBookingModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-xl font-bold text-gray-900">Book {selectedCenter.centerName}</h3>
+              <button onClick={closeBookingModal} className="text-gray-500 hover:text-gray-800">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <form onSubmit={submitBooking} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+                <input
+                  type="date"
+                  name="dateFrom"
+                  required
+                  value={bookingDetails.dateFrom}
+                  onChange={handleBookingInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  min={new Date().toISOString().split('T')[0]}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+                <input
+                  type="date"
+                  name="dateTo"
+                  required
+                  value={bookingDetails.dateTo}
+                  onChange={handleBookingInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  min={bookingDetails.dateFrom || new Date().toISOString().split('T')[0]}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Pet Type</label>
+                <select
+                  name="petType"
+                  required
+                  value={bookingDetails.petType}
+                  onChange={handleBookingInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                >
+                  <option value="">Select Pet Type</option>
+                  {selectedCenter.petTypesAccepted && Object.entries(selectedCenter.petTypesAccepted)
+                    .filter(([_, value]) => value)
+                    .map(([petType]) => (
+                      <option key={petType} value={petType}>
+                        {petType.charAt(0).toUpperCase() + petType.slice(1)}
+                      </option>
+                    ))
+                  }
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Pet Size</label>
+                <select
+                  name="petSize"
+                  required
+                  value={bookingDetails.petSize}
+                  onChange={handleBookingInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                >
+                  <option value="">Select Pet Size</option>
+                  {selectedCenter.petSizeLimit && selectedCenter.petSizeLimit.map(size => (
+                    <option key={size} value={size}>
+                      {size.charAt(0).toUpperCase() + size.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Special Instructions</label>
+                <textarea
+                  name="notes"
+                  value={bookingDetails.notes}
+                  onChange={handleBookingInputChange}
+                  rows="3"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  placeholder="Any special requirements for your pet..."
+                ></textarea>
+              </div>
+              
+              {bookingDetails.dateFrom && bookingDetails.dateTo && (
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <p className="text-sm text-gray-600">
+                    Booking for <strong>{calculateBookingDays()}</strong> days
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Total cost: <span className="font-bold text-primary">
+                      ₹{selectedCenter.perDayCharge * calculateBookingDays()}
+                    </span>
+                  </p>
+                </div>
+              )}
+              
+              <div className="flex justify-end space-x-3 pt-2">
+                <button
+                  type="button"
+                  onClick={closeBookingModal}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
+                >
+                  Confirm Booking
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
