@@ -11,6 +11,7 @@ import PageLoader from '../components/common/PageLoader';
 
 const UserBookings = () => {
   const [bookings, setBookings] = useState([]);
+  const [boardingBookings, setBoardingBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [cancelLoading, setCancelLoading] = useState(false);
   const { currentUser, isAuthenticated, authInitialized, loading: authLoading } = useUser();
@@ -25,25 +26,59 @@ const UserBookings = () => {
     setLoading(true);
     try {
       const db = getFirestore(app);
-      const bookingsQuery = query(
+      
+      // Fetch vet appointments
+      const appointmentsQuery = query(
         collection(db, 'appointments'),
         where('userId', '==', currentUser.email),
         orderBy('appointmentDate', 'desc')
       );
       
-      const querySnapshot = await getDocs(bookingsQuery);
-      const bookingsList = [];
+      const appointmentsSnapshot = await getDocs(appointmentsQuery);
+      const appointmentsList = [];
       
-      querySnapshot.forEach((doc) => {
-        bookingsList.push({
+      appointmentsSnapshot.forEach((doc) => {
+        appointmentsList.push({
           id: doc.id,
+          type: 'vet',
           ...doc.data(),
           appointmentDate: doc.data().appointmentDate?.toDate?.() || new Date()
         });
       });
       
-      setBookings(bookingsList);
-      console.log(`Loaded ${bookingsList.length} bookings`);
+      // Fetch pet boarding bookings
+      const boardingQuery = query(
+        collection(db, 'petBoardingBookings'),
+        where('userEmail', '==', currentUser.email),
+        orderBy('createdAt', 'desc')
+      );
+      
+      const boardingSnapshot = await getDocs(boardingQuery);
+      const boardingList = [];
+      
+      boardingSnapshot.forEach((doc) => {
+        const data = doc.data();
+        boardingList.push({
+          id: doc.id,
+          type: 'boarding',
+          appointmentDate: new Date(data.dateFrom),
+          petName: data.petName,
+          petType: data.petType,
+          reason: `Pet Boarding: ${data.dateFrom} to ${data.dateTo}`,
+          centerName: data.centerName,
+          status: data.status,
+          createdAt: data.createdAt?.toDate?.() || new Date(),
+          ...data
+        });
+      });
+      
+      // Combine and sort all bookings by date
+      const allBookings = [...appointmentsList, ...boardingList].sort((a, b) => 
+        b.appointmentDate - a.appointmentDate
+      );
+      
+      setBookings(allBookings);
+      console.log(`Loaded ${appointmentsList.length} appointments and ${boardingList.length} boarding bookings`);
     } catch (error) {
       console.error('Error fetching bookings:', error);
       showError('Could not load your bookings. Please try again later.', 'Error');
@@ -111,7 +146,13 @@ const UserBookings = () => {
     }, 500);
   };
 
-  const getBookingTypeIcon = (petType) => {
+  const getBookingTypeIcon = (petType, bookingType) => {
+    // If it's a boarding appointment, use a house icon
+    if (bookingType === 'boarding') {
+      return '🏠';
+    }
+    
+    // Otherwise use pet type icons for vet appointments
     switch (petType?.toLowerCase()) {
       case 'dog':
         return '🐕';
@@ -141,8 +182,8 @@ const UserBookings = () => {
   };
 
   // Handle appointment cancellation
-  const handleCancelAppointment = async (bookingId) => {
-    if (!bookingId || cancelLoading) return;
+  const handleCancelAppointment = async (booking) => {
+    if (!booking.id || cancelLoading) return;
     
     if (!window.confirm('Are you sure you want to cancel this appointment? This action cannot be undone.')) {
       return;
@@ -151,23 +192,36 @@ const UserBookings = () => {
     setCancelLoading(true);
     try {
       const db = getFirestore(app);
-      const appointmentRef = doc(db, 'appointments', bookingId);
       
-      // Update appointment status to cancelled
-      await updateDoc(appointmentRef, {
-        status: 'cancelled',
-        cancelledAt: new Date().toISOString(),
-        cancelledBy: 'customer'
-      });
+      // Check if this is a regular appointment or a boarding booking
+      if (booking.type === 'vet') {
+        const appointmentRef = doc(db, 'appointments', booking.id);
+        
+        // Update appointment status to cancelled
+        await updateDoc(appointmentRef, {
+          status: 'cancelled',
+          cancelledAt: new Date().toISOString(),
+          cancelledBy: 'customer'
+        });
+      } else if (booking.type === 'boarding') {
+        const boardingRef = doc(db, 'petBoardingBookings', booking.id);
+        
+        // Update boarding booking status to cancelled
+        await updateDoc(boardingRef, {
+          status: 'cancelled',
+          cancelledAt: new Date().toISOString(),
+          cancelledBy: 'customer'
+        });
+      }
       
       showSuccess('Appointment has been cancelled successfully', 'Appointment Cancelled');
       
       // Update the bookings list
       setBookings(prevBookings => 
-        prevBookings.map(booking => 
-          booking.id === bookingId 
-            ? {...booking, status: 'cancelled', cancelledAt: new Date().toISOString()} 
-            : booking
+        prevBookings.map(b => 
+          b.id === booking.id 
+            ? {...b, status: 'cancelled', cancelledAt: new Date().toISOString()} 
+            : b
         )
       );
     } catch (error) {
@@ -237,7 +291,7 @@ const UserBookings = () => {
               <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
                 <h2 className="text-lg font-medium text-gray-900 mb-2">Your Scheduled Appointments</h2>
                 <p className="text-sm text-gray-500">
-                  View and manage all your veterinary appointments
+                  View and manage all your veterinary and boarding appointments
                 </p>
               </div>
               
@@ -256,12 +310,21 @@ const UserBookings = () => {
                           <div className="mb-4 md:mb-0">
                             <div className="flex items-center">
                               <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary-light flex items-center justify-center text-primary text-lg font-bold">
-                                {getBookingTypeIcon(booking.petType)}
+                                {getBookingTypeIcon(booking.petType, booking.type)}
                               </div>
                               <div className="ml-4">
-                                <h4 className="text-lg font-medium text-gray-900">Dr. {booking.doctorName || 'Unknown'}</h4>
+                                <h4 className="text-lg font-medium text-gray-900">
+                                  {booking.type === 'vet' 
+                                    ? `Dr. ${booking.doctorName || 'Unknown'}` 
+                                    : booking.centerName || 'Boarding Center'}
+                                </h4>
                                 <p className="text-sm text-gray-500">
                                   For {booking.petName || 'Pet'} ({booking.petType || 'Not specified'})
+                                  {booking.type === 'boarding' && (
+                                    <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                      Boarding
+                                    </span>
+                                  )}
                                 </p>
                               </div>
                             </div>
@@ -271,9 +334,15 @@ const UserBookings = () => {
                             <div className="text-sm font-medium text-gray-900">
                               {formatDate(booking.appointmentDate)}
                             </div>
-                            <div className="text-sm text-gray-500">
-                              {formatTime(booking.startTime)} - {formatTime(booking.endTime)}
-                            </div>
+                            {booking.type === 'vet' ? (
+                              <div className="text-sm text-gray-500">
+                                {formatTime(booking.startTime)} - {formatTime(booking.endTime)}
+                              </div>
+                            ) : (
+                              <div className="text-sm text-gray-500">
+                                Check-out: {formatDate(new Date(booking.dateTo))}
+                              </div>
+                            )}
                             <div className="mt-2">
                               <span
                                 className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusBadgeClass(
@@ -286,7 +355,7 @@ const UserBookings = () => {
                             
                             {canCancelAppointment(booking) && (
                               <button 
-                                onClick={() => handleCancelAppointment(booking.id)}
+                                onClick={() => handleCancelAppointment(booking)}
                                 disabled={cancelLoading}
                                 className="mt-2 text-sm text-red-600 hover:text-red-800 transition-colors font-medium focus:outline-none"
                               >
@@ -333,12 +402,21 @@ const UserBookings = () => {
                           <div className="mb-4 md:mb-0">
                             <div className="flex items-center">
                               <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 text-lg font-bold">
-                                {getBookingTypeIcon(booking.petType)}
+                                {getBookingTypeIcon(booking.petType, booking.type)}
                               </div>
                               <div className="ml-4">
-                                <h4 className="text-lg font-medium text-gray-900">Dr. {booking.doctorName || 'Unknown'}</h4>
+                                <h4 className="text-lg font-medium text-gray-900">
+                                  {booking.type === 'vet' 
+                                    ? `Dr. ${booking.doctorName || 'Unknown'}` 
+                                    : booking.centerName || 'Boarding Center'}
+                                </h4>
                                 <p className="text-sm text-gray-500">
                                   For {booking.petName || 'Pet'} ({booking.petType || 'Not specified'})
+                                  {booking.type === 'boarding' && (
+                                    <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                      Boarding
+                                    </span>
+                                  )}
                                 </p>
                               </div>
                             </div>
@@ -348,9 +426,15 @@ const UserBookings = () => {
                             <div className="text-sm font-medium text-gray-900">
                               {formatDate(booking.appointmentDate)}
                             </div>
-                            <div className="text-sm text-gray-500">
-                              {formatTime(booking.startTime)} - {formatTime(booking.endTime)}
-                            </div>
+                            {booking.type === 'vet' ? (
+                              <div className="text-sm text-gray-500">
+                                {formatTime(booking.startTime)} - {formatTime(booking.endTime)}
+                              </div>
+                            ) : (
+                              <div className="text-sm text-gray-500">
+                                Check-out: {formatDate(new Date(booking.dateTo))}
+                              </div>
+                            )}
                             <div className="mt-2">
                               <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
                                 booking.status?.toLowerCase() === 'cancelled' 
