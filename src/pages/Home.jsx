@@ -4,6 +4,8 @@ import StatisticsCounter from '../components/StatisticsCounter';
 import TestimonialsSection from '../components/TestimonialsSection';
 import CountdownTimer from '../components/home/CountdownTimer';
 import { initializeTestimonials } from '../firebase/seedTestimonials';
+import { sendTestEmail } from '../utils/emailService';
+
 
 const Home = () => {
   useEffect(() => {
@@ -14,6 +16,20 @@ const Home = () => {
       .then(() => console.log("Testimonials initialization check complete"))
       .catch(error => console.error("Error checking/initializing testimonials:", error));
   }, []);
+
+  const handleSendTestEmail = async () => {
+    try {
+      const response = await sendTestEmail();
+      if (response.ok) {
+        alert('Test email sent successfully!');
+      } else {
+        alert('Failed to send test email. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error sending test email:', error);
+      alert('Error sending test email: ' + error.message);
+    }
+  };
 
   return (
     <div className="bg-gray-50">
@@ -271,6 +287,12 @@ const Home = () => {
               >
                 Send us a message
               </Link>
+              <button 
+                onClick={handleSendTestEmail}
+                className="block w-full mt-4 bg-primary hover:bg-primary-dark text-white py-2 rounded-md transition-colors"
+              >
+                Send Test Email
+              </button>
             </div>
             
             <div className="bg-white rounded-lg p-8 shadow-md text-center hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">

@@ -3,6 +3,7 @@ const { initializeApp } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
 const nodemailer = require("nodemailer");
 const { onRequest } = require("firebase-functions/v2/https");
+const cors = require("cors")({ origin: true });
 initializeApp();
 const db = getFirestore();
 
@@ -40,24 +41,26 @@ const sendEmail = async (config, { to, subject, html }) => {
 
 // --- 🔧 Reusable Custom Email Function ---
 exports.sendCustomEmail = onRequest(async (req, res) => {
-    if (req.method !== "POST") {
-        return res.status(405).send("Method Not Allowed");
-    }
+    cors(req, res, async () => {
+        if (req.method !== "POST") {
+            return res.status(405).send("Method Not Allowed");
+        }
 
-    const { to, subject, html } = req.body;
+        const { to, subject, html } = req.body;
 
-    if (!to || !subject || !html) {
-        return res.status(400).send("Missing required fields: to, subject, or html");
-    }
+        if (!to || !subject || !html) {
+            return res.status(400).send("Missing required fields: to, subject, or html");
+        }
 
-    try {
-        const config = await getEmailConfig();
-        await sendEmail(config, { to, subject, html });
-        return res.status(200).send(`Email sent to ${to}`);
-    } catch (error) {
-        console.error("Custom email error:", error);
-        return res.status(500).send(`Failed to send email: ${error.message}`);
-    }
+        try {
+            const config = await getEmailConfig();
+            await sendEmail(config, { to, subject, html });
+            return res.status(200).send(`Email sent to ${to}`);
+        } catch (error) {
+            console.error("Custom email error:", error);
+            return res.status(500).send(`Failed to send email: ${error.message}`);
+        }
+    });
 });
 
 // --- 📦 Order Created Function ---
