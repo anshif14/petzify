@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/config.js';
+import { useUser } from '../context/UserContext';
+import AuthModal from '../components/auth/AuthModal';
 
 const BoardingDetail = () => {
   const { id } = useParams();
@@ -21,6 +23,10 @@ const BoardingDetail = () => {
   const [totalDays, setTotalDays] = useState(0);
   const [totalCost, setTotalCost] = useState(0);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  
+  // Use useUser hook instead of UserContext
+  const { currentUser, isAuthenticated } = useUser();
 
   // Fetch boarding center details
   useEffect(() => {
@@ -122,26 +128,97 @@ const BoardingDetail = () => {
     setBookingDetails(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  // Handle successful authentication
+  const handleAuthSuccess = () => {
+    // Retrieve stored form data and proceed with booking
+    const storedForm = localStorage.getItem('tempBookingForm');
+    if (storedForm) {
+      try {
+        const parsedForm = JSON.parse(storedForm);
+        setBookingDetails(prevForm => ({
+          ...prevForm,
+          ...parsedForm
+        }));
+        localStorage.removeItem('tempBookingForm');
+        
+        // Process booking after a short delay to ensure currentUser is available
+        setTimeout(() => {
+          processBooking();
+        }, 1000);
+      } catch (error) {
+        console.error('Error parsing stored form data:', error);
+        localStorage.removeItem('tempBookingForm');
+      }
+    }
+  };
+
+  // Update the handleSubmit function
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Navigate to booking confirmation page with details
-    const params = new URLSearchParams({
-      centerId: center.id,
-      centerName: center.centerName,
-      dateFrom: bookingDetails.dateFrom,
-      dateTo: bookingDetails.dateTo,
-      petType: bookingDetails.petType,
-      petSize: bookingDetails.petSize,
-      petName: bookingDetails.petName,
-      notes: bookingDetails.notes,
-      totalDays,
-      totalCost
-    });
     
-    // In a real app you would save the booking to Firestore
-    // For now, just show a confirmation alert
-    alert('Booking request submitted successfully!');
-    // navigate(`/booking-confirmation?${params.toString()}`);
+    // Check if user is logged in
+    if (!isAuthenticated()) {
+      // Store form data temporarily and show auth modal
+      localStorage.setItem('tempBookingForm', JSON.stringify(bookingDetails));
+      setShowAuthModal(true);
+      return;
+    }
+    
+    // Continue with booking process
+    await processBooking();
+  };
+
+  // Add the processing booking function
+  const processBooking = async () => {
+    setLoading(true);
+    try {
+      // Create a booking document in Firestore
+      const bookingData = {
+        userId: currentUser?.id,
+        userEmail: currentUser?.email,
+        userName: currentUser?.fullName || currentUser?.displayName || currentUser?.name || 'Unknown User',
+        userPhone: currentUser?.phone || '',
+        centerId: center.id,
+        centerName: center.centerName,
+        centerAddress: `${center.address}, ${center.city}, ${center.pincode}`,
+        dateFrom: bookingDetails.dateFrom,
+        dateTo: bookingDetails.dateTo,
+        petType: bookingDetails.petType,
+        petSize: bookingDetails.petSize,
+        petName: bookingDetails.petName,
+        notes: bookingDetails.notes,
+        totalDays,
+        perDayCharge: center.perDayCharge,
+        totalCost,
+        status: 'pending',
+        createdAt: serverTimestamp(),
+        paymentStatus: 'pending'
+      };
+      
+      console.log('Attempting to create booking with data:', bookingData);
+      console.log('Current user object:', currentUser);
+      
+      // Add booking to the pet boarding bookings collection
+      const bookingsRef = collection(db, 'petBoardingBookings');
+      const docRef = await addDoc(bookingsRef, bookingData);
+      
+      console.log('Booking created successfully with ID:', docRef.id);
+      
+      // Show success message
+      alert('Booking request submitted successfully! You can check the status in My Bookings.');
+      
+      // Clear any stored pending booking
+      localStorage.removeItem('tempBookingForm');
+      
+      // Redirect to My Bookings page
+      navigate('/my-bookings');
+    } catch (error) {
+      console.error('Error creating booking:', error);
+      console.error('Error details:', error.message, error.code);
+      alert(`Failed to create booking: ${error.message}. Please try again.`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatTime = (time) => {
@@ -157,6 +234,24 @@ const BoardingDetail = () => {
       return time;
     }
   };
+
+  // Add this near the beginning of the component
+  useEffect(() => {
+    // Check if user is logged in when component mounts
+    const checkAuth = () => {
+      // User would be redirected to login page if not authenticated
+      if (!isAuthenticated() && localStorage.getItem('redirectToLogin') === 'true') {
+        localStorage.removeItem('redirectToLogin');
+        navigate('/login', { 
+          state: { 
+            returnUrl: `/services/boarding/${id}` 
+          } 
+        });
+      }
+    };
+    
+    checkAuth();
+  }, [isAuthenticated, navigate, id]);
 
   if (loading) {
     return (
@@ -202,17 +297,6 @@ const BoardingDetail = () => {
           alt={center.centerName} 
           className="w-full h-full object-cover"
         />
-        {/*<div className="absolute top-0 left-0 w-full p-4 z-20">*/}
-        {/*  <Link*/}
-        {/*    to="/services/boarding"*/}
-        {/*    className="inline-flex items-center px-3 py-1 bg-white/80 backdrop-blur-sm text-primary rounded-md hover:bg-white"*/}
-        {/*  >*/}
-        {/*    <svg className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">*/}
-        {/*      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />*/}
-        {/*    </svg>*/}
-        {/*    Back*/}
-        {/*  </Link>*/}
-        {/*</div>*/}
       </div>
 
       <div className="container mx-auto px-4 py-8">
@@ -461,127 +545,204 @@ const BoardingDetail = () => {
             <div className="bg-white rounded-lg shadow-md p-6 sticky top-8">
               <h2 className="text-xl font-semibold mb-4">Book This Center</h2>
               
-              <form onSubmit={handleSubmit}>
-                <div className="mb-4">
-                  <label htmlFor="dateFrom" className="block text-sm font-medium text-gray-700 mb-1">Check-in Date</label>
-                  <input
-                    type="date"
-                    id="dateFrom"
-                    name="dateFrom"
-                    value={bookingDetails.dateFrom}
-                    onChange={handleInputChange}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
-                    min={new Date().toISOString().split('T')[0]}
-                    required
-                  />
-                </div>
-                
-                <div className="mb-4">
-                  <label htmlFor="dateTo" className="block text-sm font-medium text-gray-700 mb-1">Check-out Date</label>
-                  <input
-                    type="date"
-                    id="dateTo"
-                    name="dateTo"
-                    value={bookingDetails.dateTo}
-                    onChange={handleInputChange}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
-                    min={bookingDetails.dateFrom || new Date().toISOString().split('T')[0]}
-                    required
-                  />
-                </div>
-                
-                <div className="mb-4">
-                  <label htmlFor="petType" className="block text-sm font-medium text-gray-700 mb-1">Pet Type</label>
-                  <select
-                    id="petType"
-                    name="petType"
-                    value={bookingDetails.petType}
-                    onChange={handleInputChange}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
-                    required
-                  >
-                    <option value="">Select pet type</option>
-                    {center.petTypesAccepted?.dog && <option value="dog">Dog</option>}
-                    {center.petTypesAccepted?.cat && <option value="cat">Cat</option>}
-                    {center.petTypesAccepted?.bird && <option value="bird">Bird</option>}
-                    {center.petTypesAccepted?.rabbit && <option value="rabbit">Rabbit</option>}
-                    {center.petTypesAccepted?.other && <option value="other">Other</option>}
-                  </select>
-                  <p className="text-xs text-gray-500 mt-1">Please confirm with the boarding center if they accommodate your specific pet type</p>
-                </div>
-                
-                <div className="mb-4">
-                  <label htmlFor="petSize" className="block text-sm font-medium text-gray-700 mb-1">Pet Size</label>
-                  <select
-                    id="petSize"
-                    name="petSize"
-                    value={bookingDetails.petSize}
-                    onChange={handleInputChange}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
-                    required
-                  >
-                    <option value="">Select pet size</option>
-                    {center.petSizeLimit?.includes('small') && <option value="small">Small (up to 10kg)</option>}
-                    {center.petSizeLimit?.includes('medium') && <option value="medium">Medium (10-25kg)</option>}
-                    {center.petSizeLimit?.includes('large') && <option value="large">Large (25kg+)</option>}
-                  </select>
-                  <p className="text-xs text-gray-500 mt-1">For appropriate accommodation arrangement</p>
-                </div>
-                
-                <div className="mb-4">
-                  <label htmlFor="petName" className="block text-sm font-medium text-gray-700 mb-1">Pet Name</label>
-                  <input
-                    type="text"
-                    id="petName"
-                    name="petName"
-                    value={bookingDetails.petName}
-                    onChange={handleInputChange}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
-                    required
-                  />
-                </div>
-                
-                <div className="mb-6">
-                  <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">Special Requirements</label>
-                  <textarea
-                    id="notes"
-                    name="notes"
-                    value={bookingDetails.notes}
-                    onChange={handleInputChange}
-                    rows={3}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
-                    placeholder="Any special needs, dietary requirements, etc."
-                  ></textarea>
-                </div>
-                
-                {totalDays > 0 && (
-                  <div className="bg-gray-50 p-4 rounded-md mb-6">
-                    <div className="flex justify-between mb-2">
-                      <span className="text-gray-700">Duration:</span>
-                      <span className="font-medium">{totalDays} {totalDays === 1 ? 'day' : 'days'}</span>
-                    </div>
-                    <div className="flex justify-between text-lg font-semibold">
-                      <span className="text-gray-700">Total Cost:</span>
-                      <span>₹{totalCost}</span>
-                    </div>
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
                   </div>
-                )}
-                
-                <button
-                  type="submit"
-                  className="w-full py-3 bg-primary text-white font-medium rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-                >
-                  Book Now
-                </button>
-              </form>
-              
-              <div className="mt-4 text-sm text-gray-500">
-                <p>By booking, you agree to our terms and cancellation policy.</p>
+                  <div className="ml-3">
+                    <p className="text-sm text-yellow-700">
+                      <strong>Login Required:</strong> You must be logged in to book a boarding service.
+                      {!isAuthenticated() && (
+                        <button 
+                          onClick={() => setShowAuthModal(true)}
+                          className="ml-2 font-medium text-yellow-700 underline hover:text-yellow-600"
+                        >
+                          Login Now
+                        </button>
+                      )}
+                    </p>
+                  </div>
+                </div>
               </div>
+              
+              {!isAuthenticated() ? (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
+                  <div className="bg-gray-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-8 h-8 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">Login Required</h3>
+                  <p className="text-gray-600 mb-4">You need to be logged in to book this boarding service. Please login to continue.</p>
+                  <button 
+                    onClick={() => {
+                      // Store booking details in local storage for auth modal
+                      localStorage.setItem('tempBookingForm', JSON.stringify({
+                        centerId: id,
+                        centerName: center.centerName,
+                        dateFrom: bookingDetails.dateFrom,
+                        dateTo: bookingDetails.dateTo,
+                        petType: bookingDetails.petType,
+                        petSize: bookingDetails.petSize,
+                        petName: bookingDetails.petName,
+                        notes: bookingDetails.notes,
+                        totalDays,
+                        totalCost
+                      }));
+                      
+                      // Show auth modal
+                      setShowAuthModal(true);
+                    }}
+                    className="w-full py-3 bg-primary text-white font-semibold rounded-md hover:bg-primary-dark transition-colors"
+                  >
+                    Sign in to Book
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmit}>
+                  <div className="mb-4">
+                    <label htmlFor="dateFrom" className="block text-sm font-medium text-gray-700 mb-1">Check-in Date</label>
+                    <input
+                      type="date"
+                      id="dateFrom"
+                      name="dateFrom"
+                      value={bookingDetails.dateFrom}
+                      onChange={handleInputChange}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
+                      min={new Date().toISOString().split('T')[0]}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="mb-4">
+                    <label htmlFor="dateTo" className="block text-sm font-medium text-gray-700 mb-1">Check-out Date</label>
+                    <input
+                      type="date"
+                      id="dateTo"
+                      name="dateTo"
+                      value={bookingDetails.dateTo}
+                      onChange={handleInputChange}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
+                      min={bookingDetails.dateFrom || new Date().toISOString().split('T')[0]}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="mb-4">
+                    <label htmlFor="petType" className="block text-sm font-medium text-gray-700 mb-1">Pet Type</label>
+                    <select
+                      id="petType"
+                      name="petType"
+                      value={bookingDetails.petType}
+                      onChange={handleInputChange}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
+                      required
+                    >
+                      <option value="">Select pet type</option>
+                      {center.petTypesAccepted?.dog && <option value="dog">Dog</option>}
+                      {center.petTypesAccepted?.cat && <option value="cat">Cat</option>}
+                      {center.petTypesAccepted?.bird && <option value="bird">Bird</option>}
+                      {center.petTypesAccepted?.rabbit && <option value="rabbit">Rabbit</option>}
+                      {center.petTypesAccepted?.other && <option value="other">Other</option>}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">Please confirm with the boarding center if they accommodate your specific pet type</p>
+                  </div>
+                  
+                  <div className="mb-4">
+                    <label htmlFor="petSize" className="block text-sm font-medium text-gray-700 mb-1">Pet Size</label>
+                    <select
+                      id="petSize"
+                      name="petSize"
+                      value={bookingDetails.petSize}
+                      onChange={handleInputChange}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
+                      required
+                    >
+                      <option value="">Select pet size</option>
+                      {center.petSizeLimit?.includes('small') && <option value="small">Small (up to 10kg)</option>}
+                      {center.petSizeLimit?.includes('medium') && <option value="medium">Medium (10-25kg)</option>}
+                      {center.petSizeLimit?.includes('large') && <option value="large">Large (25kg+)</option>}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">For appropriate accommodation arrangement</p>
+                  </div>
+                  
+                  <div className="mb-4">
+                    <label htmlFor="petName" className="block text-sm font-medium text-gray-700 mb-1">Pet Name</label>
+                    <input
+                      type="text"
+                      id="petName"
+                      name="petName"
+                      value={bookingDetails.petName}
+                      onChange={handleInputChange}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
+                      required
+                    />
+                  </div>
+                  
+                  <div className="mb-6">
+                    <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">Special Requirements</label>
+                    <textarea
+                      id="notes"
+                      name="notes"
+                      value={bookingDetails.notes}
+                      onChange={handleInputChange}
+                      rows={3}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
+                      placeholder="Any special needs, dietary requirements, etc."
+                    ></textarea>
+                  </div>
+                  
+                  {totalDays > 0 && (
+                    <div className="bg-gray-50 p-4 rounded-md mb-6">
+                      <div className="flex justify-between mb-2">
+                        <span className="text-gray-700">Duration:</span>
+                        <span className="font-medium">{totalDays} {totalDays === 1 ? 'day' : 'days'}</span>
+                      </div>
+                      <div className="flex justify-between text-lg font-semibold">
+                        <span className="text-gray-700">Total Cost:</span>
+                        <span>₹{totalCost}</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <button
+                    type="submit"
+                    className="w-full py-3 bg-primary text-white font-medium rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                  >
+                    Book Now
+                  </button>
+                  
+                  <div className="mt-4 text-sm text-gray-500">
+                    <p>By booking, you agree to our terms and cancellation policy.</p>
+                  </div>
+                  
+                  {/* Add booking process information */}
+                  <div className="mt-6 border-t border-gray-200 pt-4">
+                    <h3 className="font-semibold text-gray-700 mb-2">What happens next?</h3>
+                    <ol className="list-decimal list-inside space-y-2 text-sm text-gray-600">
+                      <li>Your booking request will be sent to the boarding center</li>
+                      <li>The center will review your request and confirm availability</li>
+                      <li>You'll receive a confirmation notification</li>
+                      <li>You can track all your bookings in <Link to="/my-bookings" className="text-primary hover:underline">My Bookings</Link></li>
+                    </ol>
+                  </div>
+                </form>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        initialMode="login"
+        onSuccess={handleAuthSuccess}
+      />
     </div>
   );
 };
