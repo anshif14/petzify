@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, doc, updateDoc, query, where, addDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, query, where, addDoc, orderBy } from 'firebase/firestore';
 import { db } from '../../firebase/config.js';
 import PasswordInput from '../../components/common/PasswordInput';
 
@@ -22,6 +22,11 @@ const PetBoardingAdmin = () => {
   });
   const [passwordError, setPasswordError] = useState('');
   const [centerToApprove, setCenterToApprove] = useState(null);
+  
+  // Bookings related states
+  const [bookings, setBookings] = useState([]);
+  const [pendingBookingsCount, setPendingBookingsCount] = useState(0);
+  const [bookingUpdateLoading, setBookingUpdateLoading] = useState(false);
 
   useEffect(() => {
     const fetchBoardingRequests = async () => {
@@ -47,7 +52,11 @@ const PetBoardingAdmin = () => {
       }
     };
     
-    fetchBoardingRequests();
+    if (activeTab === 'pending' || activeTab === 'approved' || activeTab === 'rejected') {
+      fetchBoardingRequests();
+    } else if (activeTab === 'bookings') {
+      fetchBookings();
+    }
   }, [activeTab, updateStatus.loading]);
 
   // Function to handle when the Approve button is clicked
@@ -252,6 +261,74 @@ ${selectedCenter.galleryImageURLs ? selectedCenter.galleryImageURLs.slice(0, 3).
       setPasswordError('Failed to create account. Please try again.');
       setUpdateStatus({ loading: false, error: 'Failed to create account. Please try again.' });
     }
+  };
+
+  // Fetch bookings from Firestore
+  const fetchBookings = async () => {
+    try {
+      setLoading(true);
+      
+      let bookingsQuery;
+      if (activeTab === 'bookings') {
+        // Fetch all bookings
+        bookingsQuery = query(
+          collection(db, 'petBoardingBookings'),
+          orderBy('createdAt', 'desc')
+        );
+      }
+      
+      if (bookingsQuery) {
+        const snapshot = await getDocs(bookingsQuery);
+        const bookingsList = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: doc.data().createdAt ? new Date(doc.data().createdAt.seconds * 1000) : new Date()
+        }));
+        
+        setBookings(bookingsList);
+        
+        // Count pending bookings
+        const pendingCount = bookingsList.filter(booking => booking.status === 'pending').length;
+        setPendingBookingsCount(pendingCount);
+      }
+    } catch (err) {
+      console.error('Error fetching bookings:', err);
+      setError('Failed to load bookings. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Handle booking status change
+  const handleBookingStatusChange = async (bookingId, newStatus) => {
+    try {
+      setBookingUpdateLoading(true);
+      
+      const bookingRef = doc(db, 'petBoardingBookings', bookingId);
+      await updateDoc(bookingRef, {
+        status: newStatus,
+        updatedAt: new Date()
+      });
+      
+      // Refresh the bookings
+      fetchBookings();
+      
+      setBookingUpdateLoading(false);
+    } catch (err) {
+      console.error('Error updating booking status:', err);
+      setError('Failed to update booking status. Please try again.');
+      setBookingUpdateLoading(false);
+    }
+  };
+  
+  // Format date
+  const formatDate = (date) => {
+    if (!date) return 'N/A';
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    }).format(date instanceof Date ? date : new Date(date));
   };
 
   // Render the request list view
@@ -578,50 +655,168 @@ ${selectedCenter.galleryImageURLs ? selectedCenter.galleryImageURLs.slice(0, 3).
     );
   };
 
+  // Render bookings tab
+  const renderBookingsTab = () => (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+      {loading ? (
+        <div className="p-6 text-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+          <p className="mt-4 text-gray-600">Loading bookings...</p>
+        </div>
+      ) : error ? (
+        <div className="p-6">
+          <div className="bg-red-50 p-4 rounded-md">
+            <p className="text-red-700">{error}</p>
+          </div>
+        </div>
+      ) : bookings.length === 0 ? (
+        <div className="p-6 text-center">
+          <p className="text-gray-600">No bookings found.</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Booking ID</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Center</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dates</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {bookings.map((booking) => (
+                <tr key={booking.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">#{booking.id.slice(0, 8)}</div>
+                    <div className="text-xs text-gray-500">{booking.createdAt.toLocaleDateString()}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{booking.userName}</div>
+                    <div className="text-xs text-gray-500">{booking.userEmail}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{booking.centerName}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-500">
+                      {formatDate(booking.dateFrom)} to {formatDate(booking.dateTo)}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                      booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                      booking.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    {booking.status === 'pending' && (
+                      <>
+                        <button 
+                          onClick={() => handleBookingStatusChange(booking.id, 'confirmed')}
+                          className="text-green-600 hover:text-green-900 mr-3"
+                          disabled={bookingUpdateLoading}
+                        >
+                          Confirm
+                        </button>
+                        <button 
+                          onClick={() => handleBookingStatusChange(booking.id, 'cancelled')}
+                          className="text-red-600 hover:text-red-900"
+                          disabled={bookingUpdateLoading}
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    )}
+                    
+                    {booking.status === 'confirmed' && (
+                      <>
+                        <button 
+                          onClick={() => handleBookingStatusChange(booking.id, 'completed')}
+                          className="text-blue-600 hover:text-blue-900 mr-3"
+                          disabled={bookingUpdateLoading}
+                        >
+                          Complete
+                        </button>
+                        <button 
+                          onClick={() => handleBookingStatusChange(booking.id, 'cancelled')}
+                          className="text-red-600 hover:text-red-900"
+                          disabled={bookingUpdateLoading}
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="p-6">
       <h2 className="text-xl font-medium text-gray-900 mb-4">Pet Boarding Centers Management</h2>
       
-      {/* Tabs - Only show when no center is selected */}
-      {!selectedCenter && (
-        <div className="border-b border-gray-200 mb-6">
-          <nav className="-mb-px flex space-x-8">
-            <button
-              className={`${
-                activeTab === 'pending'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-              onClick={() => setActiveTab('pending')}
-            >
-              Pending Review ({activeTab === 'pending' ? boardingRequests.length : '...'})
-            </button>
-            <button
-              className={`${
-                activeTab === 'approved'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-              onClick={() => setActiveTab('approved')}
-            >
-              Approved
-            </button>
-            <button
-              className={`${
-                activeTab === 'rejected'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-              onClick={() => setActiveTab('rejected')}
-            >
-              Rejected
-            </button>
-          </nav>
+      {/* Tabs */}
+      <div className="mb-6">
+        <div className="flex border-b space-x-8">
+          <button
+            className={`pb-2 ${
+              activeTab === "pending"
+                ? "border-b-2 border-blue-600 text-blue-600 font-semibold"
+                : "text-gray-500"
+            }`}
+            onClick={() => setActiveTab("pending")}
+          >
+            Pending
+          </button>
+          <button
+            className={`pb-2 ${
+              activeTab === "approved"
+                ? "border-b-2 border-blue-600 text-blue-600 font-semibold"
+                : "text-gray-500"
+            }`}
+            onClick={() => setActiveTab("approved")}
+          >
+            Approved
+          </button>
+          <button
+            className={`pb-2 ${
+              activeTab === "rejected"
+                ? "border-b-2 border-blue-600 text-blue-600 font-semibold"
+                : "text-gray-500"
+            }`}
+            onClick={() => setActiveTab("rejected")}
+          >
+            Rejected
+          </button>
+          <button
+            className={`pb-2 ${
+              activeTab === "bookings"
+                ? "border-b-2 border-blue-600 text-blue-600 font-semibold"
+                : "text-gray-500"
+            }`}
+            onClick={() => setActiveTab("bookings")}
+          >
+            Bookings
+          </button>
         </div>
-      )}
+      </div>
       
       {/* Main content */}
-      {selectedCenter ? renderCenterDetails() : renderRequestsList()}
+      {selectedCenter ? renderCenterDetails() : (
+        activeTab === 'bookings' ? renderBookingsTab() : renderRequestsList()
+      )}
       
       {/* Phone Number Dialog */}
       {showPhoneDialog && (

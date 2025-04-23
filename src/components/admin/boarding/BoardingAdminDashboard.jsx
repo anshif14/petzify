@@ -1,9 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, doc, getDoc, updateDoc, addDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, updateDoc, addDoc, serverTimestamp, deleteDoc, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '../../../firebase';
 import { toast } from 'react-toastify';
 import './BoardingAdminDashboard.css'; // Import CSS file for custom styles
 import { FiLoader } from 'react-icons/fi';
+import { 
+  FiCalendar, 
+  FiClock, 
+  FiCheck, 
+  FiX, 
+  FiStar, 
+  FiUsers, 
+  FiDollarSign,
+  FiActivity
+} from 'react-icons/fi';
 
 const BoardingAdminDashboard = ({ adminData }) => {
   // State for boarding centers data
@@ -12,7 +22,7 @@ const BoardingAdminDashboard = ({ adminData }) => {
   const [error, setError] = useState(null);
   
   // Navigation state
-  const [activeSection, setActiveSection] = useState('centers');
+  const [activeSection, setActiveSection] = useState('dashboard');
   
   // State for add center form
   const [showAddForm, setShowAddForm] = useState(false);
@@ -62,6 +72,27 @@ const BoardingAdminDashboard = ({ adminData }) => {
 
   // State for center details view
   const [viewingCenter, setViewingCenter] = useState(null);
+
+  // State for bookings management
+  const [bookings, setBookings] = useState([]);
+  const [bookingsLoading, setBookingsLoading] = useState(false);
+  const [bookingsError, setBookingsError] = useState(null);
+  
+  // State for dashboard statistics
+  const [dashboardStats, setDashboardStats] = useState({
+    totalBookings: 0,
+    upcomingBookings: 0,
+    todayBookings: 0,
+    completedBookings: 0,
+    cancelledBookings: 0,
+    totalRevenue: 0,
+    averageRating: 0
+  });
+  const [upcomingBookings, setUpcomingBookings] = useState([]);
+  const [todayBookings, setTodayBookings] = useState([]);
+  const [pastBookings, setPastBookings] = useState([]);
+  const [recentReviews, setRecentReviews] = useState([]);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
 
   // Fetch boarding centers data
   useEffect(() => {
@@ -262,6 +293,292 @@ const BoardingAdminDashboard = ({ adminData }) => {
       petTypes: Array.isArray(center.petTypes) ? center.petTypes : [],
       imageUrl: center.galleryImageURLs && center.galleryImageURLs.length > 0 ? center.galleryImageURLs[0] : (center.imageUrl || ''),
     });
+  };
+
+  // Fetch bookings for the boarding center
+  const fetchBookings = async () => {
+    if (!adminData || boardingCenters.length === 0) return;
+    
+    try {
+      setBookingsLoading(true);
+      setBookingsError(null);
+      
+      const centerIds = boardingCenters.map(center => center.id);
+      
+      // Query Firestore for bookings that match any of the center IDs
+      const bookingsQuery = query(
+        collection(db, 'petBoardingBookings'),
+        where('centerId', 'in', centerIds)
+      );
+      
+      const bookingsSnapshot = await getDocs(bookingsQuery);
+      
+      const bookingsList = bookingsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          // Safely handle createdAt date
+          bookingDate: data.createdAt ? 
+            (typeof data.createdAt === 'object' && data.createdAt.seconds ? 
+              data.createdAt : new Date()) : 
+            new Date(),
+          // Safely handle dateFrom
+          dateFrom: data.dateFrom ? 
+            (typeof data.dateFrom === 'object' && data.dateFrom.seconds ? 
+              data.dateFrom : data.dateFrom) : 
+            null,
+          // Safely handle dateTo
+          dateTo: data.dateTo ? 
+            (typeof data.dateTo === 'object' && data.dateTo.seconds ? 
+              data.dateTo : data.dateTo) : 
+            null
+        };
+      });
+      
+      console.log("Fetched bookings:", bookingsList);
+      setBookings(bookingsList);
+      
+    } catch (err) {
+      console.error("Error fetching bookings:", err);
+      setBookingsError("Failed to load bookings. Please try again.");
+    } finally {
+      setBookingsLoading(false);
+    }
+  };
+  
+  // Load bookings when the active section is 'bookings'
+  useEffect(() => {
+    if (activeSection === 'bookings') {
+      fetchBookings();
+    }
+  }, [activeSection, boardingCenters]);
+
+  // Function to load dashboard data
+  const loadDashboardData = async () => {
+    if (!adminData || boardingCenters.length === 0) return;
+    
+    try {
+      setDashboardLoading(true);
+      
+      const centerIds = boardingCenters.map(center => center.id);
+      
+      // Query all bookings for the centers
+      const bookingsQuery = query(
+        collection(db, 'petBoardingBookings'),
+        where('centerId', 'in', centerIds)
+      );
+      
+      const bookingsSnapshot = await getDocs(bookingsQuery);
+      const allBookings = bookingsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          bookingDate: data.createdAt ? 
+            (typeof data.createdAt === 'object' && data.createdAt.seconds ? 
+              new Date(data.createdAt.seconds * 1000) : new Date()) : 
+            new Date(),
+          dateFrom: data.dateFrom ? 
+            (typeof data.dateFrom === 'object' && data.dateFrom.seconds ? 
+              new Date(data.dateFrom.seconds * 1000) : new Date(data.dateFrom)) : 
+            null,
+          dateTo: data.dateTo ? 
+            (typeof data.dateTo === 'object' && data.dateTo.seconds ? 
+              new Date(data.dateTo.seconds * 1000) : new Date(data.dateTo)) : 
+            null
+        };
+      });
+      
+      // Get today's date (start and end)
+      const today = new Date();
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+      
+      // Categorize bookings
+      const upcoming = [];
+      const todayB = [];
+      const past = [];
+      let totalRevenue = 0;
+      let completedCount = 0;
+      let cancelledCount = 0;
+      
+      allBookings.forEach(booking => {
+        // Calculate booking revenue
+        if (booking.status === 'completed' && booking.totalAmount) {
+          totalRevenue += parseFloat(booking.totalAmount);
+          completedCount++;
+        }
+        
+        if (booking.status === 'cancelled') {
+          cancelledCount++;
+        }
+        
+        // Categorize by date
+        if (booking.dateFrom) {
+          if (booking.dateFrom > endOfDay) {
+            // Upcoming bookings (start date is in the future)
+            upcoming.push(booking);
+          } else if (booking.dateFrom <= endOfDay && booking.dateFrom >= startOfDay) {
+            // Today's bookings (start date is today)
+            todayB.push(booking);
+          } else if (booking.dateFrom < startOfDay) {
+            // Past bookings (start date is in the past)
+            past.push(booking);
+          }
+        }
+      });
+      
+      // Sort bookings by date
+      upcoming.sort((a, b) => a.dateFrom - b.dateFrom);
+      todayB.sort((a, b) => a.dateFrom - b.dateFrom);
+      past.sort((a, b) => b.dateFrom - a.dateFrom); // Past bookings newest first
+      
+      // Limit to latest 5 for display
+      const recentUpcoming = upcoming.slice(0, 5);
+      const recentToday = todayB.slice(0, 5);
+      const recentPast = past.slice(0, 5);
+      
+      // Query reviews for the centers
+      try {
+        const reviewsQuery = query(
+          collection(db, 'boardingReviews'),
+          where('centerId', 'in', centerIds),
+          orderBy('createdAt', 'desc'),
+          limit(5)
+        );
+        
+        const reviewsSnapshot = await getDocs(reviewsQuery);
+        const reviews = reviewsSnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            createdAt: data.createdAt ? 
+              (typeof data.createdAt === 'object' && data.createdAt.seconds ? 
+                new Date(data.createdAt.seconds * 1000) : new Date()) : 
+              new Date()
+          };
+        });
+        
+        // Calculate average rating
+        const totalRatings = reviews.reduce((sum, review) => sum + (review.rating || 0), 0);
+        const averageRating = reviews.length > 0 ? totalRatings / reviews.length : 0;
+        
+        setRecentReviews(reviews);
+        
+        // Update dashboard stats
+        setDashboardStats({
+          totalBookings: allBookings.length,
+          upcomingBookings: upcoming.length,
+          todayBookings: todayB.length,
+          completedBookings: completedCount,
+          cancelledBookings: cancelledCount,
+          totalRevenue: totalRevenue,
+          averageRating: averageRating
+        });
+        
+      } catch (error) {
+        console.error("Error fetching reviews:", error);
+        // If reviews fail, still set the other data
+        setDashboardStats({
+          totalBookings: allBookings.length,
+          upcomingBookings: upcoming.length,
+          todayBookings: todayB.length,
+          completedBookings: completedCount,
+          cancelledBookings: cancelledCount,
+          totalRevenue: totalRevenue,
+          averageRating: 0
+        });
+      }
+      
+      // Update state
+      setUpcomingBookings(recentUpcoming);
+      setTodayBookings(recentToday);
+      setPastBookings(recentPast);
+      
+    } catch (error) {
+      console.error("Error loading dashboard data:", error);
+      toast.error("Failed to load dashboard data");
+    } finally {
+      setDashboardLoading(false);
+    }
+  };
+  
+  // Load dashboard data when the dashboard section is active
+  useEffect(() => {
+    if (activeSection === 'dashboard' && boardingCenters.length > 0) {
+      loadDashboardData();
+    }
+  }, [activeSection, boardingCenters]);
+
+  // Function to update booking status
+  const updateBookingStatus = async (bookingId, newStatus) => {
+    try {
+      const bookingRef = doc(db, 'petBoardingBookings', bookingId);
+      
+      await updateDoc(bookingRef, {
+        status: newStatus,
+        updatedAt: serverTimestamp()
+      });
+      
+      // Update local state to reflect the change
+      setBookings(prevBookings => 
+        prevBookings.map(booking => 
+          booking.id === bookingId 
+            ? { ...booking, status: newStatus } 
+            : booking
+        )
+      );
+      
+      toast.success(`Booking ${newStatus} successfully!`);
+    } catch (err) {
+      console.error("Error updating booking status:", err);
+      toast.error("Failed to update booking status");
+    }
+  };
+
+  // Helper function to format dates
+  const formatDate = (date) => {
+    if (!date) return 'N/A';
+    
+    try {
+      // Handle Firestore timestamp objects
+      if (date && typeof date === 'object' && date.seconds) {
+        return new Intl.DateTimeFormat('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        }).format(new Date(date.seconds * 1000));
+      }
+      
+      // Handle string dates or invalid date objects
+      if (date instanceof Date && !isNaN(date)) {
+        return new Intl.DateTimeFormat('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        }).format(date);
+      }
+      
+      // If it's a string, try to convert it to a date
+      if (typeof date === 'string') {
+        const parsedDate = new Date(date);
+        if (!isNaN(parsedDate.getTime())) {
+          return new Intl.DateTimeFormat('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          }).format(parsedDate);
+        }
+      }
+      
+      // If we couldn't format it, return N/A
+      return 'N/A';
+    } catch (error) {
+      console.error("Error formatting date:", error, date);
+      return 'N/A';
+    }
   };
 
   // Delete center functionality
@@ -1018,12 +1335,12 @@ const BoardingAdminDashboard = ({ adminData }) => {
                   </p>
                   {viewingCenter.createdAt && (
                     <p className="text-gray-700">
-                      <span className="font-medium">Created:</span> {viewingCenter.createdAt.toDate ? viewingCenter.createdAt.toDate().toLocaleDateString() : 'Unknown'}
+                      <span className="font-medium">Created:</span> {formatDate(viewingCenter.createdAt)}
                     </p>
                   )}
                   {viewingCenter.updatedAt && (
                     <p className="text-gray-700">
-                      <span className="font-medium">Last Updated:</span> {viewingCenter.updatedAt.toDate ? viewingCenter.updatedAt.toDate().toLocaleDateString() : 'Unknown'}
+                      <span className="font-medium">Last Updated:</span> {formatDate(viewingCenter.updatedAt)}
                     </p>
                   )}
                 </div>
@@ -1063,6 +1380,116 @@ const BoardingAdminDashboard = ({ adminData }) => {
         <h3 className="font-medium mb-2">No enquiries yet</h3>
         <p>When customers make booking enquiries for your center, they will appear here.</p>
       </div>
+    </div>
+  );
+
+  // Render bookings management UI
+  const renderBookings = () => (
+    <div className="p-6">
+      <h2 className="text-xl font-semibold text-gray-800 mb-6">Manage Bookings</h2>
+      
+      {bookingsLoading ? (
+        <div className="flex justify-center items-center p-8">
+          <FiLoader className="animate-spin h-8 w-8 text-blue-600" />
+          <span className="ml-2">Loading bookings...</span>
+        </div>
+      ) : bookingsError ? (
+        <div className="bg-red-50 p-4 rounded-md border border-red-200 text-red-700">
+          <p>{bookingsError}</p>
+        </div>
+      ) : bookings.length === 0 ? (
+        <div className="bg-yellow-50 p-4 rounded-md border border-yellow-200 text-yellow-700">
+          <h3 className="font-medium mb-2">No bookings yet</h3>
+          <p>When customers make bookings for your center, they will appear here.</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Booking Details</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dates</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {bookings.map((booking) => (
+                  <tr key={booking.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{booking.userName || 'Unknown User'}</div>
+                          <div className="text-sm text-gray-500">{booking.userEmail || 'No email provided'}</div>
+                          <div className="text-sm text-gray-500">{booking.userPhone || 'No phone provided'}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{booking.centerName || 'Unknown Center'}</div>
+                      <div className="text-sm text-gray-500">Pet: {booking.petType || 'Not specified'}</div>
+                      <div className="text-sm text-gray-500">Booking ID: {booking.id.substring(0, 8)}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500">
+                        <div>From: {formatDate(booking.dateFrom)}</div>
+                        <div>To: {formatDate(booking.dateTo)}</div>
+                        <div>Booked on: {formatDate(booking.bookingDate)}</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                        ${booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                          booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                          booking.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                          booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-800'}`}>
+                        {booking.status?.charAt(0).toUpperCase() + booking.status?.slice(1) || 'Unknown'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      {booking.status === 'pending' && (
+                        <>
+                          <button
+                            onClick={() => updateBookingStatus(booking.id, 'confirmed')}
+                            className="text-green-600 hover:text-green-900 mr-3"
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            onClick={() => updateBookingStatus(booking.id, 'cancelled')}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      )}
+                      {booking.status === 'confirmed' && (
+                        <>
+                          <button
+                            onClick={() => updateBookingStatus(booking.id, 'completed')}
+                            className="text-blue-600 hover:text-blue-900 mr-3"
+                          >
+                            Complete
+                          </button>
+                          <button
+                            onClick={() => updateBookingStatus(booking.id, 'cancelled')}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -1131,6 +1558,316 @@ const BoardingAdminDashboard = ({ adminData }) => {
     </div>
   );
 
+  // Render the dashboard
+  const renderDashboard = () => (
+    <div className="p-6">
+      <h2 className="text-xl font-semibold text-gray-800 mb-6">Boarding Dashboard</h2>
+      
+      {dashboardLoading ? (
+        <div className="flex justify-center items-center p-8">
+          <FiLoader className="animate-spin h-8 w-8 text-blue-600" />
+          <span className="ml-2">Loading dashboard data...</span>
+        </div>
+      ) : boardingCenters.length === 0 ? (
+        <div className="bg-yellow-50 p-6 rounded-lg border border-yellow-200 mb-6">
+          <h3 className="text-lg font-medium text-yellow-800 mb-2">No Boarding Centers</h3>
+          <p className="text-yellow-700">You need to add a boarding center before you can see dashboard statistics.</p>
+          <button
+            onClick={() => setActiveSection('centers')}
+            className="mt-4 px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
+          >
+            Go to Centers Management
+          </button>
+        </div>
+      ) : (
+        <>
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="bg-white rounded-lg shadow p-6 flex items-center">
+              <div className="p-3 rounded-full bg-blue-100 text-blue-600 mr-4">
+                <FiCalendar size={24} />
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">Total Bookings</h3>
+                <p className="text-2xl font-semibold text-gray-800">{dashboardStats.totalBookings}</p>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg shadow p-6 flex items-center">
+              <div className="p-3 rounded-full bg-green-100 text-green-600 mr-4">
+                <FiClock size={24} />
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">Upcoming Bookings</h3>
+                <p className="text-2xl font-semibold text-gray-800">{dashboardStats.upcomingBookings}</p>
+                <span className="text-xs text-green-600">{dashboardStats.todayBookings} today</span>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg shadow p-6 flex items-center">
+              <div className="p-3 rounded-full bg-purple-100 text-purple-600 mr-4">
+                <FiDollarSign size={24} />
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">Total Revenue</h3>
+                <p className="text-2xl font-semibold text-gray-800">₹{dashboardStats.totalRevenue.toFixed(2)}</p>
+                <span className="text-xs text-purple-600">{dashboardStats.completedBookings} completed bookings</span>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg shadow p-6 flex items-center">
+              <div className="p-3 rounded-full bg-yellow-100 text-yellow-600 mr-4">
+                <FiStar size={24} />
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">Average Rating</h3>
+                <div className="flex items-center">
+                  <p className="text-2xl font-semibold text-gray-800 mr-2">
+                    {dashboardStats.averageRating.toFixed(1)}
+                  </p>
+                  <div className="flex text-yellow-500">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <span key={star}>
+                        {star <= Math.round(dashboardStats.averageRating) ? (
+                          <FiStar className="fill-current" />
+                        ) : (
+                          <FiStar />
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <span className="text-xs text-yellow-600">{recentReviews.length} reviews</span>
+              </div>
+            </div>
+          </div>
+          
+          {/* Booking Sections */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            {/* Today's Bookings */}
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <div className="p-4 bg-blue-50 border-b border-blue-100">
+                <h3 className="text-lg font-medium text-blue-800 flex items-center">
+                  <FiClock className="mr-2" /> Today's Bookings
+                  <span className="ml-2 px-2 py-0.5 text-xs bg-blue-600 text-white rounded-full">
+                    {dashboardStats.todayBookings}
+                  </span>
+                </h3>
+              </div>
+              
+              <div className="p-4">
+                {todayBookings.length === 0 ? (
+                  <div className="text-center p-4 text-gray-500">
+                    No bookings scheduled for today
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-gray-200">
+                    {todayBookings.map(booking => (
+                      <li key={booking.id} className="py-3">
+                        <div className="flex justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{booking.userName || 'Unknown Customer'}</p>
+                            <p className="text-xs text-gray-500">
+                              {booking.petType && `${booking.petType} • `}
+                              {formatDate(booking.dateFrom)} - {formatDate(booking.dateTo)}
+                            </p>
+                          </div>
+                          <div>
+                            <span 
+                              className={`px-2 py-1 text-xs rounded-full 
+                              ${booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                                booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                                booking.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                                'bg-red-100 text-red-800'}`
+                              }
+                            >
+                              {booking.status?.charAt(0).toUpperCase() + booking.status?.slice(1) || 'Unknown'}
+                            </span>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                
+                {dashboardStats.todayBookings > todayBookings.length && (
+                  <div className="mt-4 text-center">
+                    <button 
+                      onClick={() => setActiveSection('bookings')}
+                      className="text-sm text-blue-600 hover:text-blue-800"
+                    >
+                      View all {dashboardStats.todayBookings} bookings for today
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Upcoming Bookings */}
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <div className="p-4 bg-green-50 border-b border-green-100">
+                <h3 className="text-lg font-medium text-green-800 flex items-center">
+                  <FiCalendar className="mr-2" /> Upcoming Bookings
+                  <span className="ml-2 px-2 py-0.5 text-xs bg-green-600 text-white rounded-full">
+                    {dashboardStats.upcomingBookings}
+                  </span>
+                </h3>
+              </div>
+              
+              <div className="p-4">
+                {upcomingBookings.length === 0 ? (
+                  <div className="text-center p-4 text-gray-500">
+                    No upcoming bookings
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-gray-200">
+                    {upcomingBookings.map(booking => (
+                      <li key={booking.id} className="py-3">
+                        <div className="flex justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{booking.userName || 'Unknown Customer'}</p>
+                            <p className="text-xs text-gray-500">
+                              {booking.petType && `${booking.petType} • `}
+                              {formatDate(booking.dateFrom)} - {formatDate(booking.dateTo)}
+                            </p>
+                          </div>
+                          <div>
+                            <span 
+                              className={`px-2 py-1 text-xs rounded-full 
+                              ${booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                                booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                                'bg-gray-100 text-gray-800'}`
+                              }
+                            >
+                              {booking.status?.charAt(0).toUpperCase() + booking.status?.slice(1) || 'Unknown'}
+                            </span>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                
+                {dashboardStats.upcomingBookings > upcomingBookings.length && (
+                  <div className="mt-4 text-center">
+                    <button 
+                      onClick={() => setActiveSection('bookings')}
+                      className="text-sm text-green-600 hover:text-green-800"
+                    >
+                      View all {dashboardStats.upcomingBookings} upcoming bookings
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          {/* Past Bookings and Reviews */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Past Bookings */}
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <div className="p-4 bg-purple-50 border-b border-purple-100">
+                <h3 className="text-lg font-medium text-purple-800 flex items-center">
+                  <FiActivity className="mr-2" /> Past Bookings
+                </h3>
+              </div>
+              
+              <div className="p-4">
+                {pastBookings.length === 0 ? (
+                  <div className="text-center p-4 text-gray-500">
+                    No past bookings
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-gray-200">
+                    {pastBookings.map(booking => (
+                      <li key={booking.id} className="py-3">
+                        <div className="flex justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{booking.userName || 'Unknown Customer'}</p>
+                            <p className="text-xs text-gray-500">
+                              {booking.petType && `${booking.petType} • `}
+                              {formatDate(booking.dateFrom)} - {formatDate(booking.dateTo)}
+                            </p>
+                          </div>
+                          <div>
+                            <span 
+                              className={`px-2 py-1 text-xs rounded-full 
+                              ${booking.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                                booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                                'bg-gray-100 text-gray-800'}`
+                              }
+                            >
+                              {booking.status?.charAt(0).toUpperCase() + booking.status?.slice(1) || 'Unknown'}
+                            </span>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                
+                {pastBookings.length > 0 && (
+                  <div className="mt-4 text-center">
+                    <button 
+                      onClick={() => setActiveSection('bookings')}
+                      className="text-sm text-purple-600 hover:text-purple-800"
+                    >
+                      View all past bookings
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Recent Reviews */}
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <div className="p-4 bg-yellow-50 border-b border-yellow-100">
+                <h3 className="text-lg font-medium text-yellow-800 flex items-center">
+                  <FiStar className="mr-2" /> Recent Reviews
+                </h3>
+              </div>
+              
+              <div className="p-4">
+                {recentReviews.length === 0 ? (
+                  <div className="text-center p-4 text-gray-500">
+                    No reviews yet
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-gray-200">
+                    {recentReviews.map(review => (
+                      <li key={review.id} className="py-3">
+                        <div>
+                          <div className="flex items-center mb-1">
+                            <p className="text-sm font-medium text-gray-900 mr-2">{review.userName || 'Anonymous'}</p>
+                            <div className="flex text-yellow-500">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <span key={star}>
+                                  {star <= review.rating ? (
+                                    <FiStar className="fill-current h-3 w-3" />
+                                  ) : (
+                                    <FiStar className="h-3 w-3" />
+                                  )}
+                                </span>
+                              ))}
+                            </div>
+                            <span className="ml-auto text-xs text-gray-500">
+                              {formatDate(review.createdAt)}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600">{review.comment || 'No comment provided'}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+
   // Render active section content
   const renderContent = () => {
     switch (activeSection) {
@@ -1140,6 +1877,10 @@ const BoardingAdminDashboard = ({ adminData }) => {
         return renderEnquiries();
       case 'profile':
         return renderProfile();
+      case 'bookings':
+        return renderBookings();
+      case 'dashboard':
+        return renderDashboard();
       default:
         return renderCentersManagement();
     }
@@ -1156,6 +1897,11 @@ const BoardingAdminDashboard = ({ adminData }) => {
         <nav className="mt-4">
           <ul>
             <NavItem 
+              icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}
+              label="Dashboard"
+              section="dashboard"
+            />
+            <NavItem 
               icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>}
               label="My Centers"
               section="centers"
@@ -1164,6 +1910,11 @@ const BoardingAdminDashboard = ({ adminData }) => {
               icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}
               label="Booking Enquiries"
               section="enquiries"
+            />
+            <NavItem 
+              icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>}
+              label="Bookings"
+              section="bookings"
             />
             <NavItem 
               icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>}
@@ -1181,7 +1932,9 @@ const BoardingAdminDashboard = ({ adminData }) => {
             <h1 className="text-2xl font-semibold text-gray-900">
               {activeSection === 'centers' && 'Boarding Centers Management'}
               {activeSection === 'enquiries' && 'Booking Enquiries'}
+              {activeSection === 'bookings' && 'Manage Bookings'}
               {activeSection === 'profile' && 'Profile Settings'}
+              {activeSection === 'dashboard' && 'Boarding Dashboard'}
             </h1>
           </div>
         </div>

@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { getFirestore, collection, getDocs, query, where } from 'firebase/firestore';
-import { app } from '../../firebase/config';
+import { getFirestore, collection, getDocs, query, where, doc, updateDoc, Timestamp } from 'firebase/firestore';
+import { app, db } from '../../firebase/config';
 
 const Dashboard = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [pendingPetCount, setPendingPetCount] = useState(0);
+  const [pendingBookingsCount, setPendingBookingsCount] = useState(0);
+  const [pendingBookings, setPendingBookings] = useState([]);
+  const [bookingUpdateLoading, setBookingUpdateLoading] = useState(false);
   
   // Fetch pending pet count
   const fetchPendingPetCount = async () => {
@@ -23,9 +26,53 @@ const Dashboard = () => {
     }
   };
   
-  // Fetch pending pet count on mount
+  // Fetch pending bookings
+  const fetchPendingBookings = async () => {
+    try {
+      const q = query(
+        collection(db, 'petBoardingBookings'),
+        where('status', '==', 'pending'),
+        // Limit to recent 5 bookings for the dashboard overview
+        // You can adjust this limit as needed
+      );
+      const querySnapshot = await getDocs(q);
+      const bookings = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt ? new Date(doc.data().createdAt.seconds * 1000) : new Date()
+      }));
+      
+      setPendingBookings(bookings.slice(0, 3)); // Show only the first 3 in the dashboard
+      setPendingBookingsCount(querySnapshot.size);
+    } catch (error) {
+      console.error('Error fetching pending bookings:', error);
+    }
+  };
+  
+  // Handle booking confirmation
+  const handleConfirmBooking = async (bookingId) => {
+    try {
+      setBookingUpdateLoading(true);
+      
+      const bookingRef = doc(db, 'petBoardingBookings', bookingId);
+      await updateDoc(bookingRef, {
+        status: 'confirmed',
+        updatedAt: Timestamp.now()
+      });
+      
+      // Refresh the bookings
+      fetchPendingBookings();
+    } catch (error) {
+      console.error('Error confirming booking:', error);
+    } finally {
+      setBookingUpdateLoading(false);
+    }
+  };
+  
+  // Fetch pending pet count and bookings on mount
   useEffect(() => {
     fetchPendingPetCount();
+    fetchPendingBookings();
   }, []);
   
   // Navigate to the dashboard overview if no specific route is selected
@@ -38,6 +85,15 @@ const Dashboard = () => {
   // Check if a tab is active
   const isActive = (path) => {
     return location.pathname === path;
+  };
+  
+  // Format date
+  const formatDate = (date) => {
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    }).format(date);
   };
   
   return (
@@ -156,7 +212,7 @@ const Dashboard = () => {
                 <Link
                   to="/admin/pet-boarding"
                   className={`flex items-center px-4 py-3 ${
-                    location.pathname.includes('/admin/pet-boarding')
+                    location.pathname.includes('/admin/pet-boarding') && !location.pathname.includes('/admin/boarding-bookings')
                       ? 'bg-primary text-white'
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
@@ -165,6 +221,26 @@ const Dashboard = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                   </svg>
                   Pet Boarding
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/admin/boarding-bookings"
+                  className={`flex items-center px-4 py-3 ${
+                    location.pathname.includes('/admin/boarding-bookings')
+                      ? 'bg-primary text-white'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  Boarding Bookings
+                  {pendingBookingsCount > 0 && (
+                    <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
+                      {pendingBookingsCount}
+                    </span>
+                  )}
                 </Link>
               </li>
               <li>
@@ -220,29 +296,114 @@ const Dashboard = () => {
         {/* Main Content */}
         <div className="flex-1 p-8">
           <Outlet />
-          {/* Add a Pet Boarding Management card */}
-          <div 
-            onClick={() => navigate('/admin/pet-boarding')}
-            className="bg-white rounded-lg shadow hover:shadow-lg cursor-pointer transition-shadow p-6 mt-8"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium text-gray-900">Pet Boarding Management</h3>
-              <div className="rounded-full bg-blue-100 p-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+            {/* Pet Boarding Management card */}
+            <div 
+              onClick={() => navigate('/admin/pet-boarding')}
+              className="bg-white rounded-lg shadow hover:shadow-lg cursor-pointer transition-shadow p-6"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Pet Boarding Management</h3>
+                <div className="rounded-full bg-blue-100 p-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                </div>
+              </div>
+              <p className="text-gray-600 mb-4">
+                Manage pet boarding center registrations, approvals, and monitoring.
+              </p>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Manage boarding centers</span>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-primary" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
               </div>
             </div>
-            <p className="text-gray-600 mb-4">
-              Manage pet boarding center registrations, approvals, and monitoring.
-            </p>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Manage boarding centers</span>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-primary" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
+
+            {/* Boarding Bookings Management card */}
+            <div 
+              onClick={() => navigate('/admin/boarding-bookings')}
+              className="bg-white rounded-lg shadow hover:shadow-lg cursor-pointer transition-shadow p-6"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Boarding Bookings</h3>
+                <div className="rounded-full bg-green-100 p-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              </div>
+              <p className="text-gray-600 mb-4">
+                Manage bookings for pet boarding centers. {pendingBookingsCount > 0 && <span className="font-semibold text-primary">{pendingBookingsCount} pending bookings require attention.</span>}
+              </p>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Manage booking requests</span>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-primary" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </div>
             </div>
           </div>
+
+          {/* Pending Booking Requests Section - Only show if there are pending bookings */}
+          {pendingBookings.length > 0 && (
+            <div className="mt-8">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Pending Booking Requests</h3>
+              <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Center</th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dates</th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {pendingBookings.map(booking => (
+                      <tr key={booking.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{booking.userName}</div>
+                          <div className="text-xs text-gray-500">{booking.userEmail}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{booking.centerName}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-500">
+                            {formatDate(new Date(booking.dateFrom))} to {formatDate(new Date(booking.dateTo))}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <button 
+                            onClick={() => handleConfirmBooking(booking.id)}
+                            className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm transition"
+                            disabled={bookingUpdateLoading}
+                          >
+                            {bookingUpdateLoading ? 'Processing...' : 'Confirm'}
+                          </button>
+                          <button 
+                            onClick={() => navigate(`/admin/boarding-bookings`)}
+                            className="ml-2 text-primary hover:text-primary-dark text-sm"
+                          >
+                            View Details
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {pendingBookingsCount > 3 && (
+                  <div className="px-6 py-3 bg-gray-50 text-right">
+                    <Link to="/admin/boarding-bookings" className="text-primary hover:text-primary-dark text-sm font-medium">
+                      View all {pendingBookingsCount} pending bookings →
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
