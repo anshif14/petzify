@@ -14,6 +14,7 @@ import {
   FiDollarSign,
   FiActivity
 } from 'react-icons/fi';
+import { sendEmail } from '../../../utils/emailService';
 
 const BoardingAdminDashboard = ({ adminData }) => {
   // State for boarding centers data
@@ -93,6 +94,12 @@ const BoardingAdminDashboard = ({ adminData }) => {
   const [pastBookings, setPastBookings] = useState([]);
   const [recentReviews, setRecentReviews] = useState([]);
   const [dashboardLoading, setDashboardLoading] = useState(false);
+  const [bookingUpdateLoading, setBookingUpdateLoading] = useState(false);
+  const [processingBookingId, setProcessingBookingId] = useState(null);
+  
+  // State for reviews and review requests
+  const [reviewRequests, setReviewRequests] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
 
   // Fetch boarding centers data
   useEffect(() => {
@@ -461,6 +468,29 @@ const BoardingAdminDashboard = ({ adminData }) => {
           };
         });
         
+        // Also fetch review requests sent to customers
+        const reviewRequestsQuery = query(
+          collection(db, 'reviewRequests'),
+          where('centerId', 'in', centerIds),
+          orderBy('sentAt', 'desc'),
+          limit(20)
+        );
+        
+        const reviewRequestsSnapshot = await getDocs(reviewRequestsQuery);
+        const requests = reviewRequestsSnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            sentAt: data.sentAt ? 
+              (typeof data.sentAt === 'object' && data.sentAt.seconds ? 
+                new Date(data.sentAt.seconds * 1000) : new Date()) : 
+              new Date()
+          };
+        });
+        
+        setReviewRequests(requests);
+        
         // Calculate average rating
         const totalRatings = reviews.reduce((sum, review) => sum + (review.rating || 0), 0);
         const averageRating = reviews.length > 0 ? totalRatings / reviews.length : 0;
@@ -505,6 +535,58 @@ const BoardingAdminDashboard = ({ adminData }) => {
     }
   };
   
+  // Function to fetch reviews for a specific center or all centers
+  const fetchReviews = async (centerId = null) => {
+    if (!adminData || boardingCenters.length === 0) return;
+    
+    try {
+      setReviewsLoading(true);
+      
+      let reviewsQuery;
+      
+      if (centerId) {
+        // Fetch reviews for a specific center
+        reviewsQuery = query(
+          collection(db, 'boardingReviews'),
+          where('centerId', '==', centerId),
+          orderBy('createdAt', 'desc'),
+          limit(50)
+        );
+      } else {
+        // Fetch reviews for all centers managed by this admin
+        const centerIds = boardingCenters.map(center => center.id);
+        
+        reviewsQuery = query(
+          collection(db, 'boardingReviews'),
+          where('centerId', 'in', centerIds),
+          orderBy('createdAt', 'desc'),
+          limit(50)
+        );
+      }
+      
+      const reviewsSnapshot = await getDocs(reviewsQuery);
+      const reviews = reviewsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt ? 
+            (typeof data.createdAt === 'object' && data.createdAt.seconds ? 
+              new Date(data.createdAt.seconds * 1000) : new Date()) : 
+            new Date()
+        };
+      });
+      
+      return reviews;
+    } catch (error) {
+      console.error("Error fetching reviews:", error);
+      toast.error("Failed to load reviews");
+      return [];
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+  
   // Load dashboard data when the dashboard section is active
   useEffect(() => {
     if (activeSection === 'dashboard' && boardingCenters.length > 0) {
@@ -515,12 +597,176 @@ const BoardingAdminDashboard = ({ adminData }) => {
   // Function to update booking status
   const updateBookingStatus = async (bookingId, newStatus) => {
     try {
-      const bookingRef = doc(db, 'petBoardingBookings', bookingId);
+      setBookingUpdateLoading(true);
+      setProcessingBookingId(bookingId);
       
+      // Get the booking data
+      const bookingRef = doc(db, 'petBoardingBookings', bookingId);
+      const bookingDoc = await getDoc(bookingRef);
+      
+      if (!bookingDoc.exists()) {
+        throw new Error("Booking not found");
+      }
+      
+      const bookingData = bookingDoc.data();
+      
+      // Update the booking status
       await updateDoc(bookingRef, {
         status: newStatus,
         updatedAt: serverTimestamp()
       });
+      
+      const centerData = boardingCenters.find(center => center.id === bookingData.centerId) || {};
+      const logoUrl = "https://firebasestorage.googleapis.com/v0/b/petzify-49ed4.firebasestorage.app/o/assets%2FPetzify%20Logo-05%20(3).png?alt=media&token=d1cf79b7-2ae1-443b-8390-52938a60198d";
+      
+      // Format dates for email
+      const formattedDateFrom = formatDate(
+        bookingData.dateFrom?.seconds ? 
+        new Date(bookingData.dateFrom.seconds * 1000) : 
+        new Date(bookingData.dateFrom)
+      );
+      
+      const formattedDateTo = formatDate(
+        bookingData.dateTo?.seconds ? 
+        new Date(bookingData.dateTo.seconds * 1000) : 
+        new Date(bookingData.dateTo)
+      );
+      
+      // If status is confirmed, send confirmation emails
+      if (newStatus === 'confirmed') {
+        // ... existing code for confirmed emails ...
+        
+        // 4. Schedule a rating request email to be sent after the booking check-in date
+        try {
+          const checkInDate = bookingData.dateFrom?.seconds ? 
+            new Date(bookingData.dateFrom.seconds * 1000) : 
+            new Date(bookingData.dateFrom);
+            
+          if (checkInDate && bookingData.userEmail) {
+            // Store the rating request to be sent a day after check-in
+            await addDoc(collection(db, 'scheduledEmails'), {
+              to: bookingData.userEmail,
+              subject: 'How was your Pet Boarding experience? Leave a rating!',
+              bookingId: bookingId,
+              centerId: bookingData.centerId,
+              centerName: centerData.centerName,
+              userName: bookingData.userName,
+              scheduledFor: new Date(checkInDate.getTime() + 24 * 60 * 60 * 1000), // 1 day after check-in
+              type: 'ratingRequest',
+              status: 'pending',
+              createdAt: serverTimestamp()
+            });
+            
+            // For immediate testing, also send a rating request right away
+            await sendRatingRequestEmail(bookingData, bookingId, centerData);
+            
+            console.log("Rating request email scheduled");
+          }
+        } catch (error) {
+          console.error("Error scheduling rating request email:", error);
+        }
+        
+        toast.success("Booking confirmed and notifications sent!");
+      } 
+      // If status is completed, send a completion and review request email
+      else if (newStatus === 'completed') {
+        try {
+          if (bookingData.userEmail) {
+            // Send completion email with review request
+            await sendEmail({
+              to: bookingData.userEmail,
+              subject: 'Your Pet Boarding Stay is Complete - Share Your Experience!',
+              html: `
+                <html>
+                <body style="font-family: 'Arial', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333; line-height: 1.5;">
+                  <div style="text-align: center; padding: 20px 0; border-bottom: 2px solid #f0f0f0;">
+                    <img src="${logoUrl}" alt="Petzify Logo" style="max-width: 150px; margin-bottom: 10px;" />
+                    <h2 style="color: #4f46e5; margin: 0;">Your Pet Boarding is Complete!</h2>
+                  </div>
+                  
+                  <div style="padding: 20px 0;">
+                    <p>Dear ${bookingData.userName || 'Customer'},</p>
+                    <p>Thank you for choosing <strong>${centerData.centerName || 'our boarding center'}</strong> for your pet's stay from ${formattedDateFrom} to ${formattedDateTo}.</p>
+                    <p>We hope your pet had a wonderful time with us and returned home happy and healthy!</p>
+                    
+                    <div style="background-color: #f9fafb; border-left: 4px solid #4f46e5; padding: 15px; margin: 20px 0;">
+                      <h3 style="margin-top: 0; color: #4f46e5;">Your Feedback Matters!</h3>
+                      <p>We'd love to hear about your experience. Please take a moment to rate our service and share your thoughts.</p>
+                    </div>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                      <p style="font-size: 18px; font-weight: bold; margin-bottom: 15px;">How would you rate your overall experience?</p>
+                      <div style="margin: 20px 0;">
+                        <a href="https://petzify-49ed4.web.app/rate-booking?bookingId=${bookingId}&rating=5" style="display: inline-block; margin: 0 5px; text-decoration: none;">
+                          <div style="background: #4f46e5; color: white; width: 40px; height: 40px; line-height: 40px; text-align: center; border-radius: 50%; font-weight: bold;">5</div>
+                          <div style="margin-top: 5px; font-size: 12px;">Excellent</div>
+                        </a>
+                        <a href="https://petzify-49ed4.web.app/rate-booking?bookingId=${bookingId}&rating=4" style="display: inline-block; margin: 0 5px; text-decoration: none;">
+                          <div style="background: #818cf8; color: white; width: 40px; height: 40px; line-height: 40px; text-align: center; border-radius: 50%; font-weight: bold;">4</div>
+                          <div style="margin-top: 5px; font-size: 12px;">Good</div>
+                        </a>
+                        <a href="https://petzify-49ed4.web.app/rate-booking?bookingId=${bookingId}&rating=3" style="display: inline-block; margin: 0 5px; text-decoration: none;">
+                          <div style="background: #93c5fd; color: white; width: 40px; height: 40px; line-height: 40px; text-align: center; border-radius: 50%; font-weight: bold;">3</div>
+                          <div style="margin-top: 5px; font-size: 12px;">Average</div>
+                        </a>
+                        <a href="https://petzify-49ed4.web.app/rate-booking?bookingId=${bookingId}&rating=2" style="display: inline-block; margin: 0 5px; text-decoration: none;">
+                          <div style="background: #fcd34d; color: white; width: 40px; height: 40px; line-height: 40px; text-align: center; border-radius: 50%; font-weight: bold;">2</div>
+                          <div style="margin-top: 5px; font-size: 12px;">Fair</div>
+                        </a>
+                        <a href="https://petzify-49ed4.web.app/rate-booking?bookingId=${bookingId}&rating=1" style="display: inline-block; margin: 0 5px; text-decoration: none;">
+                          <div style="background: #f87171; color: white; width: 40px; height: 40px; line-height: 40px; text-align: center; border-radius: 50%; font-weight: bold;">1</div>
+                          <div style="margin-top: 5px; font-size: 12px;">Poor</div>
+                        </a>
+                      </div>
+                      <p style="margin-top: 20px;">
+                        <a href="https://petzify-49ed4.web.app/review-boarding?bookingId=${bookingId}&centerId=${bookingData.centerId}" 
+                          style="display: inline-block; background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; font-weight: bold;">
+                          Write a Review
+                        </a>
+                      </p>
+                    </div>
+                    
+                    <p>Your feedback helps us improve our services and assists other pet owners in making informed decisions.</p>
+                    <p>Thank you again for your trust. We hope to see you and your furry friend again soon!</p>
+                    
+                    <p style="margin-top: 20px;">Best regards,</p>
+                    <p>The ${centerData.centerName || 'Petzify'} Team</p>
+                  </div>
+                  
+                  <div style="text-align: center; padding-top: 20px; border-top: 2px solid #f0f0f0; color: #666; font-size: 12px;">
+                    <p>This is an automated message, please do not reply to this email.</p>
+                    <p>&copy; ${new Date().getFullYear()} Petzify. All rights reserved.</p>
+                  </div>
+                </body>
+                </html>
+              `
+            });
+            
+            // Create a record for admin to track review requests
+            await addDoc(collection(db, 'reviewRequests'), {
+              bookingId: bookingId,
+              centerId: bookingData.centerId,
+              centerName: centerData.centerName,
+              userEmail: bookingData.userEmail,
+              userName: bookingData.userName,
+              dateFrom: bookingData.dateFrom,
+              dateTo: bookingData.dateTo,
+              sentAt: serverTimestamp(),
+              status: 'sent',
+              responded: false
+            });
+            
+            console.log("Completion and review request email sent successfully");
+          }
+          
+          toast.success("Booking marked as completed and review request sent!");
+        } catch (error) {
+          console.error("Error sending completion email:", error);
+          toast.error("Booking marked as completed but failed to send email");
+        }
+      } else {
+        toast.success(`Booking ${newStatus} successfully!`);
+      }
       
       // Update local state to reflect the change
       setBookings(prevBookings => 
@@ -531,10 +777,93 @@ const BoardingAdminDashboard = ({ adminData }) => {
         )
       );
       
-      toast.success(`Booking ${newStatus} successfully!`);
+      // Refresh dashboard data if we're on the dashboard
+      if (activeSection === 'dashboard') {
+        loadDashboardData();
+      }
+      
     } catch (err) {
       console.error("Error updating booking status:", err);
       toast.error("Failed to update booking status");
+    } finally {
+      setBookingUpdateLoading(false);
+      setProcessingBookingId(null);
+    }
+  };
+  
+  // Function to send a rating request email
+  const sendRatingRequestEmail = async (bookingData, bookingId, centerData) => {
+    if (!bookingData.userEmail) return;
+    
+    const logoUrl = "https://firebasestorage.googleapis.com/v0/b/petzify-49ed4.firebasestorage.app/o/assets%2FPetzify%20Logo-05%20(3).png?alt=media&token=d1cf79b7-2ae1-443b-8390-52938a60198d";
+    
+    try {
+      await sendEmail({
+        to: bookingData.userEmail,
+        subject: 'How was your Pet Boarding experience? Leave a rating!',
+        html: `
+          <html>
+          <body style="font-family: 'Arial', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333; line-height: 1.5;">
+            <div style="text-align: center; padding: 20px 0; border-bottom: 2px solid #f0f0f0;">
+              <img src="${logoUrl}" alt="Petzify Logo" style="max-width: 150px; margin-bottom: 10px;" />
+              <h2 style="color: #4f46e5; margin: 0;">Rate Your Experience</h2>
+            </div>
+            
+            <div style="padding: 20px 0;">
+              <p>Dear ${bookingData.userName || 'Customer'},</p>
+              <p>Thank you for choosing <strong>${centerData.centerName || 'our boarding center'}</strong> for your pet's stay.</p>
+              <p>We hope your pet had a comfortable and enjoyable time with us. Your feedback is valuable and helps us improve our services.</p>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <p style="font-size: 18px; font-weight: bold; margin-bottom: 15px;">How would you rate your experience?</p>
+                <div style="margin: 20px 0;">
+                  <a href="https://petzify-49ed4.web.app/rate-booking?bookingId=${bookingId}&rating=5" style="display: inline-block; margin: 0 5px; text-decoration: none;">
+                    <div style="background: #4f46e5; color: white; width: 40px; height: 40px; line-height: 40px; text-align: center; border-radius: 50%; font-weight: bold;">5</div>
+                    <div style="margin-top: 5px; font-size: 12px;">Excellent</div>
+                  </a>
+                  <a href="https://petzify-49ed4.web.app/rate-booking?bookingId=${bookingId}&rating=4" style="display: inline-block; margin: 0 5px; text-decoration: none;">
+                    <div style="background: #818cf8; color: white; width: 40px; height: 40px; line-height: 40px; text-align: center; border-radius: 50%; font-weight: bold;">4</div>
+                    <div style="margin-top: 5px; font-size: 12px;">Good</div>
+                  </a>
+                  <a href="https://petzify-49ed4.web.app/rate-booking?bookingId=${bookingId}&rating=3" style="display: inline-block; margin: 0 5px; text-decoration: none;">
+                    <div style="background: #93c5fd; color: white; width: 40px; height: 40px; line-height: 40px; text-align: center; border-radius: 50%; font-weight: bold;">3</div>
+                    <div style="margin-top: 5px; font-size: 12px;">Average</div>
+                  </a>
+                  <a href="https://petzify-49ed4.web.app/rate-booking?bookingId=${bookingId}&rating=2" style="display: inline-block; margin: 0 5px; text-decoration: none;">
+                    <div style="background: #fcd34d; color: white; width: 40px; height: 40px; line-height: 40px; text-align: center; border-radius: 50%; font-weight: bold;">2</div>
+                    <div style="margin-top: 5px; font-size: 12px;">Fair</div>
+                  </a>
+                  <a href="https://petzify-49ed4.web.app/rate-booking?bookingId=${bookingId}&rating=1" style="display: inline-block; margin: 0 5px; text-decoration: none;">
+                    <div style="background: #f87171; color: white; width: 40px; height: 40px; line-height: 40px; text-align: center; border-radius: 50%; font-weight: bold;">1</div>
+                    <div style="margin-top: 5px; font-size: 12px;">Poor</div>
+                  </a>
+                </div>
+                <p style="margin-top: 20px;">
+                  <a href="https://petzify-49ed4.web.app/review-boarding?bookingId=${bookingId}&centerId=${bookingData.centerId}" 
+                     style="display: inline-block; background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; font-weight: bold;">
+                    Write a Review
+                  </a>
+                </p>
+              </div>
+              
+              <p>Your feedback helps other pet owners make informed decisions and assists us in maintaining the highest quality of service.</p>
+              <p>Thank you for being a valued customer!</p>
+              
+              <p style="margin-top: 20px;">Best regards,</p>
+              <p>The Petzify Team</p>
+            </div>
+            
+            <div style="text-align: center; padding-top: 20px; border-top: 2px solid #f0f0f0; color: #666; font-size: 12px;">
+              <p>This is an automated message, please do not reply to this email.</p>
+              <p>&copy; ${new Date().getFullYear()} Petzify. All rights reserved.</p>
+            </div>
+          </body>
+          </html>
+        `
+      });
+      console.log("Rating request email sent successfully");
+    } catch (error) {
+      console.error("Error sending rating request email:", error);
     }
   };
 
@@ -1454,13 +1783,22 @@ const BoardingAdminDashboard = ({ adminData }) => {
                         <>
                           <button
                             onClick={() => updateBookingStatus(booking.id, 'confirmed')}
-                            className="text-green-600 hover:text-green-900 mr-3"
+                            className="text-green-600 hover:text-green-900 mr-3 disabled:opacity-50"
+                            disabled={processingBookingId === booking.id}
                           >
-                            Confirm
+                            {processingBookingId === booking.id ? (
+                              <span className="flex items-center">
+                                <FiLoader className="animate-spin mr-1" />
+                                Confirming...
+                              </span>
+                            ) : (
+                              'Confirm'
+                            )}
                           </button>
                           <button
                             onClick={() => updateBookingStatus(booking.id, 'cancelled')}
-                            className="text-red-600 hover:text-red-900"
+                            className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                            disabled={processingBookingId === booking.id}
                           >
                             Cancel
                           </button>
@@ -1470,13 +1808,22 @@ const BoardingAdminDashboard = ({ adminData }) => {
                         <>
                           <button
                             onClick={() => updateBookingStatus(booking.id, 'completed')}
-                            className="text-blue-600 hover:text-blue-900 mr-3"
+                            className="text-blue-600 hover:text-blue-900 mr-3 disabled:opacity-50"
+                            disabled={processingBookingId === booking.id}
                           >
-                            Complete
+                            {processingBookingId === booking.id ? (
+                              <span className="flex items-center">
+                                <FiLoader className="animate-spin mr-1" />
+                                Processing...
+                              </span>
+                            ) : (
+                              'Complete'
+                            )}
                           </button>
                           <button
                             onClick={() => updateBookingStatus(booking.id, 'cancelled')}
-                            className="text-red-600 hover:text-red-900"
+                            className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                            disabled={processingBookingId === booking.id}
                           >
                             Cancel
                           </button>
@@ -1763,7 +2110,7 @@ const BoardingAdminDashboard = ({ adminData }) => {
           </div>
           
           {/* Past Bookings and Reviews */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             {/* Past Bookings */}
             <div className="bg-white rounded-lg shadow overflow-hidden">
               <div className="p-4 bg-purple-50 border-b border-purple-100">
@@ -1861,6 +2208,74 @@ const BoardingAdminDashboard = ({ adminData }) => {
                   </ul>
                 )}
               </div>
+            </div>
+          </div>
+          
+          {/* Review Requests Section */}
+          <div className="bg-white rounded-lg shadow overflow-hidden mb-8">
+            <div className="p-4 bg-indigo-50 border-b border-indigo-100">
+              <h3 className="text-lg font-medium text-indigo-800 flex items-center">
+                <FiStar className="mr-2" /> Review Requests Status
+                <span className="ml-2 px-2 py-0.5 text-xs bg-indigo-600 text-white rounded-full">
+                  {reviewRequests.length}
+                </span>
+              </h3>
+            </div>
+            
+            <div className="p-4">
+              {reviewRequests.length === 0 ? (
+                <div className="text-center p-4 text-gray-500">
+                  No review requests have been sent yet
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Customer
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Booking Period
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Request Sent
+                        </th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {reviewRequests.map(request => (
+                        <tr key={request.id}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">{request.userName || 'Unknown'}</div>
+                            <div className="text-sm text-gray-500">{request.userEmail || 'No email'}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {formatDate(request.dateFrom)} - {formatDate(request.dateTo)}
+                            </div>
+                            <div className="text-sm text-gray-500">{request.centerName}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-500">
+                              {formatDate(request.sentAt)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                              ${request.responded ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                              {request.responded ? 'Reviewed' : 'Pending response'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         </>

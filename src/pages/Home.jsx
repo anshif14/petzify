@@ -287,12 +287,6 @@ const Home = () => {
               >
                 Send us a message
               </Link>
-              <button 
-                onClick={handleSendTestEmail}
-                className="block w-full mt-4 bg-primary hover:bg-primary-dark text-white py-2 rounded-md transition-colors"
-              >
-                Send Test Email
-              </button>
             </div>
             
             <div className="bg-white rounded-lg p-8 shadow-md text-center hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
