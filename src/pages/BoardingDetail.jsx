@@ -16,6 +16,8 @@ const BoardingDetail = () => {
   const [bookingDetails, setBookingDetails] = useState({
     dateFrom: '',
     dateTo: '',
+    timeFrom: '10:00',
+    timeTo: '10:00',
     petType: '',
     petSize: '',
     petName: '',
@@ -138,7 +140,14 @@ const BoardingDetail = () => {
         const parsedForm = JSON.parse(storedForm);
         setBookingDetails(prevForm => ({
           ...prevForm,
-          ...parsedForm
+          dateFrom: parsedForm.dateFrom || prevForm.dateFrom,
+          dateTo: parsedForm.dateTo || prevForm.dateTo,
+          timeFrom: parsedForm.timeFrom || prevForm.timeFrom,
+          timeTo: parsedForm.timeTo || prevForm.timeTo,
+          petType: parsedForm.petType || prevForm.petType,
+          petSize: parsedForm.petSize || prevForm.petSize,
+          petName: parsedForm.petName || prevForm.petName,
+          notes: parsedForm.notes || prevForm.notes
         }));
         localStorage.removeItem('tempBookingForm');
         
@@ -185,6 +194,8 @@ const BoardingDetail = () => {
         centerAddress: `${center.address}, ${center.city}, ${center.pincode}`,
         dateFrom: bookingDetails.dateFrom,
         dateTo: bookingDetails.dateTo,
+        timeFrom: bookingDetails.timeFrom,
+        timeTo: bookingDetails.timeTo,
         petType: bookingDetails.petType,
         petSize: bookingDetails.petSize,
         petName: bookingDetails.petName,
@@ -233,38 +244,101 @@ const BoardingDetail = () => {
       const labelUrl = "https://firebasestorage.googleapis.com/v0/b/petzify-49ed4.firebasestorage.app/o/assets%2FScreenshot_2025-04-05_at_9.17.07_AM-removebg-preview.png?alt=media&token=5b05265c-ce3b-444d-a8dc-b8e3a838a050";
       const businessEmail = process.env.REACT_APP_ADMIN_EMAIL || 'petzify.business@gmail.com';
       
+      // Format dates for email display
+      const formatDate = (date, time) => {
+        const dateObj = new Date(date);
+        const formattedDate = dateObj.toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+        return `${formattedDate} at ${time}`;
+      };
+      
+      const checkInDateTime = formatDate(bookingData.dateFrom, bookingData.timeFrom);
+      const checkOutDateTime = formatDate(bookingData.dateTo, bookingData.timeTo);
+      
       // Email to the user
       const userEmailHtml = `
         <html>
-        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
-          <div style="text-align: center; margin-bottom: 20px;">
+        <body style="font-family: 'Arial', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333; line-height: 1.5;">
+          <div style="text-align: center; padding: 20px 0; border-bottom: 2px solid #f0f0f0;">
             <img src="${logoUrl}" alt="Petzify Logo" style="max-width: 150px;" />
           </div>
-          <div style="background-color: #f9f9f9; border-radius: 10px; padding: 20px; margin-bottom: 20px;">
-            <h2 style="color: #4f46e5; margin-top: 0;">Your Pet Boarding Booking Confirmation</h2>
-            <p>Dear ${bookingData.userName},</p>
-            <p>Thank you for booking with Petzify! Your pet boarding request has been received successfully.</p>
-            <h3 style="border-bottom: 1px solid #ddd; padding-bottom: 8px;">Booking Details:</h3>
-            <p><strong>Booking ID:</strong> #${bookingId}</p>
-            <p><strong>Boarding Center:</strong> ${bookingData.centerName}</p>
-            <p><strong>Address:</strong> ${bookingData.centerAddress}</p>
-            <p><strong>Check-in Date:</strong> ${bookingData.dateFrom}</p>
-            <p><strong>Check-out Date:</strong> ${bookingData.dateTo}</p>
-            <p><strong>Pet:</strong> ${bookingData.petName} (${bookingData.petType}, ${bookingData.petSize} size)</p>
-            <p><strong>Duration:</strong> ${bookingData.totalDays} days</p>
-            <p><strong>Total Cost:</strong> ₹${bookingData.totalCost}</p>
-            ${bookingData.notes ? `<p><strong>Special Notes:</strong> ${bookingData.notes}</p>` : ''}
+          
+          <div style="padding: 30px 0;">
+            <h2 style="color: #4f46e5; margin-top: 0; font-weight: 600; font-size: 24px;">Booking Confirmation</h2>
+            <p style="margin-bottom: 20px; font-size: 16px;">Dear ${bookingData.userName},</p>
+            <p style="margin-bottom: 20px; font-size: 16px;">Thank you for choosing Petzify for your pet's boarding needs. We're pleased to confirm your booking request has been successfully received.</p>
+            
+            <div style="background-color: #f9f9f9; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h3 style="color: #333; font-size: 18px; margin-top: 0; border-bottom: 1px solid #ddd; padding-bottom: 10px;">Booking Details</h3>
+              <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold; width: 40%;">Booking Reference:</td>
+                  <td style="padding: 8px 0;">#${bookingId}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold;">Boarding Center:</td>
+                  <td style="padding: 8px 0;">${bookingData.centerName}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold;">Location:</td>
+                  <td style="padding: 8px 0;">${bookingData.centerAddress}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold;">Check-in:</td>
+                  <td style="padding: 8px 0;">${checkInDateTime}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold;">Check-out:</td>
+                  <td style="padding: 8px 0;">${checkOutDateTime}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold;">Pet Name:</td>
+                  <td style="padding: 8px 0;">${bookingData.petName}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold;">Pet Type/Size:</td>
+                  <td style="padding: 8px 0;">${bookingData.petType}, ${bookingData.petSize} size</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold;">Duration:</td>
+                  <td style="padding: 8px 0;">${bookingData.totalDays} days</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold;">Total Cost:</td>
+                  <td style="padding: 8px 0; font-weight: bold; color: #4f46e5;">₹${bookingData.totalCost}</td>
+                </tr>
+                ${bookingData.notes ? `
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold;">Special Instructions:</td>
+                  <td style="padding: 8px 0;">${bookingData.notes}</td>
+                </tr>` : ''}
+              </table>
+            </div>
+            
+            <div style="background-color: #f0f7ff; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h3 style="color: #2563eb; margin-top: 0; font-size: 18px;">Important Information</h3>
+              <ul style="padding-left: 20px; margin-top: 10px;">
+                <li style="margin-bottom: 8px;">Your booking is currently pending confirmation from the boarding center.</li>
+                <li style="margin-bottom: 8px;">You will receive a notification once the center confirms your booking.</li>
+                <li style="margin-bottom: 8px;">Please bring your pet's vaccination records on the check-in date.</li>
+                <li style="margin-bottom: 8px;">You can view or manage your booking by logging into your Petzify account.</li>
+              </ul>
+            </div>
+            
+            <p style="margin: 20px 0; font-size: 16px;">If you have any questions or need to make changes to your booking, please contact us or reach out to the boarding center directly.</p>
+            <p style="margin-bottom: 30px; font-size: 16px;">Thank you for choosing Petzify!</p>
+            <p style="font-size: 16px;">Warm regards,</p>
+            <p style="font-weight: bold; font-size: 16px;">The Petzify Team</p>
           </div>
-          <div style="background-color: #f0f7ff; border-radius: 10px; padding: 15px; margin-bottom: 20px;">
-            <h3 style="color: #2563eb; margin-top: 0;">Next Steps:</h3>
-            <p>1. The boarding center will review your booking request.</p>
-            <p>2. You'll receive a confirmation once it's approved.</p>
-            <p>3. Please bring your pet's vaccination records on the check-in date.</p>
-          </div>
-          <div style="text-align: center; color: #666; font-size: 12px; margin-top: 30px;">
-            <p>If you have any questions, feel free to contact us or the boarding center directly.</p>
-            <p>This is an automated email, please do not reply to this message.</p>
+          
+          <div style="text-align: center; padding-top: 20px; border-top: 2px solid #f0f0f0; color: #666; font-size: 12px;">
+            <p>This is an automated message, please do not reply to this email.</p>
             <img src="${labelUrl}" alt="Petzify Label" style="max-width: 100px; margin-top: 10px;" />
+            <p>&copy; ${new Date().getFullYear()} Petzify. All rights reserved.</p>
           </div>
         </body>
         </html>
@@ -273,35 +347,95 @@ const BoardingDetail = () => {
       // Email to the boarding center
       const centerEmailHtml = `
         <html>
-        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
-          <div style="text-align: center; margin-bottom: 20px;">
+        <body style="font-family: 'Arial', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333; line-height: 1.5;">
+          <div style="text-align: center; padding: 20px 0; border-bottom: 2px solid #f0f0f0;">
             <img src="${logoUrl}" alt="Petzify Logo" style="max-width: 150px;" />
           </div>
-          <div style="background-color: #f9f9f9; border-radius: 10px; padding: 20px; margin-bottom: 20px;">
-            <h2 style="color: #4f46e5; margin-top: 0;">New Pet Boarding Request</h2>
-            <p>Dear ${center.centerName} Team,</p>
-            <p>You have received a new boarding request from a Petzify customer.</p>
-            <h3 style="border-bottom: 1px solid #ddd; padding-bottom: 8px;">Booking Details:</h3>
-            <p><strong>Booking ID:</strong> #${bookingId}</p>
-            <p><strong>Customer:</strong> ${bookingData.userName}</p>
-            <p><strong>Customer Email:</strong> ${bookingData.userEmail}</p>
-            <p><strong>Customer Phone:</strong> ${bookingData.userPhone || 'Not provided'}</p>
-            <p><strong>Check-in Date:</strong> ${bookingData.dateFrom}</p>
-            <p><strong>Check-out Date:</strong> ${bookingData.dateTo}</p>
-            <p><strong>Pet:</strong> ${bookingData.petName} (${bookingData.petType}, ${bookingData.petSize} size)</p>
-            <p><strong>Duration:</strong> ${bookingData.totalDays} days</p>
-            <p><strong>Total Cost:</strong> ₹${bookingData.totalCost}</p>
-            ${bookingData.notes ? `<p><strong>Special Notes:</strong> ${bookingData.notes}</p>` : ''}
+          
+          <div style="padding: 30px 0;">
+            <h2 style="color: #4f46e5; margin-top: 0; font-weight: 600; font-size: 24px;">New Boarding Request</h2>
+            <p style="margin-bottom: 20px; font-size: 16px;">Dear ${center.centerName} Team,</p>
+            <p style="margin-bottom: 20px; font-size: 16px;">You have received a new pet boarding request through Petzify. Please review the details below and confirm or decline this booking at your earliest convenience.</p>
+            
+            <div style="background-color: #f9f9f9; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h3 style="color: #333; font-size: 18px; margin-top: 0; border-bottom: 1px solid #ddd; padding-bottom: 10px;">Booking Details</h3>
+              <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold; width: 40%;">Booking Reference:</td>
+                  <td style="padding: 8px 0;">#${bookingId}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold;">Check-in:</td>
+                  <td style="padding: 8px 0;">${checkInDateTime}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold;">Check-out:</td>
+                  <td style="padding: 8px 0;">${checkOutDateTime}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold;">Duration:</td>
+                  <td style="padding: 8px 0;">${bookingData.totalDays} days</td>
+                </tr>
+              </table>
+            </div>
+            
+            <div style="background-color: #f9f9f9; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h3 style="color: #333; font-size: 18px; margin-top: 0; border-bottom: 1px solid #ddd; padding-bottom: 10px;">Customer Information</h3>
+              <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold; width: 40%;">Name:</td>
+                  <td style="padding: 8px 0;">${bookingData.userName}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold;">Email:</td>
+                  <td style="padding: 8px 0;">${bookingData.userEmail}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold;">Phone:</td>
+                  <td style="padding: 8px 0;">${bookingData.userPhone || 'Not provided'}</td>
+                </tr>
+              </table>
+            </div>
+            
+            <div style="background-color: #f9f9f9; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h3 style="color: #333; font-size: 18px; margin-top: 0; border-bottom: 1px solid #ddd; padding-bottom: 10px;">Pet Information</h3>
+              <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold; width: 40%;">Pet Name:</td>
+                  <td style="padding: 8px 0;">${bookingData.petName}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold;">Type:</td>
+                  <td style="padding: 8px 0;">${bookingData.petType}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold;">Size:</td>
+                  <td style="padding: 8px 0;">${bookingData.petSize}</td>
+                </tr>
+                ${bookingData.notes ? `
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold;">Special Instructions:</td>
+                  <td style="padding: 8px 0;">${bookingData.notes}</td>
+                </tr>` : ''}
+              </table>
+            </div>
+            
+            <div style="background-color: #f0f7ff; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h3 style="color: #2563eb; margin-top: 0; font-size: 18px;">Action Required</h3>
+              <p style="margin-top: 10px;">Please log in to your Petzify dashboard to confirm or decline this booking. The customer will be notified of your decision automatically.</p>
+              <p style="margin-top: 10px;">Remember to update the booking status promptly to maintain good service standards.</p>
+            </div>
+            
+            <p style="margin: 20px 0; font-size: 16px;">If you have any questions or concerns, please contact Petzify support.</p>
+            <p style="margin-bottom: 30px; font-size: 16px;">Thank you for your partnership!</p>
+            <p style="font-size: 16px;">Best regards,</p>
+            <p style="font-weight: bold; font-size: 16px;">The Petzify Team</p>
           </div>
-          <div style="background-color: #f0f7ff; border-radius: 10px; padding: 15px; margin-bottom: 20px;">
-            <h3 style="color: #2563eb; margin-top: 0;">Action Required:</h3>
-            <p>Please review this booking request and update its status in your Petzify dashboard.</p>
-            <p>The customer will be notified once you approve or decline the request.</p>
-          </div>
-          <div style="text-align: center; color: #666; font-size: 12px; margin-top: 30px;">
-            <p>Thank you for partnering with Petzify!</p>
-            <p>This is an automated email, please do not reply to this message.</p>
+          
+          <div style="text-align: center; padding-top: 20px; border-top: 2px solid #f0f0f0; color: #666; font-size: 12px;">
+            <p>This is an automated message, please do not reply to this email.</p>
             <img src="${labelUrl}" alt="Petzify Label" style="max-width: 100px; margin-top: 10px;" />
+            <p>&copy; ${new Date().getFullYear()} Petzify. All rights reserved.</p>
           </div>
         </body>
         </html>
@@ -310,25 +444,64 @@ const BoardingDetail = () => {
       // Email to the business
       const businessEmailHtml = `
         <html>
-        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
-          <div style="text-align: center; margin-bottom: 20px;">
+        <body style="font-family: 'Arial', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333; line-height: 1.5;">
+          <div style="text-align: center; padding: 20px 0; border-bottom: 2px solid #f0f0f0;">
             <img src="${logoUrl}" alt="Petzify Logo" style="max-width: 150px;" />
           </div>
-          <div style="background-color: #f9f9f9; border-radius: 10px; padding: 20px;">
-            <h2 style="color: #4f46e5; margin-top: 0;">New Pet Boarding Booking</h2>
-            <p>A new pet boarding booking has been created in the system.</p>
-            <h3 style="border-bottom: 1px solid #ddd; padding-bottom: 8px;">Booking Summary:</h3>
-            <p><strong>Booking ID:</strong> #${bookingId}</p>
-            <p><strong>Boarding Center:</strong> ${bookingData.centerName}</p>
-            <p><strong>Customer:</strong> ${bookingData.userName} (${bookingData.userEmail})</p>
-            <p><strong>Dates:</strong> ${bookingData.dateFrom} to ${bookingData.dateTo}</p>
-            <p><strong>Duration:</strong> ${bookingData.totalDays} days</p>
-            <p><strong>Pet:</strong> ${bookingData.petName} (${bookingData.petType}, ${bookingData.petSize} size)</p>
-            <p><strong>Total Revenue:</strong> ₹${bookingData.totalCost}</p>
+          
+          <div style="padding: 30px 0;">
+            <h2 style="color: #4f46e5; margin-top: 0; font-weight: 600; font-size: 24px;">New Boarding Booking Alert</h2>
+            <p style="margin-bottom: 20px; font-size: 16px;">A new pet boarding booking has been created in the Petzify system.</p>
+            
+            <div style="background-color: #f9f9f9; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h3 style="color: #333; font-size: 18px; margin-top: 0; border-bottom: 1px solid #ddd; padding-bottom: 10px;">Transaction Summary</h3>
+              <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold; width: 40%;">Booking Reference:</td>
+                  <td style="padding: 8px 0;">#${bookingId}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold;">Center:</td>
+                  <td style="padding: 8px 0;">${bookingData.centerName}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold;">Customer:</td>
+                  <td style="padding: 8px 0;">${bookingData.userName} (${bookingData.userEmail})</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold;">Check-in:</td>
+                  <td style="padding: 8px 0;">${checkInDateTime}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold;">Check-out:</td>
+                  <td style="padding: 8px 0;">${checkOutDateTime}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold;">Pet:</td>
+                  <td style="padding: 8px 0;">${bookingData.petName} (${bookingData.petType}, ${bookingData.petSize} size)</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold;">Duration:</td>
+                  <td style="padding: 8px 0;">${bookingData.totalDays} days</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold;">Status:</td>
+                  <td style="padding: 8px 0; font-weight: bold; color: #f59e0b;">Pending confirmation</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold;">Total Revenue:</td>
+                  <td style="padding: 8px 0; font-weight: bold; color: #4f46e5;">₹${bookingData.totalCost}</td>
+                </tr>
+              </table>
+            </div>
+            
+            <p style="margin: 20px 0; font-size: 16px;">You can view the complete booking details in the admin dashboard.</p>
           </div>
-          <div style="text-align: center; color: #666; font-size: 12px; margin-top: 30px;">
-            <p>This is an automated notification from the Petzify system.</p>
+          
+          <div style="text-align: center; padding-top: 20px; border-top: 2px solid #f0f0f0; color: #666; font-size: 12px;">
+            <p>This is an automated system notification from Petzify.</p>
             <img src="${labelUrl}" alt="Petzify Label" style="max-width: 100px; margin-top: 10px;" />
+            <p>&copy; ${new Date().getFullYear()} Petzify. All rights reserved.</p>
           </div>
         </body>
         </html>
@@ -742,6 +915,8 @@ const BoardingDetail = () => {
                         centerName: center.centerName,
                         dateFrom: bookingDetails.dateFrom,
                         dateTo: bookingDetails.dateTo,
+                        timeFrom: bookingDetails.timeFrom,
+                        timeTo: bookingDetails.timeTo,
                         petType: bookingDetails.petType,
                         petSize: bookingDetails.petSize,
                         petName: bookingDetails.petName,
@@ -775,6 +950,20 @@ const BoardingDetail = () => {
                   </div>
                   
                   <div className="mb-4">
+                    <label htmlFor="timeFrom" className="block text-sm font-medium text-gray-700 mb-1">Check-in Time</label>
+                    <input
+                      type="time"
+                      id="timeFrom"
+                      name="timeFrom"
+                      value={bookingDetails.timeFrom}
+                      onChange={handleInputChange}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Please choose a time within the boarding center's operating hours</p>
+                  </div>
+                  
+                  <div className="mb-4">
                     <label htmlFor="dateTo" className="block text-sm font-medium text-gray-700 mb-1">Check-out Date</label>
                     <input
                       type="date"
@@ -786,6 +975,20 @@ const BoardingDetail = () => {
                       min={bookingDetails.dateFrom || new Date().toISOString().split('T')[0]}
                       required
                     />
+                  </div>
+                  
+                  <div className="mb-4">
+                    <label htmlFor="timeTo" className="block text-sm font-medium text-gray-700 mb-1">Check-out Time</label>
+                    <input
+                      type="time"
+                      id="timeTo"
+                      name="timeTo"
+                      value={bookingDetails.timeTo}
+                      onChange={handleInputChange}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Please choose a time within the boarding center's operating hours</p>
                   </div>
                   
                   <div className="mb-4">
