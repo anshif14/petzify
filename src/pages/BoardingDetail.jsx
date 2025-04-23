@@ -4,6 +4,7 @@ import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/fires
 import { db } from '../firebase/config.js';
 import { useUser } from '../context/UserContext';
 import AuthModal from '../components/auth/AuthModal';
+import { sendEmail } from '../utils/emailService';
 
 const BoardingDetail = () => {
   const { id } = useParams();
@@ -180,6 +181,7 @@ const BoardingDetail = () => {
         userPhone: currentUser?.phone || '',
         centerId: center.id,
         centerName: center.centerName,
+        centerEmail: center.email || '',
         centerAddress: `${center.address}, ${center.city}, ${center.pincode}`,
         dateFrom: bookingDetails.dateFrom,
         dateTo: bookingDetails.dateTo,
@@ -204,6 +206,9 @@ const BoardingDetail = () => {
       
       console.log('Booking created successfully with ID:', docRef.id);
       
+      // Send email to the user
+      await sendEmailNotifications(bookingData, docRef.id);
+      
       // Show success message
       alert('Booking request submitted successfully! You can check the status in My Bookings.');
       
@@ -218,6 +223,158 @@ const BoardingDetail = () => {
       alert(`Failed to create booking: ${error.message}. Please try again.`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Function to send email notifications
+  const sendEmailNotifications = async (bookingData, bookingId) => {
+    try {
+      const logoUrl = "https://firebasestorage.googleapis.com/v0/b/petzify-49ed4.firebasestorage.app/o/assets%2FPetzify%20Logo-05%20(3).png?alt=media&token=d1cf79b7-2ae1-443b-8390-52938a60198d";
+      const labelUrl = "https://firebasestorage.googleapis.com/v0/b/petzify-49ed4.firebasestorage.app/o/assets%2FScreenshot_2025-04-05_at_9.17.07_AM-removebg-preview.png?alt=media&token=5b05265c-ce3b-444d-a8dc-b8e3a838a050";
+      const businessEmail = process.env.REACT_APP_ADMIN_EMAIL || 'petzify.business@gmail.com';
+      
+      // Email to the user
+      const userEmailHtml = `
+        <html>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <img src="${logoUrl}" alt="Petzify Logo" style="max-width: 150px;" />
+          </div>
+          <div style="background-color: #f9f9f9; border-radius: 10px; padding: 20px; margin-bottom: 20px;">
+            <h2 style="color: #4f46e5; margin-top: 0;">Your Pet Boarding Booking Confirmation</h2>
+            <p>Dear ${bookingData.userName},</p>
+            <p>Thank you for booking with Petzify! Your pet boarding request has been received successfully.</p>
+            <h3 style="border-bottom: 1px solid #ddd; padding-bottom: 8px;">Booking Details:</h3>
+            <p><strong>Booking ID:</strong> #${bookingId}</p>
+            <p><strong>Boarding Center:</strong> ${bookingData.centerName}</p>
+            <p><strong>Address:</strong> ${bookingData.centerAddress}</p>
+            <p><strong>Check-in Date:</strong> ${bookingData.dateFrom}</p>
+            <p><strong>Check-out Date:</strong> ${bookingData.dateTo}</p>
+            <p><strong>Pet:</strong> ${bookingData.petName} (${bookingData.petType}, ${bookingData.petSize} size)</p>
+            <p><strong>Duration:</strong> ${bookingData.totalDays} days</p>
+            <p><strong>Total Cost:</strong> ₹${bookingData.totalCost}</p>
+            ${bookingData.notes ? `<p><strong>Special Notes:</strong> ${bookingData.notes}</p>` : ''}
+          </div>
+          <div style="background-color: #f0f7ff; border-radius: 10px; padding: 15px; margin-bottom: 20px;">
+            <h3 style="color: #2563eb; margin-top: 0;">Next Steps:</h3>
+            <p>1. The boarding center will review your booking request.</p>
+            <p>2. You'll receive a confirmation once it's approved.</p>
+            <p>3. Please bring your pet's vaccination records on the check-in date.</p>
+          </div>
+          <div style="text-align: center; color: #666; font-size: 12px; margin-top: 30px;">
+            <p>If you have any questions, feel free to contact us or the boarding center directly.</p>
+            <p>This is an automated email, please do not reply to this message.</p>
+            <img src="${labelUrl}" alt="Petzify Label" style="max-width: 100px; margin-top: 10px;" />
+          </div>
+        </body>
+        </html>
+      `;
+      
+      // Email to the boarding center
+      const centerEmailHtml = `
+        <html>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <img src="${logoUrl}" alt="Petzify Logo" style="max-width: 150px;" />
+          </div>
+          <div style="background-color: #f9f9f9; border-radius: 10px; padding: 20px; margin-bottom: 20px;">
+            <h2 style="color: #4f46e5; margin-top: 0;">New Pet Boarding Request</h2>
+            <p>Dear ${center.centerName} Team,</p>
+            <p>You have received a new boarding request from a Petzify customer.</p>
+            <h3 style="border-bottom: 1px solid #ddd; padding-bottom: 8px;">Booking Details:</h3>
+            <p><strong>Booking ID:</strong> #${bookingId}</p>
+            <p><strong>Customer:</strong> ${bookingData.userName}</p>
+            <p><strong>Customer Email:</strong> ${bookingData.userEmail}</p>
+            <p><strong>Customer Phone:</strong> ${bookingData.userPhone || 'Not provided'}</p>
+            <p><strong>Check-in Date:</strong> ${bookingData.dateFrom}</p>
+            <p><strong>Check-out Date:</strong> ${bookingData.dateTo}</p>
+            <p><strong>Pet:</strong> ${bookingData.petName} (${bookingData.petType}, ${bookingData.petSize} size)</p>
+            <p><strong>Duration:</strong> ${bookingData.totalDays} days</p>
+            <p><strong>Total Cost:</strong> ₹${bookingData.totalCost}</p>
+            ${bookingData.notes ? `<p><strong>Special Notes:</strong> ${bookingData.notes}</p>` : ''}
+          </div>
+          <div style="background-color: #f0f7ff; border-radius: 10px; padding: 15px; margin-bottom: 20px;">
+            <h3 style="color: #2563eb; margin-top: 0;">Action Required:</h3>
+            <p>Please review this booking request and update its status in your Petzify dashboard.</p>
+            <p>The customer will be notified once you approve or decline the request.</p>
+          </div>
+          <div style="text-align: center; color: #666; font-size: 12px; margin-top: 30px;">
+            <p>Thank you for partnering with Petzify!</p>
+            <p>This is an automated email, please do not reply to this message.</p>
+            <img src="${labelUrl}" alt="Petzify Label" style="max-width: 100px; margin-top: 10px;" />
+          </div>
+        </body>
+        </html>
+      `;
+      
+      // Email to the business
+      const businessEmailHtml = `
+        <html>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <img src="${logoUrl}" alt="Petzify Logo" style="max-width: 150px;" />
+          </div>
+          <div style="background-color: #f9f9f9; border-radius: 10px; padding: 20px;">
+            <h2 style="color: #4f46e5; margin-top: 0;">New Pet Boarding Booking</h2>
+            <p>A new pet boarding booking has been created in the system.</p>
+            <h3 style="border-bottom: 1px solid #ddd; padding-bottom: 8px;">Booking Summary:</h3>
+            <p><strong>Booking ID:</strong> #${bookingId}</p>
+            <p><strong>Boarding Center:</strong> ${bookingData.centerName}</p>
+            <p><strong>Customer:</strong> ${bookingData.userName} (${bookingData.userEmail})</p>
+            <p><strong>Dates:</strong> ${bookingData.dateFrom} to ${bookingData.dateTo}</p>
+            <p><strong>Duration:</strong> ${bookingData.totalDays} days</p>
+            <p><strong>Pet:</strong> ${bookingData.petName} (${bookingData.petType}, ${bookingData.petSize} size)</p>
+            <p><strong>Total Revenue:</strong> ₹${bookingData.totalCost}</p>
+          </div>
+          <div style="text-align: center; color: #666; font-size: 12px; margin-top: 30px;">
+            <p>This is an automated notification from the Petzify system.</p>
+            <img src="${labelUrl}" alt="Petzify Label" style="max-width: 100px; margin-top: 10px;" />
+          </div>
+        </body>
+        </html>
+      `;
+      
+      // Send email to user
+      if (bookingData.userEmail) {
+        await sendEmail({
+          to: bookingData.userEmail,
+          subject: `Petzify Boarding Booking Confirmation - #${bookingId}`,
+          html: userEmailHtml
+        });
+        console.log(`Confirmation email sent to user: ${bookingData.userEmail}`);
+      }
+      
+      // Send email to boarding center if email is available
+      if (center && center.email) {
+        await sendEmail({
+          to: center.email,
+          subject: `New Petzify Boarding Request - #${bookingId}`,
+          html: centerEmailHtml
+        });
+        console.log(`Notification email sent to boarding center: ${center.email}`);
+      } else if (bookingData.centerEmail) {
+        await sendEmail({
+          to: bookingData.centerEmail,
+          subject: `New Petzify Boarding Request - #${bookingId}`,
+          html: centerEmailHtml
+        });
+        console.log(`Notification email sent to boarding center: ${bookingData.centerEmail}`);
+      } else {
+        console.log('No boarding center email available, skipping center notification');
+      }
+      
+      // Send email to business
+      await sendEmail({
+        to: businessEmail,
+        subject: `New Pet Boarding Booking - #${bookingId}`,
+        html: businessEmailHtml
+      });
+      console.log(`Notification email sent to business: ${businessEmail}`);
+      
+      console.log('All email notifications sent successfully');
+    } catch (error) {
+      console.error('Error sending email notifications:', error);
+      // Don't throw the error here, we want to continue even if email fails
     }
   };
 
