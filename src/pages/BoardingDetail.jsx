@@ -1,32 +1,38 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
+import { doc, getDoc, collection, addDoc, serverTimestamp, getDocs, query, where, orderBy, getFirestore } from 'firebase/firestore';
 import { db } from '../firebase/config.js';
 import { useUser } from '../context/UserContext';
 import AuthModal from '../components/auth/AuthModal';
 import { sendEmail } from '../utils/emailService';
+import RatingDisplay from '../components/common/RatingDisplay';
+import StarRating from '../components/common/StarRating';
 
 const BoardingDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const urlParams = new URLSearchParams(location.search);
   const [center, setCenter] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const [bookingDetails, setBookingDetails] = useState({
-    dateFrom: '',
-    dateTo: '',
-    timeFrom: '10:00',
-    timeTo: '10:00',
-    petType: '',
-    petSize: '',
+    dateFrom: urlParams.get('from') || '',
+    dateTo: urlParams.get('to') || '',
+    timeFrom: urlParams.get('timeFrom') || '10:00',
+    timeTo: urlParams.get('timeTo') || '18:00',
     petName: '',
-    notes: ''
+    petType: 'dog',
+    specialInstructions: '',
   });
   const [totalDays, setTotalDays] = useState(0);
   const [totalCost, setTotalCost] = useState(0);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [ratings, setRatings] = useState([]);
+  const [averageRating, setAverageRating] = useState(0);
+  const [ratingCount, setRatingCount] = useState(0);
   
   // Use useUser hook instead of UserContext
   const { currentUser, isAuthenticated } = useUser();
@@ -44,7 +50,6 @@ const BoardingDetail = () => {
           setCenter(centerData);
           
           // Pre-fill pet type and size if available in URL params
-          const urlParams = new URLSearchParams(window.location.search);
           if (urlParams.has('dateFrom')) {
             setBookingDetails(prev => ({ ...prev, dateFrom: urlParams.get('dateFrom') }));
           }
@@ -626,6 +631,46 @@ const BoardingDetail = () => {
     checkAuth();
   }, [isAuthenticated, navigate, id]);
 
+  const fetchCenterRatings = async (centerId) => {
+    try {
+      const db = getFirestore();
+      const ratingsCollection = collection(db, 'boardingRatings');
+      const q = query(
+        ratingsCollection,
+        where('centerId', '==', centerId),
+        orderBy('ratedAt', 'desc')
+      );
+      
+      const ratingsSnapshot = await getDocs(q);
+      const ratingsData = [];
+      let ratingSum = 0;
+      
+      ratingsSnapshot.forEach((doc) => {
+        const data = doc.data();
+        ratingsData.push({
+          id: doc.id,
+          ...data,
+          ratedAt: data.ratedAt ? new Date(data.ratedAt.seconds * 1000) : new Date()
+        });
+        ratingSum += data.rating || 0;
+      });
+      
+      setRatings(ratingsData);
+      setRatingCount(ratingsData.length);
+      setAverageRating(ratingsData.length > 0 ? ratingSum / ratingsData.length : 0);
+      
+    } catch (err) {
+      console.error("Error fetching center ratings:", err);
+    }
+  };
+
+  // Add this useEffect to fetch ratings when the center is loaded
+  useEffect(() => {
+    if (center && center.id) {
+      fetchCenterRatings(center.id);
+    }
+  }, [center]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -685,8 +730,29 @@ const BoardingDetail = () => {
                     className="w-16 h-16 rounded-full mr-4 object-cover border-2 border-primary"
                   />
                 )}
-                <div>
-                  <h1 className="text-2xl md:text-3xl font-bold text-gray-800">{center.centerName}</h1>
+                <div className="flex-1">
+                  <div className="flex justify-between items-center">
+                    <h1 className="text-2xl md:text-3xl font-bold text-gray-800">{center.centerName}</h1>
+                    {ratingCount > 0 && (
+                      <div className="flex items-center">
+                        <div className="flex items-center mr-2">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <svg 
+                              key={star}
+                              className={`w-5 h-5 ${star <= Math.round(averageRating) ? 'text-yellow-400' : 'text-gray-300'}`}
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                          ))}
+                        </div>
+                        <span className="text-sm text-gray-600">
+                          {averageRating.toFixed(1)} ({ratingCount} {ratingCount === 1 ? 'review' : 'reviews'})
+                        </span>
+                      </div>
+                    )}
+                  </div>
                   <p className="text-sm text-gray-500">Owned by {center.ownerName || 'Not specified'}</p>
                 </div>
               </div>
@@ -871,6 +937,104 @@ const BoardingDetail = () => {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Ratings and Reviews Section */}
+            <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+              <h2 className="text-xl font-semibold mb-4">Ratings & Reviews</h2>
+              
+              {ratings.length > 0 ? (
+                <div>
+                  <div className="flex items-center mb-4">
+                    <div className="flex items-center mr-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <svg 
+                          key={star}
+                          className={`w-6 h-6 ${star <= Math.round(averageRating) ? 'text-yellow-400' : 'text-gray-300'}`}
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
+                      ))}
+                    </div>
+                    <span className="text-lg font-semibold">
+                      {averageRating.toFixed(1)} out of 5
+                    </span>
+                    <span className="text-sm text-gray-500 ml-2">
+                      Based on {ratingCount} {ratingCount === 1 ? 'review' : 'reviews'}
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-6">
+                    {ratings.map((review) => (
+                      <div key={review.id} className="border-b border-gray-200 pb-4">
+                        <div className="flex justify-between items-start">
+                          <div className="flex items-start">
+                            <div className="flex-shrink-0">
+                              <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center">
+                                {review.userName ? review.userName.charAt(0).toUpperCase() : 'U'}
+                              </div>
+                            </div>
+                            <div className="ml-3">
+                              <h3 className="text-sm font-medium text-gray-900">{review.userName || 'Anonymous'}</h3>
+                              <div className="flex items-center mt-1">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <svg 
+                                    key={star}
+                                    className={`w-4 h-4 ${star <= review.rating ? 'text-yellow-400' : 'text-gray-300'}`}
+                                    fill="currentColor"
+                                    viewBox="0 0 20 20"
+                                  >
+                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                  </svg>
+                                ))}
+                              </div>
+                              <p className="text-xs text-gray-500 mt-1">
+                                {review.ratedAt.toLocaleDateString('en-US', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric'
+                                })}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          {review.petName && (
+                            <div className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full">
+                              {review.petType?.charAt(0).toUpperCase() + review.petType?.slice(1) || 'Pet'}: {review.petName}
+                            </div>
+                          )}
+                        </div>
+                        
+                        {review.comment && (
+                          <div className="mt-2 text-sm text-gray-700">
+                            <p className="whitespace-pre-line">{review.comment}</p>
+                          </div>
+                        )}
+                        
+                        {review.imageUrl && (
+                          <div className="mt-2">
+                            <img 
+                              src={review.imageUrl} 
+                              alt="Review" 
+                              className="h-24 w-auto rounded-md object-cover" 
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 002 2h-5l-5 5v-5z" />
+                  </svg>
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">No reviews yet</h3>
+                  <p className="mt-1 text-sm text-gray-500">Be the first to review this boarding center after your stay!</p>
+                </div>
+              )}
             </div>
 
             {/* Photo Gallery */}
