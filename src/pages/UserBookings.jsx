@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getFirestore, collection, query, where, getDocs, orderBy, doc, updateDoc } from 'firebase/firestore';
+import { getFirestore, collection, query, where, getDocs, orderBy, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { app } from '../firebase/config';
 import Navbar from '../components/common/Navbar';
 import Footer from '../components/common/Footer';
@@ -8,12 +8,16 @@ import { useUser } from '../context/UserContext';
 import { useAlert } from '../context/AlertContext';
 import AuthModal from '../components/auth/AuthModal';
 import PageLoader from '../components/common/PageLoader';
+import StarRating from '../components/common/StarRating';
+import ReviewForm from '../components/common/ReviewForm';
 
 const UserBookings = () => {
   const [bookings, setBookings] = useState([]);
   const [boardingBookings, setBoardingBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [ratingLoading, setRatingLoading] = useState(false);
+  const [showReviewForm, setShowReviewForm] = useState({});
   const { currentUser, isAuthenticated, authInitialized, loading: authLoading } = useUser();
   const { showError, showSuccess } = useAlert();
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -229,6 +233,84 @@ const UserBookings = () => {
       showError('Could not cancel your appointment. Please try again later.', 'Error');
     } finally {
       setCancelLoading(false);
+    }
+  };
+
+  // Toggle the review form visibility for a specific booking
+  const toggleReviewForm = (bookingId) => {
+    setShowReviewForm(prev => ({
+      ...prev,
+      [bookingId]: !prev[bookingId]
+    }));
+  };
+
+  // Handle submitting a rating for a booking
+  const handleSubmitRating = async (booking, reviewData) => {
+    if (!booking.id || ratingLoading) return;
+    
+    setRatingLoading(true);
+    try {
+      const db = getFirestore(app);
+      
+      // Only allow rating for boarding bookings
+      if (booking.type !== 'boarding') {
+        showError('Only boarding bookings can be rated', 'Error');
+        return;
+      }
+      
+      // Create or update the rating document
+      const ratingRef = doc(db, 'boardingRatings', booking.id);
+      await setDoc(ratingRef, {
+        bookingId: booking.id,
+        centerId: booking.centerId,
+        centerName: booking.centerName,
+        rating: reviewData.rating,
+        comment: reviewData.reviewText || '',
+        imageUrl: reviewData.imageUrl || null,
+        userEmail: currentUser.email,
+        userName: currentUser.displayName || 'User',
+        ratedAt: new Date(),
+        petName: booking.petName,
+        petType: booking.petType,
+        bookingDate: booking.dateFrom
+      });
+      
+      // Update the booking with rating info
+      const boardingRef = doc(db, 'petBoardingBookings', booking.id);
+      await updateDoc(boardingRef, {
+        rating: reviewData.rating,
+        review: reviewData.reviewText || '',
+        reviewImageUrl: reviewData.imageUrl || null,
+        ratedAt: new Date()
+      });
+      
+      // Update local state to show rating
+      setBookings(prevBookings => 
+        prevBookings.map(b => 
+          b.id === booking.id 
+            ? {
+                ...b, 
+                rating: reviewData.rating, 
+                review: reviewData.reviewText || '',
+                reviewImageUrl: reviewData.imageUrl || null,
+                ratedAt: new Date()
+              } 
+            : b
+        )
+      );
+      
+      // Hide the review form
+      setShowReviewForm(prev => ({
+        ...prev,
+        [booking.id]: false
+      }));
+      
+      showSuccess('Thank you for your review!', 'Review Submitted');
+    } catch (error) {
+      console.error('Error submitting review:', error);
+      showError('Could not submit your review. Please try again later.', 'Error');
+    } finally {
+      setRatingLoading(false);
     }
   };
 
@@ -454,6 +536,87 @@ const UserBookings = () => {
                             This appointment was cancelled {booking.cancelledAt ? `on ${new Date(booking.cancelledAt).toLocaleString()}` : ''}
                           </div>
                         )}
+
+                        {/* Rating section for completed boarding bookings */}
+                        {booking.type === 'boarding' && 
+                         booking.status?.toLowerCase() !== 'cancelled' && (
+                          <div className="mt-4 pt-3 border-t border-gray-100">
+                            {booking.rating ? (
+                              <div>
+                                <div className="flex justify-between items-center mb-2">
+                                  <p className="text-sm font-medium text-gray-700">Your Review:</p>
+                                  <button
+                                    onClick={() => toggleReviewForm(booking.id)}
+                                    className="text-sm text-primary hover:text-primary-dark"
+                                  >
+                                    {showReviewForm[booking.id] ? 'Cancel' : 'Edit Review'}
+                                  </button>
+                                </div>
+                                
+                                {!showReviewForm[booking.id] && (
+                                  <div>
+                                    <StarRating initialRating={booking.rating} disabled={true} />
+                                    
+                                    {booking.review && (
+                                      <p className="mt-2 text-sm text-gray-700">
+                                        "{booking.review}"
+                                      </p>
+                                    )}
+                                    
+                                    {booking.reviewImageUrl && (
+                                      <div className="mt-2">
+                                        <img 
+                                          src={booking.reviewImageUrl} 
+                                          alt="Review" 
+                                          className="review-image" 
+                                        />
+                                      </div>
+                                    )}
+                                    
+                                    <p className="text-xs text-gray-500 mt-2">
+                                      Reviewed on {booking.ratedAt ? new Date(booking.ratedAt).toLocaleDateString() : 'Unknown'}
+                                    </p>
+                                  </div>
+                                )}
+                                
+                                {showReviewForm[booking.id] && (
+                                  <ReviewForm
+                                    initialRating={booking.rating}
+                                    onSubmit={(reviewData) => handleSubmitRating(booking, reviewData)}
+                                    loading={ratingLoading}
+                                    bookingId={booking.id}
+                                    centerName={booking.centerName || 'this boarding center'}
+                                  />
+                                )}
+                              </div>
+                            ) : (
+                              <div>
+                                <p className="text-sm font-medium text-gray-700 mb-2">
+                                  Share your experience with this boarding center
+                                </p>
+                                
+                                <button
+                                  onClick={() => toggleReviewForm(booking.id)}
+                                  className="text-sm bg-primary text-white px-3 py-1 rounded hover:bg-primary-dark"
+                                >
+                                  Write a Review
+                                </button>
+                                
+                                {showReviewForm[booking.id] && (
+                                  <div className="mt-3">
+                                    <ReviewForm
+                                      initialRating={0}
+                                      onSubmit={(reviewData) => handleSubmitRating(booking, reviewData)}
+                                      loading={ratingLoading}
+                                      bookingId={booking.id}
+                                      centerName={booking.centerName || 'this boarding center'}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </li>
                     ))}
                     
@@ -481,7 +644,7 @@ const UserBookings = () => {
         onSuccess={handleAuthSuccess}
       />
       
-      <Footer />
+
     </>
   );
 };

@@ -12,9 +12,11 @@ import {
   FiStar, 
   FiUsers, 
   FiDollarSign,
-  FiActivity
+  FiActivity,
+  FiMessageSquare
 } from 'react-icons/fi';
 import { sendEmail } from '../../../utils/emailService';
+import ReviewsManager from './ReviewsManager';
 
 const BoardingAdminDashboard = ({ adminData }) => {
   // State for boarding centers data
@@ -2286,18 +2288,25 @@ const BoardingAdminDashboard = ({ adminData }) => {
   // Render active section content
   const renderContent = () => {
     switch (activeSection) {
+      case 'dashboard':
+        return renderDashboard();
+      case 'bookings':
+        return renderBookings();
+      case 'profile':
+        return renderProfile();
       case 'centers':
         return renderCentersManagement();
       case 'enquiries':
         return renderEnquiries();
-      case 'profile':
-        return renderProfile();
-      case 'bookings':
-        return renderBookings();
-      case 'dashboard':
-        return renderDashboard();
+      case 'reviews':
+        return (
+          <ReviewsManager
+            adminData={adminData}
+            boardingCenters={boardingCenters}
+          />
+        );
       default:
-        return renderCentersManagement();
+        return renderDashboard();
     }
   };
 
@@ -2336,6 +2345,11 @@ const BoardingAdminDashboard = ({ adminData }) => {
               label="Profile"
               section="profile"
             />
+            <NavItem 
+              icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>}
+              label="Reviews"
+              section="reviews"
+            />
           </ul>
         </nav>
       </div>
@@ -2350,6 +2364,7 @@ const BoardingAdminDashboard = ({ adminData }) => {
               {activeSection === 'bookings' && 'Manage Bookings'}
               {activeSection === 'profile' && 'Profile Settings'}
               {activeSection === 'dashboard' && 'Boarding Dashboard'}
+              {activeSection === 'reviews' && 'Reviews'}
             </h1>
           </div>
         </div>

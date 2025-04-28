@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, getFirestore, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../firebase/config.js';
 import useGoogleMaps from '../../utils/useGoogleMaps';
 import { Link, useNavigate } from 'react-router-dom';
+import RatingDisplay from '../common/RatingDisplay';
+import StarRating from '../common/StarRating';
 
 // Create a separate Map component to isolate the Google Maps rendering
 const DetailMap = ({ center, userLocation, isLoaded, loadMap }) => {
@@ -177,6 +179,9 @@ const PetBoardingSearch = () => {
   // Add state to track elements for cleanup
   const [cleanupInfo, setCleanupInfo] = useState({ elements: [], listeners: [] });
   const navigate = useNavigate();
+  const [centersRatings, setCentersRatings] = useState({});
+  const [centerReviews, setCenterReviews] = useState({});
+  const [loadingReviews, setLoadingReviews] = useState(false);
 
   // Function to calculate distance between two coordinates using the Haversine formula
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
@@ -209,140 +214,170 @@ const PetBoardingSearch = () => {
     });
   };
 
-  // Ask for user location on component mount
+  // Fetch all boarding centers and their ratings
+  const fetchBoardingCenters = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const db = getFirestore();
+      const centersCollection = collection(db, 'petBoardingCenters');
+      const centersSnapshot = await getDocs(centersCollection);
+      
+      let centers = [];
+      centersSnapshot.forEach((doc) => {
+        const data = doc.data();
+        centers.push({
+          id: doc.id,
+          ...data,
+          petTypes: Array.isArray(data.petTypes) ? data.petTypes : [],
+          petSizes: Array.isArray(data.petSizes) ? data.petSizes : []
+        });
+      });
+      
+      setBoardingCenters(centers);
+      setFilteredCenters(centers);
+      
+      // Fetch ratings for all centers
+      await fetchCentersRatings(centers);
+      
+      // If we already have user location, apply the distance filtering
+      if (userLocation) {
+        const filtered = filterCentersByDistance(
+          centers,
+          userLocation.latitude,
+          userLocation.longitude,
+          parseFloat(searchParams.radius || 10)
+        );
+        filtered.sort((a, b) => a.distance - b.distance);
+        setFilteredCenters(filtered);
+      }
+      
+      return centers;
+    } catch (err) {
+      console.error("Error fetching boarding centers:", err);
+      setError("Failed to load boarding centers. Please try again later.");
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Move this useEffect after the fetchBoardingCenters function
   useEffect(() => {
-    // Get user location immediately on component mount
+    // Get location first, then fetch boarding centers in the callback
     getUserLocation();
   }, []);
   
-  // Get user location
-  const getUserLocation = () => {
-    if (!navigator.geolocation) {
-      console.log('Geolocation is not supported by your browser');
+  // Fetch ratings for all boarding centers
+  const fetchCentersRatings = async (centers) => {
+    try {
+      const db = getFirestore();
+      const ratingsCollection = collection(db, 'boardingRatings');
+      const ratingsSnapshot = await getDocs(ratingsCollection);
+      
+      // Group ratings by center ID
+      const ratingsByCenter = {};
+      const reviewsByCenter = {};
+      
+      ratingsSnapshot.forEach((doc) => {
+        const data = doc.data();
+        const centerId = data.centerId;
+        
+        if (!centerId) return;
+        
+        if (!ratingsByCenter[centerId]) {
+          ratingsByCenter[centerId] = {
+            ratings: [],
+            sum: 0,
+            count: 0
+          };
+          reviewsByCenter[centerId] = [];
+        }
+        
+        ratingsByCenter[centerId].ratings.push(data.rating);
+        ratingsByCenter[centerId].sum += data.rating;
+        ratingsByCenter[centerId].count += 1;
+        
+        // Add review data
+        reviewsByCenter[centerId].push({
+          id: doc.id,
+          userName: data.userName || 'Anonymous',
+          rating: data.rating,
+          comment: data.comment || '',
+          imageUrl: data.imageUrl || null,
+          date: data.ratedAt ? new Date(data.ratedAt.seconds * 1000) : new Date(),
+          petName: data.petName,
+          petType: data.petType
+        });
+      });
+      
+      // Calculate average ratings
+      const centersWithRatings = {};
+      
+      Object.keys(ratingsByCenter).forEach(centerId => {
+        const centerData = ratingsByCenter[centerId];
+        centersWithRatings[centerId] = {
+          avgRating: centerData.sum / centerData.count,
+          count: centerData.count
+        };
+        
+        // Sort reviews by date
+        reviewsByCenter[centerId].sort((a, b) => b.date - a.date);
+      });
+      
+      setCentersRatings(centersWithRatings);
+      setCenterReviews(reviewsByCenter);
+    } catch (err) {
+      console.error("Error fetching center ratings:", err);
+    }
+  };
+
+  // Fetch reviews for a specific center when opened in detail view
+  const fetchCenterReviews = async (centerId) => {
+    // If we already have reviews for this center, don't fetch again
+    if (centerReviews[centerId] && centerReviews[centerId].length > 0) {
       return;
     }
     
-    setLocationLoading(true);
-    
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        console.log("Successfully got user location:", latitude, longitude);
-        setUserLocation({ latitude, longitude });
-        
-        // Reverse geocode to get address
-        if (window.google && window.google.maps) {
-          const geocoder = new window.google.maps.Geocoder();
-          geocoder.geocode({ location: { lat: latitude, lng: longitude } }, (results, status) => {
-            if (status === 'OK' && results[0]) {
-              // Extract city name from the address components
-              let cityName = '';
-              for (const component of results[0].address_components) {
-                if (component.types.includes('locality') || component.types.includes('administrative_area_level_2')) {
-                  cityName = component.long_name;
-                  break;
-                }
-              }
-              
-              // Update location with the city name instead of coordinates
-              setSearchParams(prev => ({ 
-                ...prev, 
-                location: cityName || results[0].formatted_address
-              }));
-              console.log("Location set to:", cityName || results[0].formatted_address);
-            }
-          });
-        } else {
-          // If Google Maps is not available, just use a generic label
-          setSearchParams(prev => ({ 
-            ...prev, 
-            location: `Current Location` 
-          }));
-        }
-        
-        // Process boarding centers if they're already loaded
-        if (boardingCenters.length > 0) {
-          processLocationBasedResults(latitude, longitude, boardingCenters);
-        }
-        
-        setLocationLoading(false);
-      },
-      (error) => {
-        console.error('Error getting location:', error);
-        setLocationLoading(false);
-        
-        // Don't show alert, just silently fail and let user search manually
-        if (error.code === 1) {
-          console.log("User denied geolocation permission");
-        } else {
-          console.log("Error getting location:", error.message);
-        }
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
-    );
-  };
-  
-  // Helper function to process centers based on location
-  const processLocationBasedResults = (latitude, longitude, centers) => {
-    console.log("Processing centers with location data");
-    const centersWithDistance = centers.map(center => {
-      const centerLat = parseFloat(center.latitude) || parseFloat(center.location?.latitude) || 0;
-      const centerLng = parseFloat(center.longitude) || parseFloat(center.location?.longitude) || 0;
+    setLoadingReviews(true);
+    try {
+      const db = getFirestore();
+      const q = query(
+        collection(db, 'boardingRatings'),
+        where('centerId', '==', centerId),
+        orderBy('ratedAt', 'desc'),
+        limit(10)
+      );
       
-      if (centerLat === 0 || centerLng === 0) {
-        center.distance = Infinity;
-      } else {
-        center.distance = calculateDistance(latitude, longitude, centerLat, centerLng);
-      }
-      return center;
-    });
-    
-    // Sort by distance
-    centersWithDistance.sort((a, b) => a.distance - b.distance);
-    
-    // Filter out centers with invalid coordinates
-    const filtered = centersWithDistance.filter(c => c.distance !== Infinity);
-    
-    console.log(`Found ${filtered.length} centers with valid coordinates`);
-    setFilteredCenters(filtered);
-  };
-  
-  useEffect(() => {
-    const fetchBoardingCenters = async () => {
-      try {
-        // Only fetch approved centers
-        const q = query(
-          collection(db, 'petBoardingCenters'),
-          where('status', '==', 'approved')
-        );
-        
-        console.log("Fetching boarding centers");
-        const snapshot = await getDocs(q);
-        const centers = snapshot.docs.map(doc => ({
+      const snapshot = await getDocs(q);
+      const reviews = [];
+      
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        reviews.push({
           id: doc.id,
-          ...doc.data()
-        }));
-        
-        console.log(`Found ${centers.length} approved boarding centers`);
-        setBoardingCenters(centers);
-        
-        // If user location is already available, filter and sort by distance
-        if (userLocation) {
-          processLocationBasedResults(userLocation.latitude, userLocation.longitude, centers);
-        } else {
-          setFilteredCenters(centers);
-        }
-      } catch (err) {
-        console.error('Error fetching boarding centers:', err);
-        setError('Failed to load boarding centers. Please try again later.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchBoardingCenters();
-  }, [userLocation?.latitude, userLocation?.longitude]);
-  
+          userName: data.userName || 'Anonymous',
+          rating: data.rating,
+          comment: data.comment || '',
+          imageUrl: data.imageUrl || null,
+          date: data.ratedAt ? new Date(data.ratedAt.seconds * 1000) : new Date(),
+          petName: data.petName,
+          petType: data.petType
+        });
+      });
+      
+      setCenterReviews(prev => ({
+        ...prev,
+        [centerId]: reviews
+      }));
+    } catch (error) {
+      console.error('Error fetching center reviews:', error);
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setSearchParams({
@@ -412,16 +447,16 @@ const PetBoardingSearch = () => {
     setSelectedCenter(center);
   };
   
-  const viewCenterDetails = (center) => {
-    // Navigate to detailed page with parameters
-    const params = new URLSearchParams({
-      dateFrom: searchParams.dateFrom,
-      dateTo: searchParams.dateTo,
-      petType: searchParams.petType,
-      petSize: searchParams.petSize
-    }).toString();
-    
-    navigate(`/services/boarding/${center.id}?${params}`);
+  // Replace modal opening with navigation to detail page
+  const navigateToCenterDetail = (center) => {
+    if (center && center.id) {
+      navigate(`/services/boarding/${center.id}`);
+    }
+  };
+  
+  // Keep the viewCenterDetails for backward compatibility
+  const viewCenterDetails = async (center) => {
+    navigateToCenterDetail(center);
   };
   
   const closeDetails = () => {
@@ -528,6 +563,69 @@ const PetBoardingSearch = () => {
     // Close modals
     setShowBookingModal(false);
     closeDetails();
+  };
+
+  // Get user location
+  const getUserLocation = () => {
+    if (!navigator.geolocation) {
+      console.log('Geolocation is not supported by your browser');
+      // Fall back to fetching all boarding centers without location
+      fetchBoardingCenters();
+      return;
+    }
+    
+    setLocationLoading(true);
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        console.log("Successfully got user location:", latitude, longitude);
+        setUserLocation({ latitude, longitude });
+        
+        // Update the location in searchParams to show that we're using current location
+        setSearchParams(prev => ({
+          ...prev,
+          location: "Current Location" // This is just a display value
+        }));
+        
+        // Now that we have the location, fetch boarding centers
+        fetchBoardingCenters().then(centers => {
+          if (centers.length > 0) {
+            const filtered = filterCentersByDistance(
+              centers,
+              latitude,
+              longitude,
+              parseFloat(searchParams.radius || 10)
+            );
+            filtered.sort((a, b) => a.distance - b.distance);
+            setFilteredCenters(filtered);
+          }
+        });
+        
+        setLocationLoading(false);
+      },
+      (error) => {
+        console.log('Error getting location:', error);
+        setLocationLoading(false);
+        
+        // Handle specific error codes
+        if (error.code === 1) {
+          console.log("Location permission denied by user");
+        } else if (error.code === 2) {
+          console.log("Position unavailable");
+        } else if (error.code === 3) {
+          console.log("Location request timed out");
+        }
+        
+        // Still fetch boarding centers even if location fails
+        fetchBoardingCenters();
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
   };
 
   if (loading) {
@@ -715,15 +813,15 @@ const PetBoardingSearch = () => {
                             ₹{center.perDayCharge}
                           </div>
                           
-                          <button
-                            onClick={() => viewCenterDetails(center)}
+                          <Link
+                            to={`/services/boarding/${center.id}`}
                             className="flex items-center text-primary hover:text-primary-dark"
                           >
                             View Details
                             <svg className="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                             </svg>
-                          </button>
+                          </Link>
                         </div>
                       </div>
                     </div>
@@ -840,15 +938,15 @@ const PetBoardingSearch = () => {
                               ₹{center.perDayCharge}
                             </div>
                             
-                            <button
-                              onClick={() => viewCenterDetails(center)}
+                            <Link
+                              to={`/services/boarding/${center.id}`}
                               className="flex items-center text-primary hover:text-primary-dark"
                             >
                               View Details
                               <svg className="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                               </svg>
-                            </button>
+                            </Link>
                           </div>
                         </div>
                       </div>
@@ -925,15 +1023,15 @@ const PetBoardingSearch = () => {
                               ₹{center.perDayCharge}
                             </div>
                             
-                            <button
-                              onClick={() => viewCenterDetails(center)}
+                            <Link
+                              to={`/services/boarding/${center.id}`}
                               className="flex items-center text-primary hover:text-primary-dark"
                             >
                               View Details
                               <svg className="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                               </svg>
-                            </button>
+                            </Link>
                           </div>
                         </div>
                       </div>
@@ -1010,15 +1108,15 @@ const PetBoardingSearch = () => {
                               ₹{center.perDayCharge}
                             </div>
                             
-                            <button
-                              onClick={() => viewCenterDetails(center)}
+                            <Link
+                              to={`/services/boarding/${center.id}`}
                               className="flex items-center text-primary hover:text-primary-dark"
                             >
                               View Details
                               <svg className="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                               </svg>
-                            </button>
+                            </Link>
                           </div>
                         </div>
                       </div>
@@ -1043,71 +1141,73 @@ const PetBoardingSearch = () => {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {getCurrentPageCenters(filteredCenters, currentPage, centersPerPage).map((center) => (
-                  <div 
+                  <div
                     key={center.id}
-                    className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-shadow"
+                    className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition duration-300"
                   >
-                    <div className="relative h-48">
-                      <img 
-                        src={center.galleryImageURLs?.[0] || "https://doggyvilleindia.in/wp-content/uploads/2024/09/how-to-choose-the-best-dog-boarding-facility-for-your-pet.jpg"} 
-                        alt={center.centerName}
-                        className="w-full h-full object-cover"
-                      />
-                      {center.distance && (
-                        <div className="absolute top-2 right-2 bg-primary text-white text-sm px-2 py-1 rounded-md">
+                    <div className="h-48 overflow-hidden bg-gray-200 relative">
+                      {center.galleryImageURLs && center.galleryImageURLs.length > 0 ? (
+                        <img 
+                          src={center.galleryImageURLs[0]} 
+                          alt={center.centerName} 
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = "https://via.placeholder.com/400x300?text=No+Image";
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                          <p className="text-gray-400">No image available</p>
+                        </div>
+                      )}
+                      
+                      {center.distance !== undefined && (
+                        <div className="absolute top-2 right-2 bg-white bg-opacity-90 px-2 py-1 rounded-md text-sm font-medium text-gray-700">
                           {center.distance.toFixed(1)} km away
                         </div>
                       )}
                     </div>
                     
                     <div className="p-4">
-                      <h3 className="text-lg font-semibold mb-1">{center.centerName}</h3>
-                      
-                      <div className="flex items-center mb-2">
-                        <div className="flex text-amber-500">
-                          {[...Array(5)].map((_, i) => (
-                            <svg key={i} className={`h-4 w-4 ${i < (center.rating || 0) ? 'text-amber-500' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
-                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                            </svg>
-                          ))}
-                          <span className="ml-1 text-sm text-gray-700">{center.rating || 0} ({center.reviewCount || 0})</span>
-                        </div>
+                      <div className="flex justify-between items-start">
+                        <h3 className="text-lg font-medium text-gray-900">{center.centerName}</h3>
+                        
+                        {/* Display rating if available */}
+                        {centersRatings[center.id] && (
+                          <RatingDisplay 
+                            rating={centersRatings[center.id].avgRating} 
+                            reviewCount={centersRatings[center.id].count}
+                            size="small"
+                          />
+                        )}
                       </div>
                       
-                      <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-                        {center.address}, {center.city}, {center.pincode}
+                      <p className="text-sm text-gray-500 mt-1">
+                        {center.city || 'Location not specified'}
                       </p>
                       
-                      <div className="flex flex-wrap gap-1 mb-3">
-                        {center.acceptsDogs && (
-                          <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">Dogs</span>
-                        )}
-                        {center.acceptsCats && (
-                          <span className="inline-block bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded">Cats</span>
-                        )}
-                        {center.hasCCTV && (
-                          <span className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded">CCTV</span>
-                        )}
-                        {center.has24HrStaff && (
-                          <span className="inline-block bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded">24/7 Staff</span>
+                      <div className="mt-3">
+                        {center.petTypes && center.petTypes.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {center.petTypes.map(petType => (
+                              <span
+                                key={petType}
+                                className="inline-block px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full"
+                              >
+                                {petType}
+                              </span>
+                            ))}
+                          </div>
                         )}
                       </div>
                       
-                      <div className="border-t border-gray-200 pt-3 flex justify-between items-center">
-                        <div className="text-primary font-semibold">
-                          ₹{center.perDayCharge}
-                        </div>
-                        
-                        <button
-                          onClick={() => viewCenterDetails(center)}
-                          className="flex items-center text-primary hover:text-primary-dark"
-                        >
-                          View Details
-                          <svg className="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                        </button>
-                      </div>
+                      <Link
+                        to={`/services/boarding/${center.id}`}
+                        className="mt-4 w-full py-2 px-4 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors"
+                      >
+                        View Details
+                      </Link>
                     </div>
                   </div>
                 ))}
@@ -1128,7 +1228,7 @@ const PetBoardingSearch = () => {
                     
                     {[...Array(getTotalPages(filteredCenters, centersPerPage)).keys()].map(number => (
                       <button
-                        key={number}
+                        key={number + 1}
                         onClick={() => paginate(number + 1)}
                         className={`px-3 py-1 border border-gray-300 text-sm font-medium
                           ${currentPage === number + 1 
@@ -1154,339 +1254,6 @@ const PetBoardingSearch = () => {
               )}
             </>
           )}
-        </div>
-      )}
-      
-      {/* Center Details Modal */}
-      {selectedCenter && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="relative">
-              {/* Close button */}
-              <button
-                onClick={closeDetails}
-                className="absolute right-4 top-4 bg-white rounded-full p-2 shadow-md z-10"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-              
-              {/* Header with image */}
-              <div className="h-64 bg-gray-200 relative">
-                {selectedCenter.galleryImageURLs && selectedCenter.galleryImageURLs.length > 0 ? (
-                  <img 
-                    src={selectedCenter.galleryImageURLs[0]} 
-                    alt={selectedCenter.centerName} 
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                    <span className="text-gray-500">No image available</span>
-                  </div>
-                )}
-              </div>
-              
-              {/* Content */}
-              <div className="p-6">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900">{selectedCenter.centerName}</h2>
-                    <p className="text-gray-600">{selectedCenter.address}, {selectedCenter.city}, {selectedCenter.pincode}</p>
-                    {selectedCenter.distance !== undefined && (
-                      <p className="text-blue-600 mt-1 flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        {selectedCenter.distance.toFixed(1)} kilometers from you
-                      </p>
-                    )}
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-primary">₹{selectedCenter.perDayCharge}</p>
-                    <p className="text-sm text-gray-600">per day</p>
-                  </div>
-                </div>
-                
-                {selectedCenter.description && (
-                  <div className="mt-4 bg-gray-50 p-4 rounded-lg">
-                    <h3 className="text-md font-semibold text-gray-700 mb-2">About This Center</h3>
-                    <p className="text-gray-700">{selectedCenter.description}</p>
-                  </div>
-                )}
-                
-                <hr className="my-6" />
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-800 mb-3">Contact Information</h3>
-                    <ul className="space-y-2 text-gray-600">
-                      <li className="flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                        {selectedCenter.ownerName}
-                      </li>
-                      <li className="flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                        </svg>
-                        {selectedCenter.phoneNumber}
-                      </li>
-                      <li className="flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
-                        {selectedCenter.email}
-                      </li>
-                      {selectedCenter.website && (
-                        <li className="flex items-center">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                          </svg>
-                          <a href={selectedCenter.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                            {selectedCenter.website}
-                          </a>
-                        </li>
-                      )}
-                    </ul>
-                  </div>
-                  
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-800 mb-3">Operating Hours</h3>
-                    <ul className="space-y-1 text-gray-600">
-                      {selectedCenter.operatingDays && Object.entries(selectedCenter.operatingDays).map(([day, isOpen]) => (
-                        <li key={day} className="flex justify-between">
-                          <span className="capitalize">{day}</span>
-                          {isOpen ? (
-                            <span>{selectedCenter.openingTime} - {selectedCenter.closingTime}</span>
-                          ) : (
-                            <span className="text-red-500">Closed</span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-                
-                {/* Map section */}
-                <div className="mt-6">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-3">Location</h3>
-                  <DetailMap 
-                    key={selectedCenter.id} 
-                    center={selectedCenter} 
-                    userLocation={userLocation}
-                    isLoaded={isLoaded}
-                    loadMap={loadMap}
-                  />
-                </div>
-                
-                <hr className="my-6" />
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-800 mb-3">Pet Details</h3>
-                    <ul className="space-y-2 text-gray-600">
-                      <li className="flex items-start">
-                        <span className="text-gray-700 font-medium mr-2">Accepts:</span>
-                        <div className="flex flex-wrap gap-1">
-                          {selectedCenter.petTypesAccepted && Object.entries(selectedCenter.petTypesAccepted)
-                            .filter(([_, value]) => value)
-                            .map(([petType]) => (
-                              <span 
-                                key={petType} 
-                                className="px-2 py-1 bg-primary-light text-primary text-xs rounded-full"
-                              >
-                                {petType.charAt(0).toUpperCase() + petType.slice(1)}
-                              </span>
-                            ))
-                          }
-                        </div>
-                      </li>
-                      <li>
-                        <span className="text-gray-700 font-medium">Size Limit:</span>{' '}
-                        {selectedCenter.petSizeLimit && selectedCenter.petSizeLimit.length > 0 
-                          ? selectedCenter.petSizeLimit.map(size => size.charAt(0).toUpperCase() + size.slice(1)).join(', ')
-                          : 'No limit'
-                        }
-                      </li>
-                      <li>
-                        <span className="text-gray-700 font-medium">Max Capacity:</span> {selectedCenter.capacity || 'Not specified'}
-                      </li>
-                      {selectedCenter.petAgeLimit && (
-                        <li>
-                          <span className="text-gray-700 font-medium">Age Limit:</span> {selectedCenter.petAgeLimit}
-                        </li>
-                      )}
-                    </ul>
-                  </div>
-                  
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-800 mb-3">Services Offered</h3>
-                    <ul className="space-y-1 text-gray-600">
-                      {selectedCenter.servicesOffered && Object.entries(selectedCenter.servicesOffered).map(([service, isOffered]) => (
-                        isOffered && (
-                          <li key={service} className="flex items-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                            <span className="capitalize">
-                              {service === 'boarding' && 'Boarding'}
-                              {service === 'food' && 'Food Included'}
-                              {service === 'playArea' && 'Play Area / Walks'}
-                              {service === 'grooming' && 'Grooming'}
-                              {service === 'vetAssistance' && 'Veterinary Assistance'}
-                              {service === 'liveUpdates' && 'Live Updates / CCTV Access'}
-                            </span>
-                          </li>
-                        )
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-                
-                <div className="mt-8 flex justify-end">
-                  <button
-                    onClick={closeDetails}
-                    className="mr-3 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
-                  >
-                    Close
-                  </button>
-                  <button
-                    onClick={openBookingModal}
-                    className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
-                  >
-                    Book Now
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Booking Modal */}
-      {selectedCenter && showBookingModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <div className="flex justify-between items-start mb-4">
-              <h3 className="text-xl font-bold text-gray-900">Book {selectedCenter.centerName}</h3>
-              <button onClick={closeBookingModal} className="text-gray-500 hover:text-gray-800">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            <form onSubmit={submitBooking} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
-                <input
-                  type="date"
-                  name="dateFrom"
-                  required
-                  value={bookingDetails.dateFrom}
-                  onChange={handleBookingInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  min={new Date().toISOString().split('T')[0]}
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
-                <input
-                  type="date"
-                  name="dateTo"
-                  required
-                  value={bookingDetails.dateTo}
-                  onChange={handleBookingInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  min={bookingDetails.dateFrom || new Date().toISOString().split('T')[0]}
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Pet Type</label>
-                <select
-                  name="petType"
-                  required
-                  value={bookingDetails.petType}
-                  onChange={handleBookingInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                >
-                  <option value="">Select Pet Type</option>
-                  {selectedCenter.petTypesAccepted && Object.entries(selectedCenter.petTypesAccepted)
-                    .filter(([_, value]) => value)
-                    .map(([petType]) => (
-                      <option key={petType} value={petType}>
-                        {petType.charAt(0).toUpperCase() + petType.slice(1)}
-                      </option>
-                    ))
-                  }
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Pet Size</label>
-                <select
-                  name="petSize"
-                  required
-                  value={bookingDetails.petSize}
-                  onChange={handleBookingInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                >
-                  <option value="">Select Pet Size</option>
-                  {selectedCenter.petSizeLimit && selectedCenter.petSizeLimit.map(size => (
-                    <option key={size} value={size}>
-                      {size.charAt(0).toUpperCase() + size.slice(1)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Special Instructions</label>
-                <textarea
-                  name="notes"
-                  value={bookingDetails.notes}
-                  onChange={handleBookingInputChange}
-                  rows="3"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  placeholder="Any special requirements for your pet..."
-                ></textarea>
-              </div>
-              
-              {bookingDetails.dateFrom && bookingDetails.dateTo && (
-                <div className="bg-gray-50 p-3 rounded-md">
-                  <p className="text-sm text-gray-600">
-                    Booking for <strong>{calculateBookingDays()}</strong> days
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    Total cost: <span className="font-bold text-primary">
-                      ₹{selectedCenter.perDayCharge * calculateBookingDays()}
-                    </span>
-                  </p>
-                </div>
-              )}
-              
-              <div className="flex justify-end space-x-3 pt-2">
-                <button
-                  type="button"
-                  onClick={closeBookingModal}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
-                >
-                  Confirm Booking
-                </button>
-              </div>
-            </form>
-          </div>
         </div>
       )}
     </div>

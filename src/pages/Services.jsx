@@ -27,6 +27,15 @@ const Services = () => {
       link: '/services/transportation',
       image: 'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1471&q=80'
     },
+    {
+      id: 9,
+      title: 'Pet Boarding',
+      linkText: 'Book Your Boarding Centre',
+      description: 'Safe and comfortable accommodation for your pets when you\'re away for longer periods.',
+      icon: '🏨',
+      link: '/services/boarding',
+      image: 'https://doggyvilleindia.in/wp-content/uploads/2024/09/how-to-choose-the-best-dog-boarding-facility-for-your-pet.jpg'
+    },
     // {
     //   id: 2,
     //   title: 'Find Your Furry Soulmate',
@@ -45,8 +54,8 @@ const Services = () => {
     // },
     {
       id: 4,
-      title: 'Pet Sitting',
-      description: 'Professional pet sitters who provide care for your pets in the comfort of your own home while you\'re away.',
+      title: 'Pet Funeral Services',
+      description: 'Pet Funeral Services offer compassionate support and dignified arrangements to help pet owners honor and remember their beloved companions.',
       icon: '🏠',
       comingSoon: true,
       image: 'https://images.unsplash.com/photo-1450778869180-41d0601e046e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1450&q=80'
@@ -76,14 +85,7 @@ const Services = () => {
       comingSoon: true,
       image: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2069&q=80'
     },
-    {
-      id: 9,
-      title: 'Pet Boarding',
-      description: 'Safe and comfortable accommodation for your pets when you\'re away for longer periods.',
-      icon: '🏨',
-      link: '/services/boarding',
-      image: 'https://doggyvilleindia.in/wp-content/uploads/2024/09/how-to-choose-the-best-dog-boarding-facility-for-your-pet.jpg'
-    },
+
     {
       id: 10,
       title: 'Pet Mating',

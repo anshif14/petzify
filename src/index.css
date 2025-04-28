@@ -33,3 +33,26 @@ code {
     box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
   }
 }
+
+/* Review image styles */
+.review-image {
+  max-width: 100%;
+  max-height: 250px;
+  object-fit: contain;
+  border-radius: 0.375rem;
+  border: 1px solid #e5e7eb;
+}
+
+.review-image-thumbnail {
+  height: 8rem;
+  object-fit: cover;
+  border-radius: 0.375rem;
+  border: 1px solid #e5e7eb;
+  cursor: pointer;
+  transition: transform 0.15s ease-in-out;
+}
+
+.review-image-thumbnail:hover {
+  transform: scale(1.03);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}

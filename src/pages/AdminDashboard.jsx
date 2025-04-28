@@ -15,6 +15,7 @@ import PetParentingManager from '../components/admin/PetParentingManager';
 import OrderManager from '../components/admin/OrderManager';
 import PetBoardingAdmin from './admin/PetBoardingAdmin';
 import BoardingAdminDashboard from '../components/admin/boarding/BoardingAdminDashboard';
+import ReviewsAdminManager from '../components/admin/ReviewsAdminManager';
 import { auth, db } from '../firebase/index';
 import { useNavigate } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
@@ -163,6 +164,7 @@ const AdminDashboard = () => {
         canManageBookings={canManageBookings}
         canManagePetParenting={canManagePetParenting}
         canManageOrders={canManageOrders}
+        canManageReviews={adminData?.role === 'superadmin'}
       />
       
       <div className="flex-1 p-8">
@@ -273,6 +275,7 @@ const AdminDashboard = () => {
           {activeComponent === 'orders' && canManageOrders && <OrderManager />}
           {activeComponent === 'testimonials' && canEditContacts && <TestimonialsManager />}
           {activeComponent === 'pet-boarding' && <PetBoardingAdmin />}
+          {activeComponent === 'reviews' && adminData?.role === 'superadmin' && <ReviewsAdminManager />}
         </div>
       </div>
     </div>

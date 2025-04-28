@@ -77,22 +77,65 @@ const BoardingDetail = () => {
     window.scrollTo(0, 0);
   }, [id]);
 
-  // Get user's location
+  // Function to calculate distance between two coordinates using the Haversine formula
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // Radius of the earth in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2); 
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+    const distance = R * c; // Distance in km
+    return distance;
+  };
+
+  // Update the getUserLocation function
   const getUserLocation = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setUserLocation({
+          const locationData = {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude
-          });
+          };
+          setUserLocation(locationData);
+          
+          // Calculate distance if center coordinates are available
+          if (center && center.latitude && center.longitude) {
+            const distance = calculateDistance(
+              position.coords.latitude,
+              position.coords.longitude,
+              parseFloat(center.latitude),
+              parseFloat(center.longitude)
+            );
+            
+            // Store the distance in the center object
+            setCenter(prevCenter => ({
+              ...prevCenter,
+              distance: distance
+            }));
+          }
         },
         (error) => {
           console.log('Error getting location:', error);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
         }
       );
     }
   };
+  
+  // Add useEffect to call getUserLocation when center data changes
+  useEffect(() => {
+    if (center) {
+      getUserLocation();
+    }
+  }, [center]);
 
   // Calculate booking days and total cost when dates change
   useEffect(() => {
@@ -773,6 +816,18 @@ const BoardingDetail = () => {
                 <p className="font-medium mb-2">
                   {center.address}, {center.city}, {center.pincode}
                 </p>
+                
+                {center.distance && (
+                  <p className="text-sm text-gray-600 mb-3">
+                    <span className="inline-flex items-center">
+                      <svg className="h-4 w-4 mr-1 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      </svg>
+                      Approximately {center.distance.toFixed(1)} km from your location
+                    </span>
+                  </p>
+                )}
+                
                 {center.latitude && center.longitude && (
                   <a 
                     href={`https://www.google.com/maps/dir/?api=1&destination=${center.latitude},${center.longitude}`}
@@ -784,7 +839,7 @@ const BoardingDetail = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
-                    View on Google Maps
+                    Get Directions
                   </a>
                 )}
               </div>
