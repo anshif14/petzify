@@ -113,28 +113,327 @@ exports.onOrderCreated = onDocumentCreated("orders/{orderId}", async (event) => 
         });
 
         // Customer email
-        const customerSubject = `Order Placed - #${orderId}`;
+        const customerSubject = `Order Placed - #${orderId.slice(-6)}`;
         const customerHtml = `
+            <!DOCTYPE html>
             <html>
+            <head>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Petzify Order Placed</title>
+                <style>
+                    body, html {
+                        margin: 0;
+                        padding: 0;
+                        font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                        color: #333333;
+                        line-height: 1.6;
+                        background-color: #f9f9f9;
+                    }
+                    .container {
+                        max-width: 600px;
+                        margin: 0 auto;
+                        background-color: #ffffff;
+                        border-radius: 8px;
+                        overflow: hidden;
+                        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                    }
+                    .header {
+                        text-align: center;
+                        padding: 25px 20px;
+                        background-color: #14cca4;
+                    }
+                    .logo {
+                        max-width: 180px;
+                    }
+                    .main-content {
+                        padding: 30px 25px;
+                    }
+                    .heading {
+                        font-size: 24px;
+                        font-weight: bold;
+                        margin: 0 0 20px 0;
+                        color: #0c7c74;
+                        text-align: center;
+                    }
+                    .order-number {
+                        font-size: 18px;
+                        text-align: center;
+                        margin-bottom: 25px;
+                        color: #338981;
+                    }
+                    .section {
+                        margin-bottom: 25px;
+                        border-bottom: 1px solid #eee;
+                        padding-bottom: 20px;
+                    }
+                    .section:last-child {
+                        border-bottom: none;
+                    }
+                    .section-title {
+                        font-size: 18px;
+                        font-weight: 600;
+                        color: #0c7c74;
+                        margin-bottom: 15px;
+                    }
+                    .steps {
+                        display: flex;
+                        justify-content: space-between;
+                        margin: 30px 0;
+                        position: relative;
+                    }
+                    .step {
+                        position: relative;
+                        z-index: 1;
+                        text-align: center;
+                        width: 25%;
+                    }
+                    .step-icon {
+                        width: 30px;
+                        height: 30px;
+                        border-radius: 50%;
+                        background-color: #cccccc;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        margin: 0 auto 8px;
+                        color: white;
+                        font-weight: bold;
+                        font-size: 14px;
+                    }
+                    .step-icon.active {
+                        background-color: #14cca4;
+                    }
+                    .step-text {
+                        font-size: 13px;
+                        color: #555;
+                    }
+                    .step-text.active {
+                        color: #14cca4;
+                        font-weight: 600;
+                    }
+                    .step-line {
+                        position: absolute;
+                        top: 15px;
+                        left: 12.5%;
+                        right: 12.5%;
+                        height: 2px;
+                        background-color: #cccccc;
+                        z-index: 0;
+                    }
+                    .step-line-progress {
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        height: 100%;
+                        width: 0%;
+                        background-color: #14cca4;
+                    }
+                    .product-item {
+                        display: flex;
+                        padding: 15px 0;
+                        border-bottom: 1px solid #eeeeee;
+                    }
+                    .product-item:last-child {
+                        border-bottom: none;
+                    }
+                    .product-image {
+                        width: 80px;
+                        height: 80px;
+                        object-fit: cover;
+                        margin-right: 15px;
+                        border-radius: 5px;
+                        border: 1px solid #eee;
+                    }
+                    .product-details {
+                        flex: 1;
+                    }
+                    .product-name {
+                        font-weight: bold;
+                        margin-bottom: 5px;
+                        font-size: 16px;
+                        color: #333;
+                    }
+                    .product-price {
+                        font-weight: bold;
+                        margin-top: 5px;
+                        font-size: 16px;
+                        color: #0c7c74;
+                    }
+                    .order-summary {
+                        background-color: #f5f9f8;
+                        border-radius: 5px;
+                        padding: 15px;
+                        margin-top: 25px;
+                    }
+                    .summary-row {
+                        display: flex;
+                        justify-content: space-between;
+                        margin-bottom: 10px;
+                    }
+                    .summary-row.total {
+                        font-weight: bold;
+                        font-size: 18px;
+                        border-top: 1px solid #ddd;
+                        padding-top: 10px;
+                        margin-top: 10px;
+                        color: #0c7c74;
+                    }
+                    .address-block {
+                        background-color: #f5f9f8;
+                        border-radius: 5px;
+                        padding: 15px;
+                        margin-bottom: 20px;
+                    }
+                    .footer {
+                        background-color: #f5f9f8;
+                        color: #555;
+                        text-align: center;
+                        padding: 20px;
+                        font-size: 14px;
+                        border-top: 1px solid #eee;
+                    }
+                    .social-links {
+                        margin: 15px 0;
+                    }
+                    .social-links a {
+                        display: inline-block;
+                        margin: 0 10px;
+                        color: #14cca4;
+                        text-decoration: none;
+                    }
+                    .thank-you-box {
+                        background-color: #e8f5e9;
+                        border-radius: 5px;
+                        padding: 15px;
+                        margin: 20px 0;
+                        text-align: center;
+                        border-left: 4px solid #14cca4;
+                    }
+                    .next-steps {
+                        background-color: #f5f9f8;
+                        border-left: 4px solid #14cca4;
+                        padding: 15px;
+                        margin: 25px 0;
+                        border-radius: 2px;
+                    }
+                    .next-steps-title {
+                        color: #0c7c74;
+                        font-weight: 600;
+                        margin-bottom: 10px;
+                    }
+                    .next-steps-list {
+                        margin: 0;
+                        padding-left: 25px;
+                    }
+                    .next-steps-list li {
+                        margin-bottom: 8px;
+                    }
+                </style>
+            </head>
             <body>
-                <div style="font-family: Arial; max-width: 600px; margin: auto;">
-                    <h2>Order Placed Successfully</h2>
-                    <p>Hi ${order.userName || 'Customer'},</p>
-                    <p>Thank you for your order <strong>#${orderId}</strong>.</p>
-                    <h3>Items:</h3>
-                    ${validProductDetails.map(item => `
-                        <div style="display: flex; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px;">
-                            <img src="${item.productData?.images?.[0] || 'https://via.placeholder.com/80'}" width="80" height="80" style="object-fit: cover; margin-right: 15px;" />
-                            <div>
-                                <p style="font-weight: bold; margin: 0 0 5px 0;">${item.productData?.name || 'Product Name'}</p>
-                                <p style="margin: 0 0 5px 0;">Qty: ${item.quantity}</p>
-                                <p style="margin: 0;">Price: ₹${item.price}</p>
+                <div class="container">
+                    <div class="header">
+                        <img src="https://firebasestorage.googleapis.com/v0/b/petzify-49ed4.firebasestorage.app/o/assets%2Flogo_white_text.png?alt=media&token=73a45d07-59ed-40b7-960a-486b1e340564" alt="Petzify" class="logo">
+                    </div>
+                    <div class="main-content">
+                        <h1 class="heading">Order Placed Successfully</h1>
+                        <p class="order-number">Order #${orderId.slice(-6)}</p>
+                        
+                        <p>Hello ${order.userName || 'Valued Customer'},</p>
+                        <p>Thank you for your order! We're excited to confirm that your order has been received and is now being processed.</p>
+                        
+                        <div class="steps">
+                            <div class="step-line">
+                                <div class="step-line-progress"></div>
+                            </div>
+                            <div class="step">
+                                <div class="step-icon active">1</div>
+                                <div class="step-text active">Placed</div>
+                            </div>
+                            <div class="step">
+                                <div class="step-icon">2</div>
+                                <div class="step-text">Confirmed</div>
+                            </div>
+                            <div class="step">
+                                <div class="step-icon">3</div>
+                                <div class="step-text">Shipped</div>
+                            </div>
+                            <div class="step">
+                                <div class="step-icon">4</div>
+                                <div class="step-text">Delivered</div>
                             </div>
                         </div>
-                    `).join('')}
-                    <p style="font-weight: bold; font-size: 16px; margin-top: 20px;">Subtotal: ₹${order.subtotal || 'N/A'}</p>
-                    <p>We'll notify you once your order is shipped.</p>
-                    <p style="margin-top: 30px; font-size: 12px; color: #777;">Thank you for shopping with Petzify!</p>
+
+                        <div class="section">
+                            <h2 class="section-title">Order Details</h2>
+                            ${validProductDetails.map(item => `
+                                <div class="product-item">
+                                    <img src="${item.productData?.images?.[0] || 'https://via.placeholder.com/80'}" class="product-image" alt="${item.productData?.name || 'Product'}">
+                                    <div class="product-details">
+                                        <div class="product-name">${item.productData?.name || 'Product Name'}</div>
+                                        <div>Quantity: ${item.quantity}</div>
+                                        <div class="product-price">₹${parseFloat(item.price).toFixed(2)}</div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                            
+                            <div class="order-summary">
+                                <div class="summary-row">
+                                    <span>Subtotal:</span>
+                                    <span>₹${parseFloat(order.subtotal || 0).toFixed(2)}</span>
+                                </div>
+                                <div class="summary-row">
+                                    <span>Shipping:</span>
+                                    <span>₹${parseFloat(order.shippingCost || 0).toFixed(2)}</span>
+                                </div>
+                                <div class="summary-row total">
+                                    <span>Total:</span>
+                                    <span>₹${parseFloat(order.totalAmount || order.subtotal || 0).toFixed(2)}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="section">
+                            <h2 class="section-title">Shipping Information</h2>
+                            <div class="address-block">
+                                <strong>${order.userName || 'Customer'}</strong><br>
+                                ${order.shippingAddress || 'Your registered address'}<br>
+                                Phone: ${order.userPhone || 'Not provided'}
+                            </div>
+                        </div>
+                        
+                        <div class="next-steps">
+                            <div class="next-steps-title">What's Next?</div>
+                            <ul class="next-steps-list">
+                                <li>Our team will review and confirm your order shortly</li>
+                                <li>You'll receive another email when your order is confirmed</li>
+                                <li>You can check your order status anytime in your Petzify account</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="thank-you-box">
+                            <p style="font-size: 18px; font-weight: bold; color: #0c7c74; margin-bottom: 10px;">Thank you for shopping with Petzify!</p>
+                            <p>We're working hard to process your order as quickly as possible.</p>
+                        </div>
+                        
+                        <p>If you have any questions about your order, please contact our customer support team at <a href="mailto:support@petzify.com" style="color: #14cca4; text-decoration: none;">support@petzify.com</a>.</p>
+                        
+                        <p style="margin-top: 30px;">
+                            Warm regards,<br>
+                            The Petzify Team
+                        </p>
+                    </div>
+                    
+                    <div class="footer">
+                        <p>© ${new Date().getFullYear()} Petzify. All rights reserved.</p>
+                        <div class="social-links">
+                            <a href="https://facebook.com/petzify">Facebook</a>
+                            <a href="https://instagram.com/petzify">Instagram</a>
+                            <a href="https://twitter.com/petzify">Twitter</a>
+                        </div>
+                        <p>This email was sent to ${order.userEmail}</p>
+                    </div>
                 </div>
             </body>
             </html>
@@ -522,7 +821,7 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
                                         </div>
                                         <div class="summary-row total">
                                             <span>Total:</span>
-                                            <span>₹${parseFloat(orderData.totalAmount || 0).toFixed(2)}</span>
+                                            <span>₹${parseFloat(orderData.totalAmount || orderData.subtotal || 0).toFixed(2)}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -902,7 +1201,7 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
                                         </div>
                                         <div class="summary-row total">
                                             <span>Total:</span>
-                                            <span>₹${parseFloat(orderData.totalAmount || 0).toFixed(2)}</span>
+                                            <span>₹${parseFloat(orderData.totalAmount || orderData.subtotal || 0).toFixed(2)}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -1228,7 +1527,7 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
                                         </div>
                                         <div class="summary-row total">
                                             <span>Total:</span>
-                                            <span>₹${parseFloat(orderData.totalAmount || 0).toFixed(2)}</span>
+                                            <span>₹${parseFloat(orderData.totalAmount || orderData.subtotal || 0).toFixed(2)}</span>
                                         </div>
                                     </div>
                                 </div>
