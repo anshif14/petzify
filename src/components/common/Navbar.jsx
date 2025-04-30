@@ -75,12 +75,12 @@ const Navbar = () => {
             {/*<NavLink to="/book-appointment" className={({isActive}) => isActive ? activeClass : inactiveClass}>*/}
             {/*  Book Vet*/}
             {/*</NavLink>*/}
-            <NavLink to="/about" className={({isActive}) => isActive ? activeClass : inactiveClass}>
-              About
-            </NavLink>
-            <NavLink to="/contact" className={({isActive}) => isActive ? activeClass : inactiveClass}>
-              Contact
-            </NavLink>
+            {/*<NavLink to="/about" className={({isActive}) => isActive ? activeClass : inactiveClass}>*/}
+            {/*  About*/}
+            {/*</NavLink>*/}
+            {/*<NavLink to="/contact" className={({isActive}) => isActive ? activeClass : inactiveClass}>*/}
+            {/*  Contact*/}
+            {/*</NavLink>*/}
             
             {/* Cart Icon */}
             <button 

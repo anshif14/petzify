@@ -45,8 +45,33 @@ const Cart = () => {
   
   // Fetch user addresses when authenticated
   useEffect(() => {
-    if (isAuthenticated() && currentUser?.email) {
-      fetchUserAddresses();
+    // Use a flag to prevent multiple consecutive fetch attempts
+    let isFetching = false;
+    
+    const attemptFetch = () => {
+      if (isFetching) return;
+      
+      if (isAuthenticated() && currentUser?.email) {
+        console.log('User authenticated with email, fetching addresses');
+        isFetching = true;
+        fetchUserAddresses()
+          .finally(() => {
+            isFetching = false;
+          });
+      }
+    };
+    
+    // Initial attempt
+    attemptFetch();
+    
+    // Retry mechanism if needed
+    if (isAuthenticated() && !currentUser?.email) {
+      console.log('User authenticated but no email yet, will retry shortly');
+      const timer = setTimeout(() => {
+        attemptFetch();
+      }, 800);
+      
+      return () => clearTimeout(timer);
     }
   }, [currentUser, isAuthenticated]);
   
@@ -55,6 +80,16 @@ const Cart = () => {
     try {
       setLoadingAddresses(true);
       const db = getFirestore(app);
+      
+      // Check if currentUser exists before accessing its properties
+      if (!currentUser || !currentUser.email) {
+        console.log('User not fully authenticated yet');
+        setLoadingAddresses(false);
+        return Promise.resolve(); // Return a resolved promise
+      }
+      
+      console.log('Fetching addresses for user:', currentUser.email);
+      
       const addressesQuery = query(
         collection(db, 'addresses'),
         where('userId', '==', currentUser.email)
@@ -70,17 +105,28 @@ const Cart = () => {
         });
       });
       
-      setAddresses(addressList);
+      console.log('Fetched addresses:', addressList.length);
       
-      // Pre-select an address if available
-      if (addressList.length > 0) {
-        // Find default address or use the first one
-        const defaultAddress = addressList.find(addr => addr.isDefault) || addressList[0];
-        setSelectedAddressId(defaultAddress.id);
+      // Only update state if addresses were actually found
+      // or if we currently have no addresses (to show empty state)
+      if (addressList.length > 0 || addresses.length === 0) {
+        setAddresses(addressList);
+        
+        // Pre-select an address if available
+        if (addressList.length > 0) {
+          // Find default address or use the first one
+          const defaultAddress = addressList.find(addr => addr.isDefault) || addressList[0];
+          setSelectedAddressId(defaultAddress.id);
+        } else {
+          setSelectedAddressId('');
+        }
       }
+      
+      return Promise.resolve();
     } catch (error) {
       console.error('Error fetching addresses:', error);
       showError('Could not load your saved addresses', 'Error');
+      return Promise.reject(error);
     } finally {
       setLoadingAddresses(false);
     }
@@ -350,9 +396,18 @@ const Cart = () => {
 
   const handleAuthSuccess = () => {
     if (!isProcessingOrder) {
-      setTimeout(() => {
-        fetchUserAddresses();
-      }, 500);
+      // Give time for user context to update completely
+      const timer = setTimeout(() => {
+        console.log('Auth success, attempting to fetch addresses after delay');
+        if (currentUser?.email) {
+          fetchUserAddresses();
+        } else {
+          console.log('User email still not available after auth success');
+          // If user data is still not available, we'll rely on the useEffect to catch it
+        }
+      }, 1000);
+      
+      return () => clearTimeout(timer);
     }
   };
 
@@ -725,7 +780,7 @@ const Cart = () => {
       <AuthModal
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
-        initialMode="signup"
+        initialMode="login"
         onSuccess={handleAuthSuccess}
       />
       

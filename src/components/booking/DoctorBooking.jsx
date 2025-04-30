@@ -729,7 +729,7 @@ const DoctorBooking = () => {
       <AuthModal
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
-        initialMode="signup"
+        initialMode="login"
         onSuccess={handleAuthSuccess}
       />
     </div>

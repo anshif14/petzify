@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useUser } from '../../context/UserContext';
 import { useAlert } from '../../context/AlertContext';
+import PasswordInput from '../common/PasswordInput';
 
 const AuthModal = ({ 
   isOpen, 
@@ -234,8 +235,7 @@ const AuthModal = ({
             <label htmlFor="password" className="block text-gray-700 font-medium mb-2">
               Password
             </label>
-            <input
-              type="password"
+            <PasswordInput
               id="password"
               name="password"
               value={formData.password}
@@ -256,8 +256,7 @@ const AuthModal = ({
               <label htmlFor="confirmPassword" className="block text-gray-700 font-medium mb-2">
                 Confirm Password
               </label>
-              <input
-                type="password"
+              <PasswordInput
                 id="confirmPassword"
                 name="confirmPassword"
                 value={formData.confirmPassword}

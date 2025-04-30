@@ -11,6 +11,7 @@ import {
   updateDoc 
 } from 'firebase/firestore';
 import { app } from '../../firebase/config';
+import PasswordInput from '../common/PasswordInput';
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
@@ -503,12 +504,11 @@ const UserManagement = () => {
             <label className="block text-gray-700 mb-1">
               {isEditing ? 'New Password (leave blank to keep current)' : 'Password *'}
             </label>
-            <input
-              type="password"
+            <PasswordInput
+              id="password"
               name="password"
               value={formData.password}
               onChange={handleChange}
-              className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
               required={!isEditing}
             />
           </div>
@@ -517,12 +517,11 @@ const UserManagement = () => {
             <label className="block text-gray-700 mb-1">
               {isEditing ? 'Confirm New Password' : 'Confirm Password *'}
             </label>
-            <input
-              type="password"
+            <PasswordInput
+              id="confirmPassword"
               name="confirmPassword"
               value={formData.confirmPassword}
               onChange={handleChange}
-              className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
               required={!isEditing}
             />
           </div>
