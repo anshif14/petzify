@@ -140,7 +140,7 @@ exports.onOrderCreated = onDocumentCreated("orders/{orderId}", async (event) => 
             </html>
         `;
 
-        await sendCustomEmail({
+        await sendEmail(config, {
             to: order.userEmail,
             subject: customerSubject,
             html: customerHtml,
@@ -173,7 +173,7 @@ exports.onOrderCreated = onDocumentCreated("orders/{orderId}", async (event) => 
             </html>
         `;
 
-        await sendCustomEmail({
+        await sendEmail(config, {
             to: config.businessEmail,
             subject: businessSubject,
             html: businessHtml,
@@ -207,7 +207,7 @@ exports.onOrderCreated = onDocumentCreated("orders/{orderId}", async (event) => 
 
             // Send to each seller
             for (const sellerEmail of sellerEmails) {
-                await sendCustomEmail({
+                await sendEmail(config, {
                     to: sellerEmail,
                     subject: sellerSubject,
                     html: sellerHtml,
@@ -228,24 +228,516 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
 
     const orderId = event.params.orderId;
     const newStatus = after.data().status;
+    const orderData = after.data();
 
     try {
-        const subject = `Petzify Order Status Updated - #${orderId}`;
-        const html = `
-            <html>
-            <body>
-                <div style="font-family: Arial; max-width: 600px; margin: auto;">
-                    <h2>Status Update</h2>
-                    <p>Hi ${after.data().userName || 'Customer'},</p>
-                    <p>Your order <strong>#${orderId}</strong> is now <strong>${newStatus}</strong>.</p>
-                    <p>Check your app or website for details.</p>
-                </div>
-            </body>
-            </html>
-        `;
+        // Get product details if needed for the email
+        let productDetails = [];
+        if (orderData.items && Array.isArray(orderData.items)) {
+            productDetails = orderData.items;
+        }
 
-        await sendCustomEmail({
-            to: after.data().userEmail,
+        let subject = '';
+        let html = '';
+
+        switch (newStatus) {
+            case 'confirmed':
+                subject = `Petzify Order Confirmed - #${orderId.slice(-6)}`;
+                html = `
+                    <html>
+                    <head>
+                        <meta charset="utf-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>Petzify Order Confirmation</title>
+                        <style>
+                            body, html {
+                                margin: 0;
+                                padding: 0;
+                                font-family: Arial, sans-serif;
+                                color: #333333;
+                                line-height: 1.6;
+                                background-color: #f9f9f9;
+                            }
+                            .container {
+                                max-width: 600px;
+                                margin: 0 auto;
+                                background-color: #ffffff;
+                            }
+                            .header {
+                                text-align: center;
+                                padding: 20px;
+                                background-color: #232f3e;
+                            }
+                            .logo {
+                                max-width: 150px;
+                            }
+                            .main-content {
+                                padding: 20px;
+                            }
+                            .heading {
+                                font-size: 22px;
+                                font-weight: bold;
+                                margin: 15px 0;
+                                color: #000;
+                            }
+                            .status-bar {
+                                background-color: #3f51b5;
+                                color: white;
+                                padding: 10px 15px;
+                                text-align: center;
+                                border-radius: 5px;
+                                margin: 15px 0;
+                                text-transform: uppercase;
+                                letter-spacing: 1px;
+                                font-weight: bold;
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="container">
+                            <div class="header">
+                                <img src="https://firebasestorage.googleapis.com/v0/b/petzify-49ed4.appspot.com/o/logo%2FPetzify%20Logo-05.png?alt=media" alt="Petzify" class="logo">
+                            </div>
+                            <div class="main-content">
+                                <div class="heading">Order Confirmed</div>
+                                <div class="status-bar">
+                                    Status: Confirmed
+                                </div>
+                                <p>Hi ${orderData.userName || 'Customer'},</p>
+                                <p>Your order <strong>#${orderId.slice(-6)}</strong> has been confirmed and is being prepared.</p>
+                                <p>You'll receive another email when your order ships.</p>
+                                <p>Check your app or website for more details.</p>
+                            </div>
+                        </div>
+                    </body>
+                    </html>
+                `;
+                break;
+
+            case 'dispatched':
+                subject = `Your Petzify Order Has Been Shipped - #${orderId.slice(-6)}`;
+                html = `
+                    <html>
+                    <head>
+                        <meta charset="utf-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>Petzify Order Dispatched</title>
+                        <style>
+                            body, html {
+                                margin: 0;
+                                padding: 0;
+                                font-family: Arial, sans-serif;
+                                color: #333333;
+                                line-height: 1.6;
+                                background-color: #f9f9f9;
+                            }
+                            .container {
+                                max-width: 600px;
+                                margin: 0 auto;
+                                background-color: #ffffff;
+                            }
+                            .header {
+                                text-align: center;
+                                padding: 20px;
+                                background-color: #232f3e;
+                            }
+                            .logo {
+                                max-width: 150px;
+                            }
+                            .main-content {
+                                padding: 20px;
+                            }
+                            .order-nav {
+                                display: flex;
+                                justify-content: space-between;
+                                background-color: #232f3e;
+                                padding: 10px 20px;
+                            }
+                            .nav-item {
+                                color: white;
+                                text-decoration: none;
+                                font-weight: bold;
+                                font-size: 14px;
+                            }
+                            .heading {
+                                font-size: 22px;
+                                font-weight: bold;
+                                margin: 15px 0;
+                                color: #000;
+                            }
+                            .shipping-progress {
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                                margin: 25px 0;
+                                position: relative;
+                            }
+                            .progress-step {
+                                display: flex;
+                                flex-direction: column;
+                                align-items: center;
+                                position: relative;
+                                z-index: 1;
+                                flex: 1;
+                            }
+                            .step-icon {
+                                width: 25px;
+                                height: 25px;
+                                border-radius: 50%;
+                                background-color: #cccccc;
+                                display: flex;
+                                justify-content: center;
+                                align-items: center;
+                                margin-bottom: 5px;
+                                color: white;
+                                font-weight: bold;
+                            }
+                            .step-icon.completed {
+                                background-color: #009900;
+                            }
+                            .step-icon.current {
+                                background-color: #009900;
+                                box-shadow: 0 0 0 3px rgba(0, 153, 0, 0.2);
+                            }
+                            .step-label {
+                                font-size: 12px;
+                                text-align: center;
+                                color: #555;
+                                max-width: 80px;
+                            }
+                            .step-label.completed, .step-label.current {
+                                font-weight: bold;
+                                color: #000;
+                            }
+                            .progress-bar {
+                                height: 3px;
+                                background-color: #cccccc;
+                                width: 100%;
+                                position: absolute;
+                                top: 12px;
+                                left: 0;
+                                z-index: 0;
+                            }
+                            .progress-bar-fill {
+                                height: 100%;
+                                background-color: #009900;
+                                width: 33%;
+                            }
+                            .tracking-info {
+                                background-color: #f3f3f3;
+                                border-radius: 4px;
+                                padding: 15px;
+                                margin-bottom: 20px;
+                            }
+                            .tracking-heading {
+                                font-size: 16px;
+                                font-weight: bold;
+                                margin-bottom: 10px;
+                            }
+                            .tracking-details {
+                                font-size: 14px;
+                                margin-bottom: 10px;
+                            }
+                            .tracking-button {
+                                display: inline-block;
+                                background-color: #ffd814;
+                                border: none;
+                                border-radius: 4px;
+                                padding: 8px 15px;
+                                font-weight: bold;
+                                text-decoration: none;
+                                color: #000;
+                                margin-top: 10px;
+                            }
+                            .product-item {
+                                display: flex;
+                                padding: 15px 0;
+                                border-bottom: 1px solid #eeeeee;
+                            }
+                            .product-image {
+                                width: 80px;
+                                height: 80px;
+                                object-fit: cover;
+                                margin-right: 15px;
+                            }
+                            .product-details {
+                                flex: 1;
+                            }
+                            .product-name {
+                                font-weight: bold;
+                                margin-bottom: 5px;
+                                font-size: 14px;
+                            }
+                            .product-price {
+                                font-weight: bold;
+                                margin-top: 5px;
+                                font-size: 16px;
+                            }
+                            .footer {
+                                background-color: #232f3e;
+                                color: white;
+                                text-align: center;
+                                padding: 15px;
+                                font-size: 12px;
+                            }
+                            .footer a {
+                                color: #ffffff;
+                                text-decoration: underline;
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="container">
+                            <div class="header">
+                                <img src="https://firebasestorage.googleapis.com/v0/b/petzify-49ed4.appspot.com/o/logo%2FPetzify%20Logo-05.png?alt=media" alt="Petzify" class="logo">
+                            </div>
+                            
+                            <div class="order-nav">
+                                <a href="https://petzify.com/orders" class="nav-item">Your Orders</a>
+                                <a href="https://petzify.com/account" class="nav-item">Your Account</a>
+                                <a href="https://petzify.com/shop" class="nav-item">Buy Again</a>
+                            </div>
+                            
+                            <div class="main-content">
+                                <div class="heading">Your package was shipped!</div>
+                                
+                                <div class="shipping-progress">
+                                    <div class="progress-bar">
+                                        <div class="progress-bar-fill"></div>
+                                    </div>
+                                    <div class="progress-step">
+                                        <div class="step-icon completed">✓</div>
+                                        <div class="step-label completed">Ordered</div>
+                                    </div>
+                                    <div class="progress-step">
+                                        <div class="step-icon current">✓</div>
+                                        <div class="step-label current">Shipped</div>
+                                    </div>
+                                    <div class="progress-step">
+                                        <div class="step-icon">3</div>
+                                        <div class="step-label">Out for delivery</div>
+                                    </div>
+                                    <div class="progress-step">
+                                        <div class="step-icon">4</div>
+                                        <div class="step-label">Delivered</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="heading">Arriving soon</div>
+                                <div>${orderData.shippingAddress || 'Your registered address'}</div>
+                                <div>Order # ${orderId.slice(-6)}</div>
+                                
+                                <div class="tracking-info">
+                                    <div class="tracking-heading">Tracking Information</div>
+                                    <div class="tracking-details">
+                                        <strong>Courier:</strong> ${orderData.courierCompany || orderData.courierDetails?.company || 'Standard Delivery'}
+                                    </div>
+                                    <div class="tracking-details">
+                                        <strong>Tracking Number:</strong> ${orderData.trackingNumber || orderData.courierDetails?.trackingNumber || 'Not available'}
+                                    </div>
+                                    <a href="https://petzify.com/track" class="tracking-button">Track package</a>
+                                </div>
+                                
+                                <div style="font-weight: bold; margin-top: 15px; font-size: 16px;">Order Details</div>
+                                
+                                ${productDetails.map(item => `
+                                    <div class="product-item">
+                                        <img src="${item.image || item.productData?.images?.[0] || 'https://via.placeholder.com/80'}" class="product-image" alt="${item.name || 'Product'}">
+                                        <div class="product-details">
+                                            <div class="product-name">${item.name || item.productData?.name || 'Product'}</div>
+                                            <div>Quantity: ${item.quantity}</div>
+                                            <div class="product-price">₹${parseFloat(item.price).toFixed(2)}</div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                                
+                                <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                        <span>Subtotal:</span>
+                                        <span>₹${parseFloat(orderData.subtotal || 0).toFixed(2)}</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 16px; margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px;">
+                                        <span>Total:</span>
+                                        <span>₹${parseFloat(orderData.totalAmount || 0).toFixed(2)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="footer">
+                                <p>If you have any questions about your order, please contact our customer support team at <a href="mailto:support@petzify.com">support@petzify.com</a> or call us at +91 1234567890.</p>
+                                <p>© ${new Date().getFullYear()} Petzify. All rights reserved.</p>
+                            </div>
+                        </div>
+                    </body>
+                    </html>
+                `;
+                break;
+
+            case 'delivered':
+                subject = `Petzify Order Delivered - #${orderId.slice(-6)}`;
+                html = `
+                    <html>
+                    <head>
+                        <meta charset="utf-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>Petzify Order Delivered</title>
+                        <style>
+                            body, html {
+                                margin: 0;
+                                padding: 0;
+                                font-family: Arial, sans-serif;
+                                color: #333333;
+                                line-height: 1.6;
+                                background-color: #f9f9f9;
+                            }
+                            .container {
+                                max-width: 600px;
+                                margin: 0 auto;
+                                background-color: #ffffff;
+                            }
+                            .header {
+                                text-align: center;
+                                padding: 20px;
+                                background-color: #232f3e;
+                            }
+                            .logo {
+                                max-width: 150px;
+                            }
+                            .main-content {
+                                padding: 20px;
+                            }
+                            .heading {
+                                font-size: 22px;
+                                font-weight: bold;
+                                margin: 15px 0;
+                                color: #000;
+                            }
+                            .status-bar {
+                                background-color: #4caf50;
+                                color: white;
+                                padding: 10px 15px;
+                                text-align: center;
+                                border-radius: 5px;
+                                margin: 15px 0;
+                                text-transform: uppercase;
+                                letter-spacing: 1px;
+                                font-weight: bold;
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="container">
+                            <div class="header">
+                                <img src="https://firebasestorage.googleapis.com/v0/b/petzify-49ed4.appspot.com/o/logo%2FPetzify%20Logo-05.png?alt=media" alt="Petzify" class="logo">
+                            </div>
+                            <div class="main-content">
+                                <div class="heading">Order Delivered</div>
+                                <div class="status-bar">
+                                    Status: Delivered
+                                </div>
+                                <p>Hi ${orderData.userName || 'Customer'},</p>
+                                <p>Your order <strong>#${orderId.slice(-6)}</strong> has been delivered.</p>
+                                <p>Thank you for shopping with Petzify!</p>
+                                <p>We hope you enjoy your purchase. If you have any feedback or concerns, please let us know.</p>
+                            </div>
+                        </div>
+                    </body>
+                    </html>
+                `;
+                break;
+
+            case 'cancelled':
+                subject = `Petzify Order Cancelled - #${orderId.slice(-6)}`;
+                html = `
+                    <html>
+                    <head>
+                        <meta charset="utf-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>Petzify Order Cancelled</title>
+                        <style>
+                            body, html {
+                                margin: 0;
+                                padding: 0;
+                                font-family: Arial, sans-serif;
+                                color: #333333;
+                                line-height: 1.6;
+                                background-color: #f9f9f9;
+                            }
+                            .container {
+                                max-width: 600px;
+                                margin: 0 auto;
+                                background-color: #ffffff;
+                            }
+                            .header {
+                                text-align: center;
+                                padding: 20px;
+                                background-color: #232f3e;
+                            }
+                            .logo {
+                                max-width: 150px;
+                            }
+                            .main-content {
+                                padding: 20px;
+                            }
+                            .heading {
+                                font-size: 22px;
+                                font-weight: bold;
+                                margin: 15px 0;
+                                color: #000;
+                            }
+                            .status-bar {
+                                background-color: #f44336;
+                                color: white;
+                                padding: 10px 15px;
+                                text-align: center;
+                                border-radius: 5px;
+                                margin: 15px 0;
+                                text-transform: uppercase;
+                                letter-spacing: 1px;
+                                font-weight: bold;
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="container">
+                            <div class="header">
+                                <img src="https://firebasestorage.googleapis.com/v0/b/petzify-49ed4.appspot.com/o/logo%2FPetzify%20Logo-05.png?alt=media" alt="Petzify" class="logo">
+                            </div>
+                            <div class="main-content">
+                                <div class="heading">Order Cancelled</div>
+                                <div class="status-bar">
+                                    Status: Cancelled
+                                </div>
+                                <p>Hi ${orderData.userName || 'Customer'},</p>
+                                <p>Your order <strong>#${orderId.slice(-6)}</strong> has been cancelled.</p>
+                                <p>If you have any questions about this cancellation, please contact our customer support.</p>
+                            </div>
+                        </div>
+                    </body>
+                    </html>
+                `;
+                break;
+
+            default:
+                subject = `Petzify Order Status Updated - #${orderId.slice(-6)}`;
+                html = `
+                    <html>
+                    <body>
+                        <div style="font-family: Arial; max-width: 600px; margin: auto;">
+                            <h2>Status Update</h2>
+                            <p>Hi ${orderData.userName || 'Customer'},</p>
+                            <p>Your order <strong>#${orderId}</strong> is now <strong>${newStatus}</strong>.</p>
+                            <p>Check your app or website for details.</p>
+                        </div>
+                    </body>
+                    </html>
+                `;
+        }
+
+        const config = await getEmailConfig();
+
+        await sendEmail(config, {
+            to: orderData.userEmail,
             subject,
             html,
         });

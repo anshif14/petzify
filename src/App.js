@@ -1,6 +1,8 @@
 import React, { useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import './App.css';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 // Import components
 import Navbar from './components/common/Navbar';
@@ -62,6 +64,17 @@ function App() {
     <AlertProvider>
       <UserProvider>
         <Router>
+          <ToastContainer
+            position="top-right"
+            autoClose={3000}
+            hideProgressBar={false}
+            newestOnTop
+            closeOnClick
+            rtl={false}
+            pauseOnFocusLoss
+            draggable
+            pauseOnHover
+          />
           <Routes>
             {/* Landing Page with Countdown Timer */}
             <Route path="/" element={<LaunchPage />} />
