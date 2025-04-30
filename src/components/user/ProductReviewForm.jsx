@@ -164,7 +164,9 @@ const ProductReviewForm = ({ product, orderId, userId, userEmail, userName, onSu
         userName: userInfo.userName
       };
       
-      // Add review to productReviews collection only - don't update the order
+      console.log("Saving review with productId:", product.id);
+      
+      // Add review to productReviews collection
       await addDoc(collection(db, 'productReviews'), reviewData);
       
       showSuccess('Thank you for your review!', 'Review Submitted');
@@ -293,8 +295,7 @@ const ProductReviewForm = ({ product, orderId, userId, userEmail, userName, onSu
 ProductReviewForm.propTypes = {
   product: PropTypes.shape({
     id: PropTypes.string.isRequired,
-    name: PropTypes.string.isRequired,
-    index: PropTypes.number
+    name: PropTypes.string.isRequired
   }).isRequired,
   orderId: PropTypes.string.isRequired,
   userId: PropTypes.string,

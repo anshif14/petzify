@@ -5,6 +5,7 @@ import { app } from '../firebase/config';
 import Footer from '../components/common/Footer';
 import Navbar from '../components/common/Navbar';
 import { useAlert } from '../context/AlertContext';
+import RatingDisplay from '../components/common/RatingDisplay';
 
 const Products = () => {
   const navigate = useNavigate();
@@ -16,6 +17,7 @@ const Products = () => {
   const [sort, setSort] = useState('featured');
   const [searchQuery, setSearchQuery] = useState('');
   const { showSuccess, showError } = useAlert();
+  const [productReviews, setProductReviews] = useState({});
   
   // Hover carousel state
   const [hoverProductId, setHoverProductId] = useState(null);
@@ -25,6 +27,53 @@ const Products = () => {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(12);
+  
+  // Fetch all product reviews once
+  useEffect(() => {
+    const fetchProductReviews = async () => {
+      try {
+        const db = getFirestore(app);
+        const reviewsSnapshot = await getDocs(collection(db, 'productReviews'));
+        
+        const reviewsByProduct = {};
+        
+        reviewsSnapshot.forEach(doc => {
+          const reviewData = doc.data();
+          const productId = reviewData.productId;
+          
+          if (!productId) return;
+          
+          if (!reviewsByProduct[productId]) {
+            reviewsByProduct[productId] = {
+              count: 0,
+              totalRating: 0,
+              reviews: []
+            };
+          }
+          
+          reviewsByProduct[productId].count++;
+          reviewsByProduct[productId].totalRating += reviewData.rating || 0;
+          reviewsByProduct[productId].reviews.push({
+            id: doc.id,
+            ...reviewData
+          });
+        });
+        
+        // Calculate average ratings
+        Object.keys(reviewsByProduct).forEach(productId => {
+          const productReview = reviewsByProduct[productId];
+          productReview.averageRating = productReview.count > 0 ? 
+            productReview.totalRating / productReview.count : 0;
+        });
+        
+        setProductReviews(reviewsByProduct);
+      } catch (error) {
+        console.error('Error fetching product reviews:', error);
+      }
+    };
+    
+    fetchProductReviews();
+  }, []);
   
   useEffect(() => {
     // Log current path to help debug
@@ -228,6 +277,18 @@ const Products = () => {
     }
   };
 
+  // Function to get product rating information
+  const getProductRating = (productId) => {
+    if (!productReviews[productId]) {
+      return { rating: 0, count: 0 };
+    }
+    
+    return {
+      rating: productReviews[productId].averageRating || 0,
+      count: productReviews[productId].count || 0
+    };
+  };
+
   return (
     <>
       <Navbar />
@@ -390,117 +451,130 @@ const Products = () => {
                   </div>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                    {currentItems.map((product) => (
-                      <Link 
-                        to={`/products/${product.id}`} 
-                        key={product.id} 
-                        className="group relative bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-300"
-                        onMouseEnter={() => handleProductHover(product.id, product.images)}
-                        onMouseLeave={handleProductLeave}
-                      >
-                        {/* Product Image */}
-                        <div className="aspect-square overflow-hidden relative">
-                          {product.images && product.images.length > 0 ? (
-                            product.images.length > 1 ? (
-                              <div className="w-full h-full relative">
-                                <div 
-                                  className="absolute top-0 left-0 flex transition-transform duration-500 ease-in-out h-full"
-                                  style={{ 
-                                    width: `${product.images.length * 100}%`,
-                                    transform: `translateX(-${(carouselImageIndexes[product.id] || 0) * (100 / product.images.length)}%)` 
-                                  }}
-                                >
-                                  {product.images.map((image, index) => (
-                                    <div 
-                                      key={index} 
-                                      className="h-full" 
-                                      style={{ width: `${100 / product.images.length}%` }}
-                                    >
-                                      <img 
-                                        src={image} 
-                                        alt={`${product.name} ${index + 1}`} 
-                                        className="w-full h-full object-cover"
-                                      />
-                                    </div>
-                                  ))}
+                    {currentItems.map((product) => {
+                      const productRating = getProductRating(product.id);
+                      
+                      return (
+                        <Link 
+                          to={`/products/${product.id}`} 
+                          key={product.id} 
+                          className="group relative bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-300"
+                          onMouseEnter={() => handleProductHover(product.id, product.images)}
+                          onMouseLeave={handleProductLeave}
+                        >
+                          {/* Product Image */}
+                          <div className="aspect-square overflow-hidden relative">
+                            {product.images && product.images.length > 0 ? (
+                              product.images.length > 1 ? (
+                                <div className="w-full h-full relative">
+                                  <div 
+                                    className="absolute top-0 left-0 flex transition-transform duration-500 ease-in-out h-full"
+                                    style={{ 
+                                      width: `${product.images.length * 100}%`,
+                                      transform: `translateX(-${(carouselImageIndexes[product.id] || 0) * (100 / product.images.length)}%)` 
+                                    }}
+                                  >
+                                    {product.images.map((image, index) => (
+                                      <div 
+                                        key={index} 
+                                        className="h-full" 
+                                        style={{ width: `${100 / product.images.length}%` }}
+                                      >
+                                        <img 
+                                          src={image} 
+                                          alt={`${product.name} ${index + 1}`} 
+                                          className="w-full h-full object-cover"
+                                        />
+                                      </div>
+                                    ))}
+                                  </div>
                                 </div>
-                              </div>
-                            ) : (
-                              <img 
-                                src={product.images[0]} 
-                                alt={product.name} 
-                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                              />
-                            )
-                          ) : (
-                            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                              <span className="text-gray-500 text-sm">No image</span>
-                            </div>
-                          )}
-                          
-                          {/* Carousel Indicators (show only when hovering and multiple images) */}
-                          {hoverProductId === product.id && product.images && product.images.length > 1 && (
-                            <div className="absolute bottom-2 left-0 right-0 flex justify-center space-x-1 z-10">
-                              {product.images.map((_, index) => (
-                                <div 
-                                  key={index}
-                                  className={`w-1.5 h-1.5 rounded-full ${
-                                    (carouselImageIndexes[product.id] || 0) === index 
-                                      ? 'bg-white' 
-                                      : 'bg-white/50'
-                                  }`}
+                              ) : (
+                                <img 
+                                  src={product.images[0]} 
+                                  alt={product.name} 
+                                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                                 />
-                              ))}
-                            </div>
-                          )}
-                          
-                          {/* Featured Badge */}
-                          {product.featured && (
-                            <div className="absolute top-2 right-2">
-                              <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">Featured</span>
-                            </div>
-                          )}
-                          
-                          {/* Quick Add to Cart */}
-                          <button 
-                            className="absolute right-2 bottom-2 p-2 bg-white rounded-full shadow hover:shadow-md text-primary hover:text-primary-dark transition-all z-10"
-                            onClick={(e) => handleAddToCart(e, product)}
-                            aria-label="Add to cart"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                            </svg>
-                          </button>
-                        </div>
-                        
-                        {/* Product Info */}
-                        <div className="p-3">
-                          <h3 className="font-medium text-gray-900 mb-1 line-clamp-1">
-                            {product.name}
-                          </h3>
-                          
-                          <div className="mb-2">
-                            {product.salePrice ? (
-                              <div className="flex items-center space-x-2">
-                                <span className="font-bold text-primary">{formatPrice(product.salePrice)}</span>
-                                <span className="text-xs text-gray-500 line-through">{formatPrice(product.price)}</span>
-                                <span className="text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded">
-                                  {Math.round((1 - product.salePrice / product.price) * 100)}% off
-                                </span>
-                              </div>
+                              )
                             ) : (
-                              <span className="font-bold text-primary">{formatPrice(product.price)}</span>
+                              <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                                <span className="text-gray-500 text-sm">No image</span>
+                              </div>
                             )}
+                            
+                            {/* Carousel Indicators (show only when hovering and multiple images) */}
+                            {hoverProductId === product.id && product.images && product.images.length > 1 && (
+                              <div className="absolute bottom-2 left-0 right-0 flex justify-center space-x-1 z-10">
+                                {product.images.map((_, index) => (
+                                  <div 
+                                    key={index}
+                                    className={`w-1.5 h-1.5 rounded-full ${
+                                      (carouselImageIndexes[product.id] || 0) === index 
+                                        ? 'bg-white' 
+                                        : 'bg-white/50'
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                            
+                            {/* Featured Badge */}
+                            {product.featured && (
+                              <div className="absolute top-2 right-2">
+                                <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">Featured</span>
+                              </div>
+                            )}
+                            
+                            {/* Quick Add to Cart */}
+                            <button 
+                              className="absolute right-2 bottom-2 p-2 bg-white rounded-full shadow hover:shadow-md text-primary hover:text-primary-dark transition-all z-10"
+                              onClick={(e) => handleAddToCart(e, product)}
+                              aria-label="Add to cart"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                              </svg>
+                            </button>
                           </div>
                           
-                          {product.stock !== undefined && (
-                            <p className={`text-xs ${product.stock > 10 ? 'text-green-600' : product.stock > 0 ? 'text-orange-500' : 'text-red-600'}`}>
-                              {product.stock > 10 ? 'In Stock' : product.stock > 0 ? `Only ${product.stock} left` : 'Out of Stock'}
-                            </p>
-                          )}
-                        </div>
-                      </Link>
-                    ))}
+                          {/* Product Info */}
+                          <div className="p-3">
+                            <h3 className="font-medium text-gray-900 mb-1 line-clamp-1">
+                              {product.name}
+                            </h3>
+                            
+                            <div className="mt-1 flex items-center">
+                              <RatingDisplay rating={productRating.rating} size="small" />
+                              {productRating.count > 0 && (
+                                <span className="ml-1 text-xs text-gray-500">
+                                  ({productRating.count})
+                                </span>
+                              )}
+                            </div>
+                            
+                            <div className="mb-2">
+                              {product.salePrice ? (
+                                <div className="flex items-center space-x-2">
+                                  <span className="font-bold text-primary">{formatPrice(product.salePrice)}</span>
+                                  <span className="text-xs text-gray-500 line-through">{formatPrice(product.price)}</span>
+                                  <span className="text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded">
+                                    {Math.round((1 - product.salePrice / product.price) * 100)}% off
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="font-bold text-primary">{formatPrice(product.price)}</span>
+                              )}
+                            </div>
+                            
+                            {product.stock !== undefined && (
+                              <p className={`text-xs ${product.stock > 10 ? 'text-green-600' : product.stock > 0 ? 'text-orange-500' : 'text-red-600'}`}>
+                                {product.stock > 10 ? 'In Stock' : product.stock > 0 ? `Only ${product.stock} left` : 'Out of Stock'}
+                              </p>
+                            )}
+                          </div>
+                        </Link>
+                      );
+                    })}
                   </div>
                   
                   {/* Pagination */}

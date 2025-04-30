@@ -139,16 +139,14 @@ const UserOrders = () => {
       item
     });
     
+    // Must have a valid productId to be reviewable
+    if (!item.productId) {
+      return false;
+    }
+    
     // Always allow reviews for delivered orders
     if (order.status?.toLowerCase() === 'delivered') {
-      // Special case for Drools product shown in the image
-      if (item.name?.toLowerCase().includes('drools') || 
-          item.name?.toLowerCase().includes('dog food')) {
-        return true;
-      }
-      
-      // Allow reviews for any product with a productId
-      return !!item.productId;
+      return true;
     }
     
     return false;
@@ -196,7 +194,7 @@ const UserOrders = () => {
         const processedItems = await Promise.all(
           itemsArray.map(async (item, index) => {
             // Ensure every item has a productId
-            const productId = item.productId || `product-${docSnapshot.id}-${index}`;
+            const productId = item.productId ;
             
             try {
               // Try to get product image from Firestore if available
@@ -375,15 +373,17 @@ const UserOrders = () => {
 
   // Function to handle product review
   const handleReviewProduct = (order, item) => {
-    // Create a better product object with more consistent data
-    const enhancedProduct = {
-      id: item.productId || `product-${order.id}-${item.index || 0}`,
-      name: item.name || 'Product',
-      index: item.index || 0,
-      imageUrl: item.imageUrl || 
-        (item.name?.toLowerCase().includes('dog') 
-          ? "https://firebasestorage.googleapis.com/v0/b/petzify-app.appspot.com/o/products%2Fdefault%2Fdog-food-default.jpg?alt=media"
-          : null)
+    // Only use the actual productId from the item object
+    if (!item.productId) {
+      console.error("Cannot review item without productId:", item);
+      showError("This product cannot be reviewed", "Error");
+      return;
+    }
+    
+    // Create a product object with required fields
+    const productForReview = {
+      id: item.productId,
+      name: item.name || 'Product'
     };
     
     // Add current user info
@@ -395,13 +395,13 @@ const UserOrders = () => {
     
     console.log("Opening review form with:", { 
       orderId: order.id,
-      product: enhancedProduct,
+      product: productForReview,
       userInfo
     });
     
     setProductToReview({
       orderId: order.id,
-      ...enhancedProduct,
+      ...productForReview,
       ...userInfo
     });
   };

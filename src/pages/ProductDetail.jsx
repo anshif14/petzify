@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { app } from '../firebase/config';
 import Navbar from '../components/common/Navbar';
 import Footer from '../components/common/Footer';
 import { useAlert } from '../context/AlertContext';
+import ProductReviewDisplay from '../components/user/ProductReviewDisplay';
+import RatingDisplay from '../components/common/RatingDisplay';
 
 const ProductDetail = () => {
   const { productId } = useParams();
@@ -15,6 +17,12 @@ const ProductDetail = () => {
   const [error, setError] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
+  const [reviews, setReviews] = useState([]);
+  const [reviewStats, setReviewStats] = useState({
+    averageRating: 0,
+    total: 0,
+    distribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }
+  });
   
   useEffect(() => {
     const fetchProduct = async () => {
@@ -43,6 +51,63 @@ const ProductDetail = () => {
     if (productId) {
       fetchProduct();
     }
+  }, [productId]);
+  
+  useEffect(() => {
+    const fetchProductReviews = async () => {
+      if (!productId) return;
+      
+      try {
+        const db = getFirestore(app);
+        const reviewsQuery = query(
+          collection(db, 'productReviews'),
+          where('productId', '==', productId)
+        );
+        
+        const reviewsSnapshot = await getDocs(reviewsQuery);
+        
+        if (!reviewsSnapshot.empty) {
+          const reviewsList = [];
+          const distribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+          let ratingSum = 0;
+          
+          reviewsSnapshot.forEach(doc => {
+            const reviewData = { id: doc.id, ...doc.data() };
+            reviewsList.push(reviewData);
+            
+            // Update rating distribution
+            const rating = reviewData.rating || 0;
+            if (rating > 0 && rating <= 5) {
+              distribution[rating] = (distribution[rating] || 0) + 1;
+              ratingSum += rating;
+            }
+          });
+          
+          // Sort reviews by date (newest first)
+          reviewsList.sort((a, b) => {
+            const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
+            const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
+            return dateB - dateA;
+          });
+          
+          setReviews(reviewsList);
+          
+          // Calculate average rating and set review stats
+          const totalReviews = reviewsList.length;
+          const averageRating = totalReviews > 0 ? ratingSum / totalReviews : 0;
+          
+          setReviewStats({
+            averageRating,
+            total: totalReviews,
+            distribution
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching product reviews:', error);
+      }
+    };
+    
+    fetchProductReviews();
   }, [productId]);
   
   const formatPrice = (price) => {
@@ -177,6 +242,16 @@ const ProductDetail = () => {
                 <h1 className="text-2xl font-bold text-gray-900 mb-1">{product.name}</h1>
                 <p className="text-sm text-gray-500 mb-4">{product.category}</p>
                 
+                {/* Rating Summary */}
+                {reviewStats.total > 0 && (
+                  <div className="flex items-center mb-4">
+                    <RatingDisplay rating={reviewStats.averageRating} showCount={true} />
+                    <span className="ml-2 text-sm text-gray-500">
+                      ({reviewStats.total} {reviewStats.total === 1 ? 'review' : 'reviews'})
+                    </span>
+                  </div>
+                )}
+                
                 <div className="mb-4">
                   {product.salePrice ? (
                     <div className="flex items-center space-x-2">
@@ -248,10 +323,65 @@ const ProductDetail = () => {
                 </div>
               </div>
             </div>
+            
+            {/* Product Reviews Section */}
+            <div className="border-t border-gray-200 mt-8">
+              <div className="p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-6">Customer Reviews</h2>
+                
+                {reviewStats.total > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    {/* Review Summary */}
+                    <div className="md:col-span-1 bg-gray-50 p-4 rounded-lg">
+                      <div className="text-center mb-4">
+                        <div className="text-3xl font-bold text-gray-900 mb-1">
+                          {reviewStats.averageRating.toFixed(1)}
+                        </div>
+                        <RatingDisplay rating={reviewStats.averageRating} showCount={false} />
+                        <div className="text-sm text-gray-500 mt-1">
+                          Based on {reviewStats.total} {reviewStats.total === 1 ? 'review' : 'reviews'}
+                        </div>
+                      </div>
+                      
+                      {/* Rating Distribution */}
+                      <div className="space-y-2">
+                        {[5, 4, 3, 2, 1].map(star => (
+                          <div key={star} className="flex items-center text-sm">
+                            <span className="w-12">{star} star</span>
+                            <div className="flex-1 mx-2 h-2 rounded-full bg-gray-200 overflow-hidden">
+                              <div 
+                                className="h-full bg-primary" 
+                                style={{ 
+                                  width: `${reviewStats.total ? (reviewStats.distribution[star] / reviewStats.total) * 100 : 0}%` 
+                                }}
+                              ></div>
+                            </div>
+                            <span className="w-8 text-right text-gray-500">
+                              {reviewStats.distribution[star]}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Review List */}
+                    <div className="md:col-span-3">
+                      {reviews.map(review => (
+                        <ProductReviewDisplay key={review.id} review={review} />
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-12 border border-gray-200 rounded-lg">
+                    <p className="text-gray-500">No reviews yet for this product.</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </main>
-
+      <Footer />
     </>
   );
 };
