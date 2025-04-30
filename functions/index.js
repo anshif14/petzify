@@ -193,13 +193,14 @@ exports.onOrderCreated = onDocumentCreated("orders/{orderId}", async (event) => 
                         height: 30px;
                         border-radius: 50%;
                         background-color: #cccccc;
-                        display: flex;
-                        justify-content: center;
-                        align-items: center;
+                        display: table-cell;
+                        vertical-align: middle;
+                        text-align: center;
                         margin: 0 auto 8px;
                         color: white;
                         font-weight: bold;
                         font-size: 14px;
+                        line-height: 1;
                     }
                     .step-icon.active {
                         background-color: #14cca4;
@@ -428,9 +429,7 @@ exports.onOrderCreated = onDocumentCreated("orders/{orderId}", async (event) => 
                     <div class="footer">
                         <p>© ${new Date().getFullYear()} Petzify. All rights reserved.</p>
                         <div class="social-links">
-                            <a href="https://facebook.com/petzify">Facebook</a>
-                            <a href="https://instagram.com/petzify">Instagram</a>
-                            <a href="https://twitter.com/petzify">Twitter</a>
+                            <a href="https://www.instagram.com/petzify_official/">Instagram</a>
                         </div>
                         <p>This email was sent to ${order.userEmail}</p>
                     </div>
@@ -702,13 +701,14 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
                                 height: 30px;
                                 border-radius: 50%;
                                 background-color: #cccccc;
-                                display: flex;
-                                justify-content: center;
-                                align-items: center;
+                                display: table-cell;
+                                vertical-align: middle;
+                                text-align: center;
                                 margin: 0 auto 8px;
                                 color: white;
                                 font-weight: bold;
                                 font-size: 14px;
+                                line-height: 1;
                             }
                             .step-icon.active {
                                 background-color: #14cca4;
@@ -857,9 +857,7 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
                             <div class="footer">
                                 <p>© ${new Date().getFullYear()} Petzify. All rights reserved.</p>
                                 <div class="social-links">
-                                    <a href="https://facebook.com/petzify">Facebook</a>
-                                    <a href="https://instagram.com/petzify">Instagram</a>
-                                    <a href="https://twitter.com/petzify">Twitter</a>
+                                    <a href="https://www.instagram.com/petzify_official/">Instagram</a>
                                 </div>
                                 <p>This email was sent to ${orderData.userEmail}</p>
                             </div>
@@ -1027,13 +1025,14 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
                                 height: 30px;
                                 border-radius: 50%;
                                 background-color: #cccccc;
-                                display: flex;
-                                justify-content: center;
-                                align-items: center;
+                                display: table-cell;
+                                vertical-align: middle;
+                                text-align: center;
                                 margin: 0 auto 8px;
                                 color: white;
                                 font-weight: bold;
                                 font-size: 14px;
+                                line-height: 1;
                             }
                             .step-icon.active {
                                 background-color: #14cca4;
@@ -1219,9 +1218,7 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
                             <div class="footer">
                                 <p>© ${new Date().getFullYear()} Petzify. All rights reserved.</p>
                                 <div class="social-links">
-                                    <a href="https://facebook.com/petzify">Facebook</a>
-                                    <a href="https://instagram.com/petzify">Instagram</a>
-                                    <a href="https://twitter.com/petzify">Twitter</a>
+                                    <a href="https://www.instagram.com/petzify_official/">Instagram</a>
                                 </div>
                                 <p>This email was sent to ${orderData.userEmail}</p>
                             </div>
@@ -1373,13 +1370,14 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
                                 height: 30px;
                                 border-radius: 50%;
                                 background-color: #cccccc;
-                                display: flex;
-                                justify-content: center;
-                                align-items: center;
+                                display: table-cell;
+                                vertical-align: middle;
+                                text-align: center;
                                 margin: 0 auto 8px;
                                 color: white;
                                 font-weight: bold;
                                 font-size: 14px;
+                                line-height: 1;
                             }
                             .step-icon.active {
                                 background-color: #14cca4;
@@ -1551,9 +1549,7 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
                             <div class="footer">
                                 <p>© ${new Date().getFullYear()} Petzify. All rights reserved.</p>
                                 <div class="social-links">
-                                    <a href="https://facebook.com/petzify">Facebook</a>
-                                    <a href="https://instagram.com/petzify">Instagram</a>
-                                    <a href="https://twitter.com/petzify">Twitter</a>
+                                    <a href="https://www.instagram.com/petzify_official/">Instagram</a>
                                 </div>
                                 <p>This email was sent to ${orderData.userEmail}</p>
                             </div>
@@ -1803,9 +1799,7 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
                             <div class="footer">
                                 <p>© ${new Date().getFullYear()} Petzify. All rights reserved.</p>
                                 <div class="social-links">
-                                    <a href="https://facebook.com/petzify">Facebook</a>
-                                    <a href="https://instagram.com/petzify">Instagram</a>
-                                    <a href="https://twitter.com/petzify">Twitter</a>
+                                    <a href="https://www.instagram.com/petzify_official/">Instagram</a>
                                 </div>
                                 <p>This email was sent to ${orderData.userEmail}</p>
                             </div>
@@ -1956,9 +1950,7 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
                             <div class="footer">
                                 <p>© ${new Date().getFullYear()} Petzify. All rights reserved.</p>
                                 <div class="social-links">
-                                    <a href="https://facebook.com/petzify">Facebook</a>
-                                    <a href="https://instagram.com/petzify">Instagram</a>
-                                    <a href="https://twitter.com/petzify">Twitter</a>
+                                    <a href="https://www.instagram.com/petzify_official/">Instagram</a>
                                 </div>
                                 <p>This email was sent to ${orderData.userEmail}</p>
                             </div>
