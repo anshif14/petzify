@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getFirestore, collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { app } from '../firebase/config';
@@ -16,6 +16,11 @@ const Products = () => {
   const [sort, setSort] = useState('featured');
   const [searchQuery, setSearchQuery] = useState('');
   const { showSuccess, showError } = useAlert();
+  
+  // Hover carousel state
+  const [hoverProductId, setHoverProductId] = useState(null);
+  const [carouselImageIndexes, setCarouselImageIndexes] = useState({});
+  const carouselInterval = useRef(null);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -125,6 +130,53 @@ const Products = () => {
     
     fetchProducts();
   }, [selectedCategory, sort, searchQuery, showError]);
+  
+  // Clean up carousel interval on unmount
+  useEffect(() => {
+    return () => {
+      if (carouselInterval.current) {
+        clearInterval(carouselInterval.current);
+      }
+    };
+  }, []);
+  
+  // Handle product image carousel on hover
+  const handleProductHover = (productId, images) => {
+    if (!images || images.length <= 1) return;
+    
+    setHoverProductId(productId);
+    
+    // Initialize carousel index if not already set
+    if (!carouselImageIndexes[productId]) {
+      setCarouselImageIndexes(prev => ({...prev, [productId]: 0}));
+    }
+    
+    // Clear any existing interval
+    if (carouselInterval.current) {
+      clearInterval(carouselInterval.current);
+      carouselInterval.current = null;
+    }
+    
+    // Start carousel interval
+    carouselInterval.current = setInterval(() => {
+      setCarouselImageIndexes(prev => {
+        const currentIndex = prev[productId] || 0;
+        const nextIndex = (currentIndex + 1) % images.length;
+        return {...prev, [productId]: nextIndex};
+      });
+    }, 1500); // Change image every 1.5 seconds
+  };
+  
+  // Handle product mouse leave
+  const handleProductLeave = () => {
+    setHoverProductId(null);
+    
+    // Clear carousel interval
+    if (carouselInterval.current) {
+      clearInterval(carouselInterval.current);
+      carouselInterval.current = null;
+    }
+  };
   
   // Calculate pagination info
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -343,18 +395,62 @@ const Products = () => {
                         to={`/products/${product.id}`} 
                         key={product.id} 
                         className="group relative bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-300"
+                        onMouseEnter={() => handleProductHover(product.id, product.images)}
+                        onMouseLeave={handleProductLeave}
                       >
                         {/* Product Image */}
                         <div className="aspect-square overflow-hidden relative">
                           {product.images && product.images.length > 0 ? (
-                            <img 
-                              src={product.images[0]} 
-                              alt={product.name} 
-                              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                            />
+                            product.images.length > 1 ? (
+                              <div className="w-full h-full relative">
+                                <div 
+                                  className="absolute top-0 left-0 flex transition-transform duration-500 ease-in-out h-full"
+                                  style={{ 
+                                    width: `${product.images.length * 100}%`,
+                                    transform: `translateX(-${(carouselImageIndexes[product.id] || 0) * (100 / product.images.length)}%)` 
+                                  }}
+                                >
+                                  {product.images.map((image, index) => (
+                                    <div 
+                                      key={index} 
+                                      className="h-full" 
+                                      style={{ width: `${100 / product.images.length}%` }}
+                                    >
+                                      <img 
+                                        src={image} 
+                                        alt={`${product.name} ${index + 1}`} 
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : (
+                              <img 
+                                src={product.images[0]} 
+                                alt={product.name} 
+                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                              />
+                            )
                           ) : (
                             <div className="w-full h-full bg-gray-200 flex items-center justify-center">
                               <span className="text-gray-500 text-sm">No image</span>
+                            </div>
+                          )}
+                          
+                          {/* Carousel Indicators (show only when hovering and multiple images) */}
+                          {hoverProductId === product.id && product.images && product.images.length > 1 && (
+                            <div className="absolute bottom-2 left-0 right-0 flex justify-center space-x-1 z-10">
+                              {product.images.map((_, index) => (
+                                <div 
+                                  key={index}
+                                  className={`w-1.5 h-1.5 rounded-full ${
+                                    (carouselImageIndexes[product.id] || 0) === index 
+                                      ? 'bg-white' 
+                                      : 'bg-white/50'
+                                  }`}
+                                />
+                              ))}
                             </div>
                           )}
                           
