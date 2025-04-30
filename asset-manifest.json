@@ -1,18 +1,18 @@
 {
   "files": {
-    "main.css": "/petzify/static/css/main.198fd01a.css",
-    "main.js": "/petzify/static/js/main.4ceca70d.js",
+    "main.css": "/petzify/static/css/main.76926e8c.css",
+    "main.js": "/petzify/static/js/main.5ce41a68.js",
     "static/js/453.b261231d.chunk.js": "/petzify/static/js/453.b261231d.chunk.js",
     "static/media/logo_text.png": "/petzify/static/media/logo_text.917a5316f76381f7bb22.png",
     "static/media/logo_white_text.png": "/petzify/static/media/logo_white_text.82f5507c197944c1115b.png",
     "static/media/logo.png": "/petzify/static/media/logo.6c70a4ebe3f10b867ef3.png",
     "index.html": "/petzify/index.html",
-    "main.198fd01a.css.map": "/petzify/static/css/main.198fd01a.css.map",
-    "main.4ceca70d.js.map": "/petzify/static/js/main.4ceca70d.js.map",
+    "main.76926e8c.css.map": "/petzify/static/css/main.76926e8c.css.map",
+    "main.5ce41a68.js.map": "/petzify/static/js/main.5ce41a68.js.map",
     "453.b261231d.chunk.js.map": "/petzify/static/js/453.b261231d.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.198fd01a.css",
-    "static/js/main.4ceca70d.js"
+    "static/css/main.76926e8c.css",
+    "static/js/main.5ce41a68.js"
   ]
 }
