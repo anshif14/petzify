@@ -244,6 +244,7 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
             case 'confirmed':
                 subject = `Petzify Order Confirmed - #${orderId.slice(-6)}`;
                 html = `
+                    <!DOCTYPE html>
                     <html>
                     <head>
                         <meta charset="utf-8">
@@ -253,7 +254,7 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
                             body, html {
                                 margin: 0;
                                 padding: 0;
-                                font-family: Arial, sans-serif;
+                                font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
                                 color: #333333;
                                 line-height: 1.6;
                                 background-color: #f9f9f9;
@@ -262,51 +263,306 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
                                 max-width: 600px;
                                 margin: 0 auto;
                                 background-color: #ffffff;
+                                border-radius: 8px;
+                                overflow: hidden;
+                                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
                             }
                             .header {
                                 text-align: center;
-                                padding: 20px;
-                                background-color: #232f3e;
+                                padding: 25px 20px;
+                                background-color: #14cca4;
                             }
                             .logo {
-                                max-width: 150px;
+                                max-width: 180px;
                             }
                             .main-content {
-                                padding: 20px;
+                                padding: 30px 25px;
                             }
                             .heading {
-                                font-size: 22px;
+                                font-size: 24px;
                                 font-weight: bold;
-                                margin: 15px 0;
-                                color: #000;
+                                margin: 0 0 20px 0;
+                                color: #0c7c74;
+                                text-align: center;
+                            }
+                            .order-number {
+                                font-size: 18px;
+                                text-align: center;
+                                margin-bottom: 25px;
+                                color: #338981;
+                            }
+                            .section {
+                                margin-bottom: 25px;
+                                border-bottom: 1px solid #eee;
+                                padding-bottom: 20px;
+                            }
+                            .section-title {
+                                font-size: 18px;
+                                font-weight: 600;
+                                color: #0c7c74;
+                                margin-bottom: 15px;
                             }
                             .status-bar {
-                                background-color: #3f51b5;
+                                background-color: #14cca4;
                                 color: white;
-                                padding: 10px 15px;
+                                padding: 12px 15px;
                                 text-align: center;
                                 border-radius: 5px;
-                                margin: 15px 0;
+                                margin: 20px 0;
                                 text-transform: uppercase;
                                 letter-spacing: 1px;
                                 font-weight: bold;
+                            }
+                            .product-item {
+                                display: flex;
+                                padding: 15px 0;
+                                border-bottom: 1px solid #eeeeee;
+                            }
+                            .product-item:last-child {
+                                border-bottom: none;
+                            }
+                            .product-image {
+                                width: 80px;
+                                height: 80px;
+                                object-fit: cover;
+                                margin-right: 15px;
+                                border-radius: 5px;
+                                border: 1px solid #eee;
+                            }
+                            .product-details {
+                                flex: 1;
+                            }
+                            .product-name {
+                                font-weight: bold;
+                                margin-bottom: 5px;
+                                font-size: 16px;
+                                color: #333;
+                            }
+                            .product-price {
+                                font-weight: bold;
+                                margin-top: 5px;
+                                font-size: 16px;
+                                color: #0c7c74;
+                            }
+                            .order-summary {
+                                background-color: #f5f9f8;
+                                border-radius: 5px;
+                                padding: 15px;
+                                margin-top: 25px;
+                            }
+                            .summary-row {
+                                display: flex;
+                                justify-content: space-between;
+                                margin-bottom: 10px;
+                            }
+                            .summary-row.total {
+                                font-weight: bold;
+                                font-size: 18px;
+                                border-top: 1px solid #ddd;
+                                padding-top: 10px;
+                                margin-top: 10px;
+                                color: #0c7c74;
+                            }
+                            .address-block {
+                                background-color: #f5f9f8;
+                                border-radius: 5px;
+                                padding: 15px;
+                                margin-bottom: 20px;
+                            }
+                            .footer {
+                                background-color: #f5f9f8;
+                                color: #555;
+                                text-align: center;
+                                padding: 20px;
+                                font-size: 14px;
+                                border-top: 1px solid #eee;
+                            }
+                            .social-links {
+                                margin: 15px 0;
+                            }
+                            .social-links a {
+                                display: inline-block;
+                                margin: 0 10px;
+                                color: #14cca4;
+                                text-decoration: none;
+                            }
+                            .steps {
+                                display: flex;
+                                justify-content: space-between;
+                                margin: 30px 0;
+                                position: relative;
+                            }
+                            .step {
+                                position: relative;
+                                z-index: 1;
+                                text-align: center;
+                                width: 25%;
+                            }
+                            .step-icon {
+                                width: 30px;
+                                height: 30px;
+                                border-radius: 50%;
+                                background-color: #cccccc;
+                                display: flex;
+                                justify-content: center;
+                                align-items: center;
+                                margin: 0 auto 8px;
+                                color: white;
+                                font-weight: bold;
+                                font-size: 14px;
+                            }
+                            .step-icon.active {
+                                background-color: #14cca4;
+                            }
+                            .step-text {
+                                font-size: 13px;
+                                color: #555;
+                            }
+                            .step-text.active {
+                                color: #14cca4;
+                                font-weight: 600;
+                            }
+                            .step-line {
+                                position: absolute;
+                                top: 15px;
+                                left: 12.5%;
+                                right: 12.5%;
+                                height: 2px;
+                                background-color: #cccccc;
+                                z-index: 0;
+                            }
+                            .step-line-progress {
+                                position: absolute;
+                                top: 0;
+                                left: 0;
+                                height: 100%;
+                                width: 0%;
+                                background-color: #14cca4;
+                            }
+                            .next-steps {
+                                background-color: #f5f9f8;
+                                border-left: 4px solid #14cca4;
+                                padding: 15px;
+                                margin: 25px 0;
+                                border-radius: 2px;
+                            }
+                            .next-steps-title {
+                                color: #0c7c74;
+                                font-weight: 600;
+                                margin-bottom: 10px;
+                            }
+                            .next-steps-list {
+                                margin: 0;
+                                padding-left: 25px;
+                            }
+                            .next-steps-list li {
+                                margin-bottom: 8px;
                             }
                         </style>
                     </head>
                     <body>
                         <div class="container">
                             <div class="header">
-                                <img src="https://firebasestorage.googleapis.com/v0/b/petzify-49ed4.appspot.com/o/logo%2FPetzify%20Logo-05.png?alt=media" alt="Petzify" class="logo">
+                                <img src="https://firebasestorage.googleapis.com/v0/b/petzify-49ed4.firebasestorage.app/o/assets%2Flogo_white_text.png?alt=media&token=73a45d07-59ed-40b7-960a-486b1e340564" alt="Petzify" class="logo">
                             </div>
                             <div class="main-content">
-                                <div class="heading">Order Confirmed</div>
+                                <h1 class="heading">Order Confirmed</h1>
+                                <p class="order-number">Order #${orderId.slice(-6)}</p>
+                                
+                                <p>Hello ${orderData.userName || 'Valued Customer'},</p>
+                                <p>Thank you for your order! We're excited to confirm that your order has been received and is now being processed. We're working hard to get your items ready for shipment.</p>
+                                
                                 <div class="status-bar">
                                     Status: Confirmed
                                 </div>
-                                <p>Hi ${orderData.userName || 'Customer'},</p>
-                                <p>Your order <strong>#${orderId.slice(-6)}</strong> has been confirmed and is being prepared.</p>
-                                <p>You'll receive another email when your order ships.</p>
-                                <p>Check your app or website for more details.</p>
+                                
+                                <div class="steps">
+                                    <div class="step-line">
+                                        <div class="step-line-progress" style="width: 25%;"></div>
+                                    </div>
+                                    <div class="step">
+                                        <div class="step-icon active">1</div>
+                                        <div class="step-text active">Confirmed</div>
+                                    </div>
+                                    <div class="step">
+                                        <div class="step-icon">2</div>
+                                        <div class="step-text">Shipped</div>
+                                    </div>
+                                    <div class="step">
+                                        <div class="step-icon">3</div>
+                                        <div class="step-text">Out for Delivery</div>
+                                    </div>
+                                    <div class="step">
+                                        <div class="step-icon">4</div>
+                                        <div class="step-text">Delivered</div>
+                                    </div>
+                                </div>
+
+                                <div class="section">
+                                    <h2 class="section-title">Order Details</h2>
+                                    ${productDetails.map(item => `
+                                        <div class="product-item">
+                                            <img src="${item.image || item.productData?.images?.[0] || 'https://via.placeholder.com/80'}" class="product-image" alt="${item.name || 'Product'}">
+                                            <div class="product-details">
+                                                <div class="product-name">${item.name || item.productData?.name || 'Product'}</div>
+                                                <div>Quantity: ${item.quantity}</div>
+                                                <div class="product-price">₹${parseFloat(item.price).toFixed(2)}</div>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                    
+                                    <div class="order-summary">
+                                        <div class="summary-row">
+                                            <span>Subtotal:</span>
+                                            <span>₹${parseFloat(orderData.subtotal || 0).toFixed(2)}</span>
+                                        </div>
+                                        <div class="summary-row">
+                                            <span>Shipping:</span>
+                                            <span>₹${parseFloat(orderData.shippingCost || 0).toFixed(2)}</span>
+                                        </div>
+                                        <div class="summary-row total">
+                                            <span>Total:</span>
+                                            <span>₹${parseFloat(orderData.totalAmount || 0).toFixed(2)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="section">
+                                    <h2 class="section-title">Shipping Information</h2>
+                                    <div class="address-block">
+                                        <strong>${orderData.userName || 'Customer'}</strong><br>
+                                        ${orderData.shippingAddress || 'Your registered address'}<br>
+                                        Phone: ${orderData.userPhone || 'Not provided'}
+                                    </div>
+                                </div>
+                                
+                                <div class="next-steps">
+                                    <div class="next-steps-title">What's Next?</div>
+                                    <ul class="next-steps-list">
+                                        <li>We're preparing your order for shipment</li>
+                                        <li>You'll receive an email when your order ships with tracking information</li>
+                                        <li>You can check your order status anytime in your Petzify account</li>
+                                    </ul>
+                                </div>
+                                
+                                <p>If you have any questions about your order, please don't hesitate to contact our customer support team at <a href="mailto:support@petzify.com" style="color: #14cca4; text-decoration: none;">support@petzify.com</a>.</p>
+                                
+                                <p>Thank you for choosing Petzify for your pet needs!</p>
+                                
+                                <p style="margin-top: 30px;">
+                                    Warm regards,<br>
+                                    The Petzify Team
+                                </p>
+                            </div>
+                            
+                            <div class="footer">
+                                <p>© ${new Date().getFullYear()} Petzify. All rights reserved.</p>
+                                <div class="social-links">
+                                    <a href="https://facebook.com/petzify">Facebook</a>
+                                    <a href="https://instagram.com/petzify">Instagram</a>
+                                    <a href="https://twitter.com/petzify">Twitter</a>
+                                </div>
+                                <p>This email was sent to ${orderData.userEmail}</p>
                             </div>
                         </div>
                     </body>
@@ -317,6 +573,7 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
             case 'dispatched':
                 subject = `Your Petzify Order Has Been Shipped - #${orderId.slice(-6)}`;
                 html = `
+                    <!DOCTYPE html>
                     <html>
                     <head>
                         <meta charset="utf-8">
@@ -326,7 +583,7 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
                             body, html {
                                 margin: 0;
                                 padding: 0;
-                                font-family: Arial, sans-serif;
+                                font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
                                 color: #333333;
                                 line-height: 1.6;
                                 background-color: #f9f9f9;
@@ -335,130 +592,74 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
                                 max-width: 600px;
                                 margin: 0 auto;
                                 background-color: #ffffff;
+                                border-radius: 8px;
+                                overflow: hidden;
+                                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
                             }
                             .header {
                                 text-align: center;
-                                padding: 20px;
-                                background-color: #232f3e;
+                                padding: 25px 20px;
+                                background-color: #14cca4;
                             }
                             .logo {
-                                max-width: 150px;
+                                max-width: 180px;
                             }
                             .main-content {
-                                padding: 20px;
-                            }
-                            .order-nav {
-                                display: flex;
-                                justify-content: space-between;
-                                background-color: #232f3e;
-                                padding: 10px 20px;
-                            }
-                            .nav-item {
-                                color: white;
-                                text-decoration: none;
-                                font-weight: bold;
-                                font-size: 14px;
+                                padding: 30px 25px;
                             }
                             .heading {
-                                font-size: 22px;
+                                font-size: 24px;
                                 font-weight: bold;
-                                margin: 15px 0;
-                                color: #000;
-                            }
-                            .shipping-progress {
-                                display: flex;
-                                justify-content: space-between;
-                                align-items: center;
-                                margin: 25px 0;
-                                position: relative;
-                            }
-                            .progress-step {
-                                display: flex;
-                                flex-direction: column;
-                                align-items: center;
-                                position: relative;
-                                z-index: 1;
-                                flex: 1;
-                            }
-                            .step-icon {
-                                width: 25px;
-                                height: 25px;
-                                border-radius: 50%;
-                                background-color: #cccccc;
-                                display: flex;
-                                justify-content: center;
-                                align-items: center;
-                                margin-bottom: 5px;
-                                color: white;
-                                font-weight: bold;
-                            }
-                            .step-icon.completed {
-                                background-color: #009900;
-                            }
-                            .step-icon.current {
-                                background-color: #009900;
-                                box-shadow: 0 0 0 3px rgba(0, 153, 0, 0.2);
-                            }
-                            .step-label {
-                                font-size: 12px;
+                                margin: 0 0 20px 0;
+                                color: #0c7c74;
                                 text-align: center;
-                                color: #555;
-                                max-width: 80px;
                             }
-                            .step-label.completed, .step-label.current {
+                            .order-number {
+                                font-size: 18px;
+                                text-align: center;
+                                margin-bottom: 25px;
+                                color: #338981;
+                            }
+                            .section {
+                                margin-bottom: 25px;
+                                border-bottom: 1px solid #eee;
+                                padding-bottom: 20px;
+                            }
+                            .section:last-child {
+                                border-bottom: none;
+                            }
+                            .section-title {
+                                font-size: 18px;
+                                font-weight: 600;
+                                color: #0c7c74;
+                                margin-bottom: 15px;
+                            }
+                            .status-bar {
+                                background-color: #14cca4;
+                                color: white;
+                                padding: 12px 15px;
+                                text-align: center;
+                                border-radius: 5px;
+                                margin: 20px 0;
+                                text-transform: uppercase;
+                                letter-spacing: 1px;
                                 font-weight: bold;
-                                color: #000;
-                            }
-                            .progress-bar {
-                                height: 3px;
-                                background-color: #cccccc;
-                                width: 100%;
-                                position: absolute;
-                                top: 12px;
-                                left: 0;
-                                z-index: 0;
-                            }
-                            .progress-bar-fill {
-                                height: 100%;
-                                background-color: #009900;
-                                width: 33%;
-                            }
-                            .tracking-info {
-                                background-color: #f3f3f3;
-                                border-radius: 4px;
-                                padding: 15px;
-                                margin-bottom: 20px;
-                            }
-                            .tracking-heading {
-                                font-size: 16px;
-                                font-weight: bold;
-                                margin-bottom: 10px;
-                            }
-                            .tracking-details {
-                                font-size: 14px;
-                                margin-bottom: 10px;
-                            }
-                            .tracking-button {
-                                display: inline-block;
-                                background-color: #ffd814;
-                                border: none;
-                                border-radius: 4px;
-                                padding: 8px 15px;
-                                font-weight: bold;
-                                text-decoration: none;
-                                color: #000;
-                                margin-top: 10px;
                             }
                             .product-item {
                                 display: flex;
                                 padding: 15px 0;
                                 border-bottom: 1px solid #eeeeee;
                             }
+                            .product-item:last-child {
+                                border-bottom: none;
+                            }
                             .product-image {
                                 width: 80px;
                                 height: 80px;
                                 object-fit: cover;
                                 margin-right: 15px;
+                                border-radius: 5px;
+                                border: 1px solid #eee;
                             }
                             .product-details {
                                 flex: 1;
@@ -466,106 +667,264 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
                             .product-name {
                                 font-weight: bold;
                                 margin-bottom: 5px;
-                                font-size: 14px;
+                                font-size: 16px;
+                                color: #333;
                             }
                             .product-price {
                                 font-weight: bold;
                                 margin-top: 5px;
                                 font-size: 16px;
+                                color: #0c7c74;
+                            }
+                            .order-summary {
+                                background-color: #f5f9f8;
+                                border-radius: 5px;
+                                padding: 15px;
+                                margin-top: 25px;
+                            }
+                            .summary-row {
+                                display: flex;
+                                justify-content: space-between;
+                                margin-bottom: 10px;
+                            }
+                            .summary-row.total {
+                                font-weight: bold;
+                                font-size: 18px;
+                                border-top: 1px solid #ddd;
+                                padding-top: 10px;
+                                margin-top: 10px;
+                                color: #0c7c74;
+                            }
+                            .tracking-info {
+                                background-color: #f5f9f8;
+                                border-radius: 5px;
+                                padding: 20px;
+                                margin: 20px 0;
+                                border-left: 4px solid #14cca4;
+                            }
+                            .tracking-label {
+                                font-weight: 600;
+                                margin-right: 10px;
+                                width: 140px;
+                                display: inline-block;
+                            }
+                            .tracking-row {
+                                margin-bottom: 12px;
+                            }
+                            .steps {
+                                display: flex;
+                                justify-content: space-between;
+                                margin: 30px 0;
+                                position: relative;
+                            }
+                            .step {
+                                position: relative;
+                                z-index: 1;
+                                text-align: center;
+                                width: 25%;
+                            }
+                            .step-icon {
+                                width: 30px;
+                                height: 30px;
+                                border-radius: 50%;
+                                background-color: #cccccc;
+                                display: flex;
+                                justify-content: center;
+                                align-items: center;
+                                margin: 0 auto 8px;
+                                color: white;
+                                font-weight: bold;
+                                font-size: 14px;
+                            }
+                            .step-icon.active {
+                                background-color: #14cca4;
+                            }
+                            .step-text {
+                                font-size: 13px;
+                                color: #555;
+                            }
+                            .step-text.active {
+                                color: #14cca4;
+                                font-weight: 600;
+                            }
+                            .step-line {
+                                position: absolute;
+                                top: 15px;
+                                left: 12.5%;
+                                right: 12.5%;
+                                height: 2px;
+                                background-color: #cccccc;
+                                z-index: 0;
+                            }
+                            .step-line-progress {
+                                position: absolute;
+                                top: 0;
+                                left: 0;
+                                height: 100%;
+                                width: 50%;
+                                background-color: #14cca4;
+                            }
+                            .address-block {
+                                background-color: #f5f9f8;
+                                border-radius: 5px;
+                                padding: 15px;
+                                margin-bottom: 20px;
                             }
                             .footer {
-                                background-color: #232f3e;
-                                color: white;
+                                background-color: #f5f9f8;
+                                color: #555;
                                 text-align: center;
-                                padding: 15px;
-                                font-size: 12px;
+                                padding: 20px;
+                                font-size: 14px;
+                                border-top: 1px solid #eee;
                             }
-                            .footer a {
-                                color: #ffffff;
-                                text-decoration: underline;
+                            .social-links {
+                                margin: 15px 0;
+                            }
+                            .social-links a {
+                                display: inline-block;
+                                margin: 0 10px;
+                                color: #14cca4;
+                                text-decoration: none;
+                            }
+                            .note-box {
+                                background-color: #fff8e1;
+                                border-radius: 5px;
+                                padding: 15px;
+                                margin: 15px 0;
+                                font-size: 14px;
+                                border-left: 4px solid #ffc107;
+                            }
+                            .estimated-delivery {
+                                background-color: #e8f5e9;
+                                border-radius: 5px;
+                                padding: 15px;
+                                margin: 15px 0;
+                                font-size: 15px;
+                                text-align: center;
+                                color: #2e7d32;
+                                font-weight: 600;
                             }
                         </style>
                     </head>
                     <body>
                         <div class="container">
                             <div class="header">
-                                <img src="https://firebasestorage.googleapis.com/v0/b/petzify-49ed4.appspot.com/o/logo%2FPetzify%20Logo-05.png?alt=media" alt="Petzify" class="logo">
+                                <img src="https://firebasestorage.googleapis.com/v0/b/petzify-49ed4.firebasestorage.app/o/assets%2Flogo_white_text.png?alt=media&token=73a45d07-59ed-40b7-960a-486b1e340564" alt="Petzify" class="logo">
                             </div>
-                            
-                            <div class="order-nav">
-                                <a href="https://petzify.com/orders" class="nav-item">Your Orders</a>
-                                <a href="https://petzify.com/account" class="nav-item">Your Account</a>
-                                <a href="https://petzify.com/shop" class="nav-item">Buy Again</a>
-                            </div>
-                            
                             <div class="main-content">
-                                <div class="heading">Your package was shipped!</div>
+                                <h1 class="heading">Your Order Has Shipped!</h1>
+                                <p class="order-number">Order #${orderId.slice(-6)}</p>
                                 
-                                <div class="shipping-progress">
-                                    <div class="progress-bar">
-                                        <div class="progress-bar-fill"></div>
-                                    </div>
-                                    <div class="progress-step">
-                                        <div class="step-icon completed">✓</div>
-                                        <div class="step-label completed">Ordered</div>
-                                    </div>
-                                    <div class="progress-step">
-                                        <div class="step-icon current">✓</div>
-                                        <div class="step-label current">Shipped</div>
-                                    </div>
-                                    <div class="progress-step">
-                                        <div class="step-icon">3</div>
-                                        <div class="step-label">Out for delivery</div>
-                                    </div>
-                                    <div class="progress-step">
-                                        <div class="step-icon">4</div>
-                                        <div class="step-label">Delivered</div>
-                                    </div>
+                                <p>Hello ${orderData.userName || 'Valued Customer'},</p>
+                                <p>Great news! Your order is on its way to you. We're pleased to inform you that your Petzify order has been shipped and is currently in transit.</p>
+                                
+                                <div class="status-bar">
+                                    Status: Shipped
                                 </div>
                                 
-                                <div class="heading">Arriving soon</div>
-                                <div>${orderData.shippingAddress || 'Your registered address'}</div>
-                                <div>Order # ${orderId.slice(-6)}</div>
+                                <div class="steps">
+                                    <div class="step-line">
+                                        <div class="step-line-progress"></div>
+                                    </div>
+                                    <div class="step">
+                                        <div class="step-icon active">✓</div>
+                                        <div class="step-text active">Confirmed</div>
+                                    </div>
+                                    <div class="step">
+                                        <div class="step-icon active">✓</div>
+                                        <div class="step-text active">Shipped</div>
+                                    </div>
+                                    <div class="step">
+                                        <div class="step-icon">3</div>
+                                        <div class="step-text">Out for Delivery</div>
+                                    </div>
+                                    <div class="step">
+                                        <div class="step-icon">4</div>
+                                        <div class="step-text">Delivered</div>
+                                    </div>
+                                </div>
                                 
                                 <div class="tracking-info">
-                                    <div class="tracking-heading">Tracking Information</div>
-                                    <div class="tracking-details">
-                                        <strong>Courier:</strong> ${orderData.courierCompany || orderData.courierDetails?.company || 'Standard Delivery'}
+                                    <h2 class="section-title" style="margin-top: 0;">Shipping & Tracking Details</h2>
+                                    <div class="tracking-row">
+                                        <span class="tracking-label">Courier:</span>
+                                        <span>${orderData.courierCompany || orderData.courierDetails?.company || 'Standard Delivery'}</span>
                                     </div>
-                                    <div class="tracking-details">
-                                        <strong>Tracking Number:</strong> ${orderData.trackingNumber || orderData.courierDetails?.trackingNumber || 'Not available'}
+                                    <div class="tracking-row">
+                                        <span class="tracking-label">Tracking Number:</span>
+                                        <span>${orderData.trackingNumber || orderData.courierDetails?.trackingNumber || 'Not available'}</span>
                                     </div>
-                                    <a href="https://petzify.com/track" class="tracking-button">Track package</a>
+                                    <div class="tracking-row">
+                                        <span class="tracking-label">Shipped Date:</span>
+                                        <span>${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                                    </div>
                                 </div>
                                 
-                                <div style="font-weight: bold; margin-top: 15px; font-size: 16px;">Order Details</div>
+                                <div class="note-box">
+                                    <strong>Note:</strong> You can track your package by visiting the courier's website and entering your tracking number. Different courier services have different tracking systems.
+                                </div>
                                 
-                                ${productDetails.map(item => `
-                                    <div class="product-item">
-                                        <img src="${item.image || item.productData?.images?.[0] || 'https://via.placeholder.com/80'}" class="product-image" alt="${item.name || 'Product'}">
-                                        <div class="product-details">
-                                            <div class="product-name">${item.name || item.productData?.name || 'Product'}</div>
-                                            <div>Quantity: ${item.quantity}</div>
-                                            <div class="product-price">₹${parseFloat(item.price).toFixed(2)}</div>
+                                <div class="estimated-delivery">
+                                    Estimated Delivery: ${new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                                </div>
+
+                                <div class="section">
+                                    <h2 class="section-title">Shipping To</h2>
+                                    <div class="address-block">
+                                        <strong>${orderData.userName || 'Customer'}</strong><br>
+                                        ${orderData.shippingAddress || 'Your registered address'}<br>
+                                        Phone: ${orderData.userPhone || 'Not provided'}
+                                    </div>
+                                </div>
+
+                                <div class="section">
+                                    <h2 class="section-title">Order Details</h2>
+                                    ${productDetails.map(item => `
+                                        <div class="product-item">
+                                            <img src="${item.image || item.productData?.images?.[0] || 'https://via.placeholder.com/80'}" class="product-image" alt="${item.name || 'Product'}">
+                                            <div class="product-details">
+                                                <div class="product-name">${item.name || item.productData?.name || 'Product'}</div>
+                                                <div>Quantity: ${item.quantity}</div>
+                                                <div class="product-price">₹${parseFloat(item.price).toFixed(2)}</div>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                    
+                                    <div class="order-summary">
+                                        <div class="summary-row">
+                                            <span>Subtotal:</span>
+                                            <span>₹${parseFloat(orderData.subtotal || 0).toFixed(2)}</span>
+                                        </div>
+                                        <div class="summary-row">
+                                            <span>Shipping:</span>
+                                            <span>₹${parseFloat(orderData.shippingCost || 0).toFixed(2)}</span>
+                                        </div>
+                                        <div class="summary-row total">
+                                            <span>Total:</span>
+                                            <span>₹${parseFloat(orderData.totalAmount || 0).toFixed(2)}</span>
                                         </div>
                                     </div>
-                                `).join('')}
-                                
-                                <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
-                                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                                        <span>Subtotal:</span>
-                                        <span>₹${parseFloat(orderData.subtotal || 0).toFixed(2)}</span>
-                                    </div>
-                                    <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 16px; margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px;">
-                                        <span>Total:</span>
-                                        <span>₹${parseFloat(orderData.totalAmount || 0).toFixed(2)}</span>
-                                    </div>
                                 </div>
+                                
+                                <p>If you have any questions about your order, please contact our customer support team at <a href="mailto:support@petzify.com" style="color: #14cca4; text-decoration: none;">support@petzify.com</a>.</p>
+                                
+                                <p>Thank you for shopping with Petzify!</p>
+                                
+                                <p style="margin-top: 30px;">
+                                    Warm regards,<br>
+                                    The Petzify Team
+                                </p>
                             </div>
                             
                             <div class="footer">
-                                <p>If you have any questions about your order, please contact our customer support team at <a href="mailto:support@petzify.com">support@petzify.com</a> or call us at +91 1234567890.</p>
                                 <p>© ${new Date().getFullYear()} Petzify. All rights reserved.</p>
+                                <div class="social-links">
+                                    <a href="https://facebook.com/petzify">Facebook</a>
+                                    <a href="https://instagram.com/petzify">Instagram</a>
+                                    <a href="https://twitter.com/petzify">Twitter</a>
+                                </div>
+                                <p>This email was sent to ${orderData.userEmail}</p>
                             </div>
                         </div>
                     </body>
@@ -576,6 +935,7 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
             case 'delivered':
                 subject = `Petzify Order Delivered - #${orderId.slice(-6)}`;
                 html = `
+                    <!DOCTYPE html>
                     <html>
                     <head>
                         <meta charset="utf-8">
@@ -585,7 +945,7 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
                             body, html {
                                 margin: 0;
                                 padding: 0;
-                                font-family: Arial, sans-serif;
+                                font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
                                 color: #333333;
                                 line-height: 1.6;
                                 background-color: #f9f9f9;
@@ -594,51 +954,309 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
                                 max-width: 600px;
                                 margin: 0 auto;
                                 background-color: #ffffff;
+                                border-radius: 8px;
+                                overflow: hidden;
+                                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
                             }
                             .header {
                                 text-align: center;
-                                padding: 20px;
-                                background-color: #232f3e;
+                                padding: 25px 20px;
+                                background-color: #14cca4;
                             }
                             .logo {
-                                max-width: 150px;
+                                max-width: 180px;
                             }
                             .main-content {
-                                padding: 20px;
+                                padding: 30px 25px;
                             }
                             .heading {
-                                font-size: 22px;
+                                font-size: 24px;
                                 font-weight: bold;
-                                margin: 15px 0;
-                                color: #000;
+                                margin: 0 0 20px 0;
+                                color: #0c7c74;
+                                text-align: center;
+                            }
+                            .order-number {
+                                font-size: 18px;
+                                text-align: center;
+                                margin-bottom: 25px;
+                                color: #338981;
+                            }
+                            .section {
+                                margin-bottom: 25px;
+                                border-bottom: 1px solid #eee;
+                                padding-bottom: 20px;
+                            }
+                            .section:last-child {
+                                border-bottom: none;
+                            }
+                            .section-title {
+                                font-size: 18px;
+                                font-weight: 600;
+                                color: #0c7c74;
+                                margin-bottom: 15px;
                             }
                             .status-bar {
                                 background-color: #4caf50;
                                 color: white;
-                                padding: 10px 15px;
+                                padding: 12px 15px;
                                 text-align: center;
                                 border-radius: 5px;
-                                margin: 15px 0;
+                                margin: 20px 0;
                                 text-transform: uppercase;
                                 letter-spacing: 1px;
                                 font-weight: bold;
+                            }
+                            .product-item {
+                                display: flex;
+                                padding: 15px 0;
+                                border-bottom: 1px solid #eeeeee;
+                            }
+                            .product-item:last-child {
+                                border-bottom: none;
+                            }
+                            .product-image {
+                                width: 80px;
+                                height: 80px;
+                                object-fit: cover;
+                                margin-right: 15px;
+                                border-radius: 5px;
+                                border: 1px solid #eee;
+                            }
+                            .product-details {
+                                flex: 1;
+                            }
+                            .product-name {
+                                font-weight: bold;
+                                margin-bottom: 5px;
+                                font-size: 16px;
+                                color: #333;
+                            }
+                            .product-price {
+                                font-weight: bold;
+                                margin-top: 5px;
+                                font-size: 16px;
+                                color: #0c7c74;
+                            }
+                            .order-summary {
+                                background-color: #f5f9f8;
+                                border-radius: 5px;
+                                padding: 15px;
+                                margin-top: 25px;
+                            }
+                            .summary-row {
+                                display: flex;
+                                justify-content: space-between;
+                                margin-bottom: 10px;
+                            }
+                            .summary-row.total {
+                                font-weight: bold;
+                                font-size: 18px;
+                                border-top: 1px solid #ddd;
+                                padding-top: 10px;
+                                margin-top: 10px;
+                                color: #0c7c74;
+                            }
+                            .steps {
+                                display: flex;
+                                justify-content: space-between;
+                                margin: 30px 0;
+                                position: relative;
+                            }
+                            .step {
+                                position: relative;
+                                z-index: 1;
+                                text-align: center;
+                                width: 25%;
+                            }
+                            .step-icon {
+                                width: 30px;
+                                height: 30px;
+                                border-radius: 50%;
+                                background-color: #cccccc;
+                                display: flex;
+                                justify-content: center;
+                                align-items: center;
+                                margin: 0 auto 8px;
+                                color: white;
+                                font-weight: bold;
+                                font-size: 14px;
+                            }
+                            .step-icon.active {
+                                background-color: #14cca4;
+                            }
+                            .step-text {
+                                font-size: 13px;
+                                color: #555;
+                            }
+                            .step-text.active {
+                                color: #14cca4;
+                                font-weight: 600;
+                            }
+                            .step-line {
+                                position: absolute;
+                                top: 15px;
+                                left: 12.5%;
+                                right: 12.5%;
+                                height: 2px;
+                                background-color: #cccccc;
+                                z-index: 0;
+                            }
+                            .step-line-progress {
+                                position: absolute;
+                                top: 0;
+                                left: 0;
+                                height: 100%;
+                                width: 100%;
+                                background-color: #14cca4;
+                            }
+                            .footer {
+                                background-color: #f5f9f8;
+                                color: #555;
+                                text-align: center;
+                                padding: 20px;
+                                font-size: 14px;
+                                border-top: 1px solid #eee;
+                            }
+                            .social-links {
+                                margin: 15px 0;
+                            }
+                            .social-links a {
+                                display: inline-block;
+                                margin: 0 10px;
+                                color: #14cca4;
+                                text-decoration: none;
+                            }
+                            .celebration-box {
+                                background-color: #e8f5e9;
+                                border-radius: 5px;
+                                padding: 20px;
+                                margin: 20px 0;
+                                text-align: center;
+                                border: 1px dashed #4caf50;
+                            }
+                            .celebration-title {
+                                font-size: 20px;
+                                font-weight: bold;
+                                color: #2e7d32;
+                                margin-bottom: 10px;
+                            }
+                            .feedback-button {
+                                display: inline-block;
+                                background-color: #14cca4;
+                                color: white;
+                                padding: 10px 20px;
+                                margin-top: 15px;
+                                border-radius: 4px;
+                                text-decoration: none;
+                                font-weight: bold;
+                            }
+                            .review-box {
+                                background-color: #f5f9f8;
+                                border-radius: 5px;
+                                padding: 20px;
+                                margin: 20px 0;
+                                text-align: center;
+                                border-left: 4px solid #14cca4;
                             }
                         </style>
                     </head>
                     <body>
                         <div class="container">
                             <div class="header">
-                                <img src="https://firebasestorage.googleapis.com/v0/b/petzify-49ed4.appspot.com/o/logo%2FPetzify%20Logo-05.png?alt=media" alt="Petzify" class="logo">
+                                <img src="https://firebasestorage.googleapis.com/v0/b/petzify-49ed4.firebasestorage.app/o/assets%2Flogo_white_text.png?alt=media&token=73a45d07-59ed-40b7-960a-486b1e340564" alt="Petzify" class="logo">
                             </div>
                             <div class="main-content">
-                                <div class="heading">Order Delivered</div>
+                                <h1 class="heading">Order Delivered</h1>
+                                <p class="order-number">Order #${orderId.slice(-6)}</p>
+                                
+                                <div class="celebration-box">
+                                    <div class="celebration-title">🎉 Your order has been delivered! 🎉</div>
+                                    <p>We hope you and your pet are enjoying your purchase.</p>
+                                </div>
+                                
+                                <p>Hello ${orderData.userName || 'Valued Customer'},</p>
+                                <p>We're happy to inform you that your order has been delivered. We hope everything meets your expectations and your pet loves their new items!</p>
+                                
                                 <div class="status-bar">
                                     Status: Delivered
                                 </div>
-                                <p>Hi ${orderData.userName || 'Customer'},</p>
-                                <p>Your order <strong>#${orderId.slice(-6)}</strong> has been delivered.</p>
-                                <p>Thank you for shopping with Petzify!</p>
-                                <p>We hope you enjoy your purchase. If you have any feedback or concerns, please let us know.</p>
+                                
+                                <div class="steps">
+                                    <div class="step-line">
+                                        <div class="step-line-progress"></div>
+                                    </div>
+                                    <div class="step">
+                                        <div class="step-icon active">✓</div>
+                                        <div class="step-text active">Confirmed</div>
+                                    </div>
+                                    <div class="step">
+                                        <div class="step-icon active">✓</div>
+                                        <div class="step-text active">Shipped</div>
+                                    </div>
+                                    <div class="step">
+                                        <div class="step-icon active">✓</div>
+                                        <div class="step-text active">Out for Delivery</div>
+                                    </div>
+                                    <div class="step">
+                                        <div class="step-icon active">✓</div>
+                                        <div class="step-text active">Delivered</div>
+                                    </div>
+                                </div>
+
+                                <div class="section">
+                                    <h2 class="section-title">Order Details</h2>
+                                    ${productDetails.map(item => `
+                                        <div class="product-item">
+                                            <img src="${item.image || item.productData?.images?.[0] || 'https://via.placeholder.com/80'}" class="product-image" alt="${item.name || 'Product'}">
+                                            <div class="product-details">
+                                                <div class="product-name">${item.name || item.productData?.name || 'Product'}</div>
+                                                <div>Quantity: ${item.quantity}</div>
+                                                <div class="product-price">₹${parseFloat(item.price).toFixed(2)}</div>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                    
+                                    <div class="order-summary">
+                                        <div class="summary-row">
+                                            <span>Subtotal:</span>
+                                            <span>₹${parseFloat(orderData.subtotal || 0).toFixed(2)}</span>
+                                        </div>
+                                        <div class="summary-row">
+                                            <span>Shipping:</span>
+                                            <span>₹${parseFloat(orderData.shippingCost || 0).toFixed(2)}</span>
+                                        </div>
+                                        <div class="summary-row total">
+                                            <span>Total:</span>
+                                            <span>₹${parseFloat(orderData.totalAmount || 0).toFixed(2)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="review-box">
+                                    <h3 style="color: #0c7c74; margin-top: 0;">Share Your Experience</h3>
+                                    <p>Your feedback helps us improve and assists other pet parents in making informed decisions.</p>
+                                    <a href="https://petzify.com/my-orders/${orderId}/review" class="feedback-button">Write a Review</a>
+                                </div>
+                                
+                                <p>If there are any issues with your order or if you have any questions, please don't hesitate to contact our customer support team at <a href="mailto:support@petzify.com" style="color: #14cca4; text-decoration: none;">support@petzify.com</a>.</p>
+                                
+                                <p>Thank you for choosing Petzify for your pet needs. We hope to see you again soon!</p>
+                                
+                                <p style="margin-top: 30px;">
+                                    With gratitude,<br>
+                                    The Petzify Team
+                                </p>
+                            </div>
+                            
+                            <div class="footer">
+                                <p>© ${new Date().getFullYear()} Petzify. All rights reserved.</p>
+                                <div class="social-links">
+                                    <a href="https://facebook.com/petzify">Facebook</a>
+                                    <a href="https://instagram.com/petzify">Instagram</a>
+                                    <a href="https://twitter.com/petzify">Twitter</a>
+                                </div>
+                                <p>This email was sent to ${orderData.userEmail}</p>
                             </div>
                         </div>
                     </body>
@@ -649,6 +1267,7 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
             case 'cancelled':
                 subject = `Petzify Order Cancelled - #${orderId.slice(-6)}`;
                 html = `
+                    <!DOCTYPE html>
                     <html>
                     <head>
                         <meta charset="utf-8">
@@ -658,7 +1277,7 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
                             body, html {
                                 margin: 0;
                                 padding: 0;
-                                font-family: Arial, sans-serif;
+                                font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
                                 color: #333333;
                                 line-height: 1.6;
                                 background-color: #f9f9f9;
@@ -667,33 +1286,158 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
                                 max-width: 600px;
                                 margin: 0 auto;
                                 background-color: #ffffff;
+                                border-radius: 8px;
+                                overflow: hidden;
+                                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
                             }
                             .header {
                                 text-align: center;
-                                padding: 20px;
-                                background-color: #232f3e;
+                                padding: 25px 20px;
+                                background-color: #14cca4;
                             }
                             .logo {
-                                max-width: 150px;
+                                max-width: 180px;
                             }
                             .main-content {
-                                padding: 20px;
+                                padding: 30px 25px;
                             }
                             .heading {
-                                font-size: 22px;
+                                font-size: 24px;
                                 font-weight: bold;
-                                margin: 15px 0;
-                                color: #000;
+                                margin: 0 0 20px 0;
+                                color: #0c7c74;
+                                text-align: center;
+                            }
+                            .order-number {
+                                font-size: 18px;
+                                text-align: center;
+                                margin-bottom: 25px;
+                                color: #338981;
+                            }
+                            .section {
+                                margin-bottom: 25px;
+                                border-bottom: 1px solid #eee;
+                                padding-bottom: 20px;
+                            }
+                            .section:last-child {
+                                border-bottom: none;
+                            }
+                            .section-title {
+                                font-size: 18px;
+                                font-weight: 600;
+                                color: #0c7c74;
+                                margin-bottom: 15px;
                             }
                             .status-bar {
                                 background-color: #f44336;
                                 color: white;
-                                padding: 10px 15px;
+                                padding: 12px 15px;
                                 text-align: center;
                                 border-radius: 5px;
-                                margin: 15px 0;
+                                margin: 20px 0;
                                 text-transform: uppercase;
                                 letter-spacing: 1px;
+                                font-weight: bold;
+                            }
+                            .product-item {
+                                display: flex;
+                                padding: 15px 0;
+                                border-bottom: 1px solid #eeeeee;
+                            }
+                            .product-item:last-child {
+                                border-bottom: none;
+                            }
+                            .product-image {
+                                width: 80px;
+                                height: 80px;
+                                object-fit: cover;
+                                margin-right: 15px;
+                                border-radius: 5px;
+                                border: 1px solid #eee;
+                            }
+                            .product-details {
+                                flex: 1;
+                            }
+                            .product-name {
+                                font-weight: bold;
+                                margin-bottom: 5px;
+                                font-size: 16px;
+                                color: #333;
+                            }
+                            .product-price {
+                                font-weight: bold;
+                                margin-top: 5px;
+                                font-size: 16px;
+                                color: #0c7c74;
+                            }
+                            .order-summary {
+                                background-color: #f5f9f8;
+                                border-radius: 5px;
+                                padding: 15px;
+                                margin-top: 25px;
+                            }
+                            .summary-row {
+                                display: flex;
+                                justify-content: space-between;
+                                margin-bottom: 10px;
+                            }
+                            .summary-row.total {
+                                font-weight: bold;
+                                font-size: 18px;
+                                border-top: 1px solid #ddd;
+                                padding-top: 10px;
+                                margin-top: 10px;
+                                color: #0c7c74;
+                            }
+                            .footer {
+                                background-color: #f5f9f8;
+                                color: #555;
+                                text-align: center;
+                                padding: 20px;
+                                font-size: 14px;
+                                border-top: 1px solid #eee;
+                            }
+                            .social-links {
+                                margin: 15px 0;
+                            }
+                            .social-links a {
+                                display: inline-block;
+                                margin: 0 10px;
+                                color: #14cca4;
+                                text-decoration: none;
+                            }
+                            .info-box {
+                                background-color: #fff3e0;
+                                border-radius: 5px;
+                                padding: 20px;
+                                margin: 20px 0;
+                                border-left: 4px solid #ff9800;
+                            }
+                            .info-title {
+                                font-weight: 600;
+                                margin-bottom: 10px;
+                                color: #e65100;
+                            }
+                            .contact-box {
+                                background-color: #f5f9f8;
+                                border-radius: 5px;
+                                padding: 20px;
+                                margin: 20px 0;
+                                text-align: center;
+                            }
+                            .contact-title {
+                                font-weight: 600;
+                                margin-bottom: 10px;
+                                color: #0c7c74;
+                            }
+                            .shop-button {
+                                display: inline-block;
+                                background-color: #14cca4;
+                                color: white;
+                                padding: 10px 20px;
+                                margin-top: 15px;
+                                border-radius: 4px;
+                                text-decoration: none;
                                 font-weight: bold;
                             }
                         </style>
@@ -701,16 +1445,70 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
                     <body>
                         <div class="container">
                             <div class="header">
-                                <img src="https://firebasestorage.googleapis.com/v0/b/petzify-49ed4.appspot.com/o/logo%2FPetzify%20Logo-05.png?alt=media" alt="Petzify" class="logo">
+                                <img src="https://firebasestorage.googleapis.com/v0/b/petzify-49ed4.firebasestorage.app/o/assets%2Flogo_white_text.png?alt=media&token=73a45d07-59ed-40b7-960a-486b1e340564" alt="Petzify" class="logo">
                             </div>
                             <div class="main-content">
-                                <div class="heading">Order Cancelled</div>
+                                <h1 class="heading">Order Cancelled</h1>
+                                <p class="order-number">Order #${orderId.slice(-6)}</p>
+                                
+                                <p>Hello ${orderData.userName || 'Valued Customer'},</p>
+                                <p>We're writing to confirm that your order #${orderId.slice(-6)} has been cancelled as requested${orderData.cancellationReason ? ' for the following reason: ' + orderData.cancellationReason : ''}.</p>
+                                
                                 <div class="status-bar">
                                     Status: Cancelled
                                 </div>
-                                <p>Hi ${orderData.userName || 'Customer'},</p>
-                                <p>Your order <strong>#${orderId.slice(-6)}</strong> has been cancelled.</p>
-                                <p>If you have any questions about this cancellation, please contact our customer support.</p>
+
+                                <div class="info-box">
+                                    <div class="info-title">Cancellation Information</div>
+                                    <p>Your order has been cancelled successfully. ${orderData.paymentMethod !== 'cod' ? 'If you have already been charged, a refund will be processed according to our refund policy and should reflect in your account within 5-7 business days.' : ''}</p>
+                                </div>
+
+                                <div class="section">
+                                    <h2 class="section-title">Cancelled Items</h2>
+                                    ${productDetails.map(item => `
+                                        <div class="product-item">
+                                            <img src="${item.image || item.productData?.images?.[0] || 'https://via.placeholder.com/80'}" class="product-image" alt="${item.name || 'Product'}">
+                                            <div class="product-details">
+                                                <div class="product-name">${item.name || item.productData?.name || 'Product'}</div>
+                                                <div>Quantity: ${item.quantity}</div>
+                                                <div class="product-price">₹${parseFloat(item.price).toFixed(2)}</div>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                    
+                                    <div class="order-summary">
+                                        <div class="summary-row total">
+                                            <span>Order Total:</span>
+                                            <span>₹${parseFloat(orderData.totalAmount || 0).toFixed(2)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="contact-box">
+                                    <div class="contact-title">We're Here to Help</div>
+                                    <p>If you have any questions about this cancellation or need further assistance, our customer service team is here to help.</p>
+                                    <p>Email: <a href="mailto:support@petzify.com" style="color: #14cca4; text-decoration: none;">support@petzify.com</a><br>
+                                    Phone: +91 1234567890<br>
+                                    Hours: Monday-Friday, 9am-6pm IST</p>
+                                    <a href="https://petzify.com/shop" class="shop-button">Continue Shopping</a>
+                                </div>
+                                
+                                <p>We're sorry that this order didn't work out. We hope to see you back shopping with us soon!</p>
+                                
+                                <p style="margin-top: 30px;">
+                                    Best regards,<br>
+                                    The Petzify Team
+                                </p>
+                            </div>
+                            
+                            <div class="footer">
+                                <p>© ${new Date().getFullYear()} Petzify. All rights reserved.</p>
+                                <div class="social-links">
+                                    <a href="https://facebook.com/petzify">Facebook</a>
+                                    <a href="https://instagram.com/petzify">Instagram</a>
+                                    <a href="https://twitter.com/petzify">Twitter</a>
+                                </div>
+                                <p>This email was sent to ${orderData.userEmail}</p>
                             </div>
                         </div>
                     </body>
@@ -721,13 +1519,150 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
             default:
                 subject = `Petzify Order Status Updated - #${orderId.slice(-6)}`;
                 html = `
+                    <!DOCTYPE html>
                     <html>
+                    <head>
+                        <meta charset="utf-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>Petzify Order Status Update</title>
+                        <style>
+                            body, html {
+                                margin: 0;
+                                padding: 0;
+                                font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                                color: #333333;
+                                line-height: 1.6;
+                                background-color: #f9f9f9;
+                            }
+                            .container {
+                                max-width: 600px;
+                                margin: 0 auto;
+                                background-color: #ffffff;
+                                border-radius: 8px;
+                                overflow: hidden;
+                                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                            }
+                            .header {
+                                text-align: center;
+                                padding: 25px 20px;
+                                background-color: #14cca4;
+                            }
+                            .logo {
+                                max-width: 180px;
+                            }
+                            .main-content {
+                                padding: 30px 25px;
+                            }
+                            .heading {
+                                font-size: 24px;
+                                font-weight: bold;
+                                margin: 0 0 20px 0;
+                                color: #0c7c74;
+                                text-align: center;
+                            }
+                            .order-number {
+                                font-size: 18px;
+                                text-align: center;
+                                margin-bottom: 25px;
+                                color: #338981;
+                            }
+                            .section {
+                                margin-bottom: 25px;
+                                padding-bottom: 20px;
+                            }
+                            .status-bar {
+                                background-color: #14cca4;
+                                color: white;
+                                padding: 12px 15px;
+                                text-align: center;
+                                border-radius: 5px;
+                                margin: 20px 0;
+                                text-transform: uppercase;
+                                letter-spacing: 1px;
+                                font-weight: bold;
+                            }
+                            .footer {
+                                background-color: #f5f9f8;
+                                color: #555;
+                                text-align: center;
+                                padding: 20px;
+                                font-size: 14px;
+                                border-top: 1px solid #eee;
+                            }
+                            .social-links {
+                                margin: 15px 0;
+                            }
+                            .social-links a {
+                                display: inline-block;
+                                margin: 0 10px;
+                                color: #14cca4;
+                                text-decoration: none;
+                            }
+                            .info-box {
+                                background-color: #e8f4fd;
+                                border-radius: 5px;
+                                padding: 20px;
+                                margin: 20px 0;
+                                border-left: 4px solid #2196f3;
+                            }
+                            .button {
+                                display: inline-block;
+                                background-color: #14cca4;
+                                color: white;
+                                padding: 10px 20px;
+                                margin-top: 15px;
+                                border-radius: 4px;
+                                text-decoration: none;
+                                font-weight: bold;
+                                text-align: center;
+                            }
+                        </style>
+                    </head>
                     <body>
-                        <div style="font-family: Arial; max-width: 600px; margin: auto;">
-                            <h2>Status Update</h2>
-                            <p>Hi ${orderData.userName || 'Customer'},</p>
-                            <p>Your order <strong>#${orderId}</strong> is now <strong>${newStatus}</strong>.</p>
-                            <p>Check your app or website for details.</p>
+                        <div class="container">
+                            <div class="header">
+                                <img src="https://firebasestorage.googleapis.com/v0/b/petzify-49ed4.firebasestorage.app/o/assets%2Flogo_white_text.png?alt=media&token=73a45d07-59ed-40b7-960a-486b1e340564" alt="Petzify" class="logo">
+                            </div>
+                            <div class="main-content">
+                                <h1 class="heading">Order Status Update</h1>
+                                <p class="order-number">Order #${orderId.slice(-6)}</p>
+                                
+                                <p>Hello ${orderData.userName || 'Valued Customer'},</p>
+                                <p>We're writing to let you know that your order status has been updated.</p>
+                                
+                                <div class="status-bar">
+                                    Status: ${newStatus.charAt(0).toUpperCase() + newStatus.slice(1)}
+                                </div>
+                                
+                                <div class="info-box">
+                                    <p>Your order is now: <strong>${newStatus.charAt(0).toUpperCase() + newStatus.slice(1)}</strong></p>
+                                    <p>Date Updated: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                                </div>
+                                
+                                <div class="section" style="text-align: center;">
+                                    <p>To view complete details about your order, please visit your account dashboard.</p>
+                                    <a href="https://petzify.com/my-orders/${orderId}" class="button">View Order Details</a>
+                                </div>
+                                
+                                <p>If you have any questions about your order, please don't hesitate to contact our customer support team at <a href="mailto:support@petzify.com" style="color: #14cca4; text-decoration: none;">support@petzify.com</a>.</p>
+                                
+                                <p>Thank you for shopping with Petzify!</p>
+                                
+                                <p style="margin-top: 30px;">
+                                    Best regards,<br>
+                                    The Petzify Team
+                                </p>
+                            </div>
+                            
+                            <div class="footer">
+                                <p>© ${new Date().getFullYear()} Petzify. All rights reserved.</p>
+                                <div class="social-links">
+                                    <a href="https://facebook.com/petzify">Facebook</a>
+                                    <a href="https://instagram.com/petzify">Instagram</a>
+                                    <a href="https://twitter.com/petzify">Twitter</a>
+                                </div>
+                                <p>This email was sent to ${orderData.userEmail}</p>
+                            </div>
                         </div>
                     </body>
                     </html>
