@@ -108,17 +108,49 @@ const Products = () => {
             });
           });
           
-          // Sort products: featured products first, then sort by createdAt
+          // Sort products: featured products first, then sort by rating, then by createdAt
           productsData.sort((a, b) => {
-            if (a.featured === b.featured) {
-              // If both have same featured status, sort by createdAt (newest first)
-              return (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0);
+            // First sort by featured status
+            if (a.featured !== b.featured) {
+              return a.featured ? -1 : 1;
             }
-            // Featured products come first
-            return a.featured ? -1 : 1;
+            
+            // Then sort by rating
+            const aRating = productReviews[a.id]?.averageRating || 0;
+            const bRating = productReviews[b.id]?.averageRating || 0;
+            
+            if (aRating !== bRating) {
+              return bRating - aRating; // Higher rating first
+            }
+            
+            // If ratings are equal, sort by createdAt
+            return (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0);
           });
           
-          setProducts(productsData);
+          // Apply search filter for featured sort
+          const filteredProducts = searchQuery
+            ? productsData.filter(product => {
+                const query = searchQuery.toLowerCase().trim();
+                const nameMatch = product.name?.toLowerCase().includes(query) || false;
+                const descMatch = product.description?.toLowerCase().includes(query) || false;
+                const catMatch = product.category?.toLowerCase().includes(query) || false;
+                const tagMatch = product.tags && Array.isArray(product.tags) && 
+                  product.tags.some(tag => tag.toLowerCase().includes(query));
+                const specMatch = product.specifications && Array.isArray(product.specifications) && 
+                  product.specifications.some(spec => 
+                    (spec.key?.toLowerCase().includes(query)) || 
+                    (spec.value?.toLowerCase().includes(query))
+                  );
+                
+                return nameMatch || descMatch || catMatch || tagMatch || specMatch;
+              })
+            : productsData;
+          
+          console.log('Search query:', searchQuery);
+          console.log('Total products:', productsData.length);
+          console.log('Filtered products:', filteredProducts.length);
+          
+          setProducts(filteredProducts);
           
           // Extract unique categories
           const allCategories = productsData
@@ -150,12 +182,26 @@ const Products = () => {
         
         // Apply search filter
         const filteredProducts = searchQuery
-          ? productsData.filter(product => 
-              product.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              product.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              product.category?.toLowerCase().includes(searchQuery.toLowerCase())
-            )
+          ? productsData.filter(product => {
+              const query = searchQuery.toLowerCase().trim();
+              const nameMatch = product.name?.toLowerCase().includes(query) || false;
+              const descMatch = product.description?.toLowerCase().includes(query) || false;
+              const catMatch = product.category?.toLowerCase().includes(query) || false;
+              const tagMatch = product.tags && Array.isArray(product.tags) && 
+                product.tags.some(tag => tag.toLowerCase().includes(query));
+              const specMatch = product.specifications && Array.isArray(product.specifications) && 
+                product.specifications.some(spec => 
+                  (spec.key?.toLowerCase().includes(query)) || 
+                  (spec.value?.toLowerCase().includes(query))
+                );
+              
+              return nameMatch || descMatch || catMatch || tagMatch || specMatch;
+            })
           : productsData;
+        
+        console.log('Search query:', searchQuery);
+        console.log('Total products:', productsData.length);
+        console.log('Filtered products:', filteredProducts.length);
         
         setProducts(filteredProducts);
         
@@ -304,7 +350,11 @@ const Products = () => {
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  console.log('Setting search query:', value);
+                  setSearchQuery(value);
+                }}
                 placeholder="Search products by name, description, or category..."
                 className="w-full h-12 pl-10 pr-4 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent shadow-sm"
               />
@@ -450,7 +500,7 @@ const Products = () => {
                     </p>
                   </div>
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                  <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                     {currentItems.map((product) => {
                       const productRating = getProductRating(product.id);
                       
