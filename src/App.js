@@ -26,6 +26,7 @@ import DoctorBooking from './components/booking/DoctorBooking';
 import UserOrders from './pages/UserOrders';
 import UserBookings from './pages/UserBookings';
 import UserProfile from './pages/UserProfile';
+import MobileProfile from './pages/MobileProfile';
 import NotFound from './pages/NotFound';
 import PetTransportation from './pages/PetTransportation';
 import PetRehoming from './pages/PetRehoming';
@@ -91,7 +92,10 @@ function App() {
             <Route path="/book-appointment" element={<Layout><DoctorBooking /></Layout>} />
             <Route path="/my-orders" element={<Layout><UserOrders /></Layout>} />
             <Route path="/my-bookings" element={<Layout><UserBookings /></Layout>} />
-            <Route path="/profile" element={<Layout><UserProfile /></Layout>} />
+            <Route path="/profile" element={<Layout>
+              <div className="md:block hidden"><UserProfile /></div>
+              <div className="md:hidden block"><MobileProfile /></div>
+            </Layout>} />
             <Route path="/admin" element={<Layout><AdminLogin /></Layout>} />
             
             {/* Admin Dashboard Route */}

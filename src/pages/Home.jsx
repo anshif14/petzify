@@ -5,6 +5,8 @@ import TestimonialsSection from '../components/TestimonialsSection';
 import CountdownTimer from '../components/home/CountdownTimer';
 import { initializeTestimonials } from '../firebase/seedTestimonials';
 import { sendTestEmail } from '../utils/emailService';
+import MobileBottomNav from '../components/common/MobileBottomNav';
+import Footer from '../components/common/Footer';
 
 
 const Home = () => {
@@ -309,6 +311,9 @@ const Home = () => {
           </div>
         </div>
       </section>
+
+      <Footer />
+      <MobileBottomNav />
     </div>
   );
 };

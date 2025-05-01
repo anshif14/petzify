@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Navbar from '../components/common/Navbar';
+// Import Footer only if needed for desktop view
 import Footer from '../components/common/Footer';
 import { useAlert } from '../context/AlertContext';
 import { useUser } from '../context/UserContext';
 import AuthModal from '../components/auth/AuthModal';
 import { getFirestore, collection, addDoc, Timestamp, getDocs, query, where } from 'firebase/firestore';
 import { app } from '../firebase/config';
+import MobileBottomNav from '../components/common/MobileBottomNav';
 // Commented out for now
 // import Razorpay from 'razorpay';
 
@@ -414,9 +416,9 @@ const Cart = () => {
   return (
     <>
       <Navbar />
-      <main className="min-h-screen bg-gray-50 py-12">
+      <main className="min-h-screen bg-gray-50 pt-24 md:pt-24 pb-24 md:pb-8">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-8">Your Cart</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-6 md:mb-8">Your Cart</h1>
           
           {cart.length === 0 ? (
             <div className="bg-white rounded-lg shadow-sm p-8 text-center">
@@ -784,7 +786,13 @@ const Cart = () => {
         onSuccess={handleAuthSuccess}
       />
       
-      {/*<Footer />*/}
+      {/* Only show Footer on medium screens and up */}
+      <div className="hidden md:block">
+        <Footer />
+      </div>
+      
+      {/* Always show MobileBottomNav on mobile */}
+      <MobileBottomNav />
     </>
   );
 };

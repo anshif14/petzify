@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import ComingSoon from '../components/common/ComingSoon';
+import MobileBottomNav from '../components/common/MobileBottomNav';
+import Footer from '../components/common/Footer';
 
 const Services = () => {
   useEffect(() => {
@@ -129,141 +131,145 @@ const Services = () => {
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen">
-      {/* Hero Section for Become a Pet Parent */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-primary to-primary-dark">
-        <div className="absolute inset-0">
-          <img
-            src="https://images.unsplash.com/photo-1450778869180-41d0601e046e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1886&q=80"
-            alt="Happy pets"
-            className="w-full h-full object-cover opacity-20"
-          />
-        </div>
-        <div className="relative max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-            <div className="text-center lg:text-left">
-              <h1 className="text-4xl md:text-5xl font-bold text-white mb-6 animate-fade-in">
-                Become a Pet Parent
-              </h1>
-              <p className="text-xl text-white/90 mb-8 animate-slide-up">
-                Give a loving home to a pet in need. Experience the joy and unconditional love of pet parenthood.
-              </p>
-              <div className="space-y-4 sm:space-y-0 sm:space-x-4">
-                <Link
-                  to="/find-furry-soulmate"
-                  className="inline-block px-8 py-4 bg-white text-primary rounded-full font-semibold hover:bg-gray-100 transition-all transform hover:scale-105 animate-bounce-subtle"
-                >
-                  Find Your Furry Soulmate
-                </Link>
-                <Link
-                  to="/rehome"
-                  className="inline-block px-8 py-4 border-2 border-white text-white rounded-full font-semibold hover:bg-white/10 transition-all animate-fade-in"
-                >
-                  Pet Rehoming
-                </Link>
+    <>
+      <main className="min-h-screen bg-gray-50 py-8 md:pt-8 pt-4 pb-24 md:pb-8">
+        {/* Hero Section for Become a Pet Parent */}
+        <div className="relative overflow-hidden bg-gradient-to-r from-primary to-primary-dark">
+          <div className="absolute inset-0">
+            <img
+              src="https://images.unsplash.com/photo-1450778869180-41d0601e046e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1886&q=80"
+              alt="Happy pets"
+              className="w-full h-full object-cover opacity-20"
+            />
+          </div>
+          <div className="relative max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+              <div className="text-center lg:text-left">
+                <h1 className="text-4xl md:text-5xl font-bold text-white mb-6 animate-fade-in">
+                  Become a Pet Parent
+                </h1>
+                <p className="text-xl text-white/90 mb-8 animate-slide-up">
+                  Give a loving home to a pet in need. Experience the joy and unconditional love of pet parenthood.
+                </p>
+                <div className="space-y-4 sm:space-y-0 sm:space-x-4">
+                  <Link
+                    to="/find-furry-soulmate"
+                    className="inline-block px-8 py-4 bg-white text-primary rounded-full font-semibold hover:bg-gray-100 transition-all transform hover:scale-105 animate-bounce-subtle"
+                  >
+                    Find Your Furry Soulmate
+                  </Link>
+                  <Link
+                    to="/rehome"
+                    className="inline-block px-8 py-4 border-2 border-white text-white rounded-full font-semibold hover:bg-white/10 transition-all animate-fade-in"
+                  >
+                    Pet Rehoming
+                  </Link>
+                </div>
+              </div>
+              <div className="hidden lg:block">
+                <div className="relative">
+                  <div className="absolute -inset-4">
+                    <div className="w-full h-full mx-auto rotate-3 bg-gradient-to-r from-primary-light to-primary opacity-30 blur-lg">
+                    </div>
+                  </div>
+                  <img
+                    src="https://images.unsplash.com/photo-1544568100-847a948585b9?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1374&q=80"
+                    alt="Happy dog"
+                    className="relative rounded-lg shadow-xl transform -rotate-3 transition-transform hover:rotate-0 duration-300"
+                  />
+                </div>
               </div>
             </div>
-            <div className="hidden lg:block">
-              <div className="relative">
-                <div className="absolute -inset-4">
-                  <div className="w-full h-full mx-auto rotate-3 bg-gradient-to-r from-primary-light to-primary opacity-30 blur-lg">
+            
+            {/* Statistics */}
+            <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-8">
+              <div className="text-center">
+                <div className="text-4xl font-bold text-white mb-2 animate-count">1000+</div>
+                <div className="text-white/80">Pets Adopted</div>
+              </div>
+              <div className="text-center">
+                <div className="text-4xl font-bold text-white mb-2 animate-count">500+</div>
+                <div className="text-white/80">Happy Families</div>
+              </div>
+              <div className="text-center">
+                <div className="text-4xl font-bold text-white mb-2 animate-count">50+</div>
+                <div className="text-white/80">Partner Shelters</div>
+              </div>
+              <div className="text-center">
+                <div className="text-4xl font-bold text-white mb-2 animate-count">24/7</div>
+                <div className="text-white/80">Support</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Other Services Section */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <h2 className="text-3xl font-bold text-gray-900 text-center mb-12">Our Other Services</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {services.map((service) => (
+              <div
+                key={service.id}
+                className="bg-white rounded-lg shadow-lg overflow-hidden transform transition-all duration-300 hover:-translate-y-2"
+              >
+                <div className="relative h-48">
+                  <img
+                    src={service.image}
+                    alt={service.title}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                  <div className="absolute bottom-4 left-4">
+                    <h3 className="text-xl font-semibold text-white">{service.title}</h3>
                   </div>
                 </div>
-                <img
-                  src="https://images.unsplash.com/photo-1544568100-847a948585b9?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1374&q=80"
-                  alt="Happy dog"
-                  className="relative rounded-lg shadow-xl transform -rotate-3 transition-transform hover:rotate-0 duration-300"
-                />
-              </div>
-            </div>
-          </div>
-          
-          {/* Statistics */}
-          <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-8">
-            <div className="text-center">
-              <div className="text-4xl font-bold text-white mb-2 animate-count">1000+</div>
-              <div className="text-white/80">Pets Adopted</div>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl font-bold text-white mb-2 animate-count">500+</div>
-              <div className="text-white/80">Happy Families</div>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl font-bold text-white mb-2 animate-count">50+</div>
-              <div className="text-white/80">Partner Shelters</div>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl font-bold text-white mb-2 animate-count">24/7</div>
-              <div className="text-white/80">Support</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Other Services Section */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <h2 className="text-3xl font-bold text-gray-900 text-center mb-12">Our Other Services</h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {services.map((service) => (
-            <div
-              key={service.id}
-              className="bg-white rounded-lg shadow-lg overflow-hidden transform transition-all duration-300 hover:-translate-y-2"
-            >
-              <div className="relative h-48">
-                <img
-                  src={service.image}
-                  alt={service.title}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-                <div className="absolute bottom-4 left-4">
-                  <h3 className="text-xl font-semibold text-white">{service.title}</h3>
+                <div className="p-6">
+                  <p className="text-gray-600 mb-4">{service.description}</p>
+                  {service.title === 'Pet Transportation' ? (
+                    <Link
+                      to={service.link}
+                      className="inline-flex items-center px-4 py-2 bg-primary text-white hover:bg-primary-dark rounded transition-colors"
+                    >
+                      Book Transportation
+                      <svg className="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </Link>
+                  ) : service.comingSoon ? (
+                    <button 
+                      onClick={() => handleServiceClick(service)}
+                      className="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-700 hover:bg-gray-300 rounded transition-colors"
+                    >
+                      Coming Soon
+                    </button>
+                  ) : service.link && (
+                    <Link
+                      to={service.link}
+                      className="inline-flex items-center px-4 py-2 bg-primary text-white hover:bg-primary-dark rounded transition-colors"
+                    >
+                      {service.linkText || 'Learn More'}
+                      <svg className="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </Link>
+                  )}
                 </div>
               </div>
-              <div className="p-6">
-                <p className="text-gray-600 mb-4">{service.description}</p>
-                {service.title === 'Pet Transportation' ? (
-                  <Link
-                    to={service.link}
-                    className="inline-flex items-center px-4 py-2 bg-primary text-white hover:bg-primary-dark rounded transition-colors"
-                  >
-                    Book Transportation
-                    <svg className="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </Link>
-                ) : service.comingSoon ? (
-                  <button 
-                    onClick={() => handleServiceClick(service)}
-                    className="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-700 hover:bg-gray-300 rounded transition-colors"
-                  >
-                    Coming Soon
-                  </button>
-                ) : service.link && (
-                  <Link
-                    to={service.link}
-                    className="inline-flex items-center px-4 py-2 bg-primary text-white hover:bg-primary-dark rounded transition-colors"
-                  >
-                    {service.linkText || 'Learn More'}
-                    <svg className="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </Link>
-                )}
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
 
-      {/* Coming Soon Section */}
-      {selectedService && (
-        <div id="coming-soon-section" className="max-w-5xl mx-auto px-4 py-10">
-          <ComingSoon service={selectedService} />
-        </div>
-      )}
-    </div>
+        {/* Coming Soon Section */}
+        {selectedService && (
+          <div id="coming-soon-section" className="max-w-5xl mx-auto px-4 py-10">
+            <ComingSoon service={selectedService} />
+          </div>
+        )}
+      </main>
+      <Footer />
+      <MobileBottomNav />
+    </>
   );
 };
 

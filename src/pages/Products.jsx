@@ -4,6 +4,7 @@ import { getFirestore, collection, getDocs, query, where, orderBy } from 'fireba
 import { app } from '../firebase/config';
 import Footer from '../components/common/Footer';
 import Navbar from '../components/common/Navbar';
+import MobileBottomNav from '../components/common/MobileBottomNav';
 import { useAlert } from '../context/AlertContext';
 import RatingDisplay from '../components/common/RatingDisplay';
 
@@ -338,7 +339,7 @@ const Products = () => {
   return (
     <>
       <Navbar />
-      <main className="min-h-screen bg-gray-50 py-8">
+      <main className="min-h-screen bg-gray-50 py-8 md:pt-8 pt-4 pb-24 md:pb-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-4">Pet Products</h1>
@@ -705,6 +706,7 @@ const Products = () => {
           </div>
         </div>
       </main>
+      <MobileBottomNav />
     </>
   );
 };

@@ -4,6 +4,7 @@ import { getFirestore, doc, getDoc, collection, query, where, getDocs } from 'fi
 import { app } from '../firebase/config';
 import Navbar from '../components/common/Navbar';
 import Footer from '../components/common/Footer';
+import MobileBottomNav from '../components/common/MobileBottomNav';
 import { useAlert } from '../context/AlertContext';
 import ProductReviewDisplay from '../components/user/ProductReviewDisplay';
 import RatingDisplay from '../components/common/RatingDisplay';
@@ -186,7 +187,7 @@ const ProductDetail = () => {
   return (
     <>
       <Navbar />
-      <main className="min-h-screen bg-gray-50 py-12">
+      <main className="pt-24 md:pt-24 pb-24 md:pb-8 bg-gray-50 min-h-screen">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Breadcrumb */}
           <nav className="flex mb-8 text-sm text-gray-500">
@@ -382,6 +383,7 @@ const ProductDetail = () => {
         </div>
       </main>
       <Footer />
+      <MobileBottomNav />
     </>
   );
 };
