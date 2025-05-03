@@ -105,6 +105,18 @@ service cloud.firestore {
       allow read, update, delete: if true;
     }
     
+    // Doctor Prescriptions
+    match /doctorPrescriptions/{prescriptionId} {
+      allow read: if isAuthenticated() && 
+        (
+          (resource.data.patientId != null && request.auth.uid == resource.data.patientId) || 
+          isDoctorUser(request.auth.uid) || 
+          isAdminUser()
+        );
+      allow write: if isAuthenticated() && isDoctorUser(request.auth.uid);
+      allow delete: if isAuthenticated() && (isDoctorUser(request.auth.uid) || isAdminUser());
+    }
+    
     // Default deny other collections
     match /{document=**} {
       allow read, write: if false;

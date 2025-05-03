@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getFirestore, collection, query, where, getDocs, doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { app } from '../../../firebase/config';
+import PrescriptionManager from './PrescriptionManager';
 
 const AppointmentsList = () => {
   const [loading, setLoading] = useState(true);
@@ -9,6 +10,8 @@ const AppointmentsList = () => {
   const [doctorId, setDoctorId] = useState('');
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState(null);
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
 
   useEffect(() => {
     // Get logged in doctor info
@@ -157,6 +160,25 @@ const AppointmentsList = () => {
     }
   };
 
+  // Add function to handle prescription button click
+  const handlePrescriptionClick = (appointment) => {
+    setSelectedAppointment(appointment);
+    setShowPrescriptionModal(true);
+  };
+  
+  // Add function to handle prescription modal close
+  const handlePrescriptionModalClose = () => {
+    setShowPrescriptionModal(false);
+    setSelectedAppointment(null);
+  };
+  
+  // Add function to handle prescription success
+  const handlePrescriptionSuccess = () => {
+    setMessage('Prescription saved successfully');
+    setMessageType('success');
+    fetchAppointments(); // Refresh the appointments list
+  };
+
   if (!doctorId) {
     return (
       <div className="p-6">
@@ -220,6 +242,14 @@ const AppointmentsList = () => {
         <div className={`p-4 mb-6 rounded ${messageType === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
           {message}
         </div>
+      )}
+      
+      {showPrescriptionModal && selectedAppointment && (
+        <PrescriptionManager
+          appointment={selectedAppointment}
+          onClose={handlePrescriptionModalClose}
+          onSuccess={handlePrescriptionSuccess}
+        />
       )}
       
       {loading ? (
@@ -296,6 +326,16 @@ const AppointmentsList = () => {
                             Cancel
                           </button>
                         </>
+                      )}
+                      
+                      {/* Add Prescription button for completed appointments */}
+                      {appointment.status === 'completed' && (
+                        <button
+                          onClick={() => handlePrescriptionClick(appointment)}
+                          className="px-3 py-1 bg-purple-100 text-purple-800 rounded-md hover:bg-purple-200"
+                        >
+                          Prescription
+                        </button>
                       )}
                     </div>
                   </td>

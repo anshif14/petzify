@@ -15,6 +15,22 @@
         { "fieldPath": "userEmail", "order": "ASCENDING" },
         { "fieldPath": "ratedAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "doctorPrescriptions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "patientId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "doctorPrescriptions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "doctorId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

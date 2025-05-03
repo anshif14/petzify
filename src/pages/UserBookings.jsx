@@ -22,6 +22,8 @@ const UserBookings = () => {
   const { showError, showSuccess } = useAlert();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const navigate = useNavigate();
+  const [prescriptions, setPrescriptions] = useState({});
+  const [prescriptionsLoading, setPrescriptionsLoading] = useState(false);
 
   // Memoize fetchUserBookings to avoid ESLint warning
   const fetchUserBookings = useCallback(async () => {
@@ -91,6 +93,37 @@ const UserBookings = () => {
     }
   }, [currentUser, showError]);
 
+  const fetchPrescriptions = useCallback(async () => {
+    if (!currentUser) return;
+    
+    setPrescriptionsLoading(true);
+    try {
+      const db = getFirestore(app);
+      const prescriptionsCollection = collection(db, 'doctorPrescriptions');
+      
+      // We don't need to filter by patientId here since patientId might be missing in some records
+      // Instead, we'll match by appointmentId later
+      const prescriptionsSnapshot = await getDocs(prescriptionsCollection);
+      
+      const prescriptionsMap = {};
+      prescriptionsSnapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data.appointmentId) {
+          prescriptionsMap[data.appointmentId] = {
+            id: doc.id,
+            ...data,
+          };
+        }
+      });
+      
+      setPrescriptions(prescriptionsMap);
+    } catch (error) {
+      console.error('Error fetching prescriptions:', error);
+    } finally {
+      setPrescriptionsLoading(false);
+    }
+  }, [currentUser]);
+
   useEffect(() => {
     // Only check authentication after it's been initialized
     if (!authInitialized) return;
@@ -101,7 +134,8 @@ const UserBookings = () => {
     }
     
     fetchUserBookings();
-  }, [isAuthenticated, fetchUserBookings, authInitialized]);
+    fetchPrescriptions();
+  }, [isAuthenticated, fetchUserBookings, fetchPrescriptions, authInitialized]);
 
   const formatDate = (date) => {
     if (!date) return 'N/A';
@@ -314,6 +348,18 @@ const UserBookings = () => {
     }
   };
 
+  const handleViewPrescription = (appointmentId) => {
+    if (prescriptions[appointmentId]) {
+      if (prescriptions[appointmentId].prescriptionURL) {
+        window.open(prescriptions[appointmentId].prescriptionURL, '_blank');
+      } else {
+        showError('Prescription URL not found. Please contact support.', 'Error');
+      }
+    } else {
+      showError('Prescription not found. Please contact support.', 'Error');
+    }
+  };
+
   // Show loading spinner if auth is still initializing
   if (authLoading || !authInitialized) {
     return (
@@ -443,6 +489,33 @@ const UserBookings = () => {
                               >
                                 {cancelLoading ? 'Cancelling...' : 'Cancel Appointment'}
                               </button>
+                            )}
+
+                            {booking.type === 'vet' && (
+                              prescriptionsLoading ? (
+                                <div className="mt-2 ml-2 text-sm bg-gray-100 text-gray-600 px-3 py-1 rounded-full font-medium inline-flex items-center">
+                                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                  </svg>
+                                  Loading
+                                </div>
+                              ) : prescriptions[booking.id] ? (
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleViewPrescription(booking.id);
+                                  }}
+                                  className="mt-2 ml-2 text-sm bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full hover:bg-indigo-200 transition-colors font-medium focus:outline-none"
+                                >
+                                  <div className="flex items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    Prescription
+                                  </div>
+                                </button>
+                              ) : null
                             )}
                           </div>
                         </div>
@@ -614,6 +687,33 @@ const UserBookings = () => {
                                   </div>
                                 )}
                               </div>
+                            )}
+
+                            {booking.type === 'vet' && (
+                              prescriptionsLoading ? (
+                                <div className="mt-2 ml-2 text-sm bg-gray-100 text-gray-600 px-3 py-1 rounded-full font-medium inline-flex items-center">
+                                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                  </svg>
+                                  Loading
+                                </div>
+                              ) : prescriptions[booking.id] ? (
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleViewPrescription(booking.id);
+                                  }}
+                                  className="mt-2 ml-2 text-sm bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full hover:bg-indigo-200 transition-colors font-medium focus:outline-none"
+                                >
+                                  <div className="flex items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    Prescription
+                                  </div>
+                                </button>
+                              ) : null
                             )}
                           </div>
                         )}
