@@ -62,6 +62,8 @@ doctordetails/{username}
   - `type` (string): Type of certificate (e.g., "image", "pdf")
 - `degrees` (array): List of degree strings (e.g., "DVM", "BVSc")
 - `designations` (array): List of role/designation strings (e.g., "Chief Veterinarian")
+- `averageRating` (number): Average rating from all reviews (calculated)
+- `reviewCount` (number): Total number of reviews received
 - `updatedAt` (timestamp): When the profile was last updated
 
 ### 3. doctorSlots
@@ -109,8 +111,33 @@ appointments/{appointmentId}
 - `startTime` (string): Start time of the appointment
 - `endTime` (string): End time of the appointment
 - `status` (string): Status of the appointment (pending, confirmed, cancelled, completed)
+- `isReviewed` (boolean): Whether the appointment has been reviewed
 - `createdAt` (timestamp): When the appointment was created
 - `updatedAt` (timestamp): When the appointment was last updated
+
+### 5. doctorReviews
+
+This collection stores reviews and ratings for doctors submitted by patients after appointments.
+
+**Document Structure:**
+```
+doctorReviews/{reviewId}
+```
+
+**Fields:**
+- `doctorId` (string): Reference to the doctor's username
+- `doctorName` (string): Doctor's name
+- `appointmentId` (string): Reference to the appointment
+- `patientId` (string): Reference to the patient's email
+- `patientName` (string): Patient's name 
+- `petName` (string): Name of the pet that received care
+- `petType` (string): Type of pet
+- `rating` (number): Star rating from 1-5
+- `review` (string): Text review content
+- `reviewImageUrl` (string): URL to an image attached to the review (optional)
+- `reviewDate` (timestamp): Date when the review was submitted
+- `appointmentDate` (timestamp): Date of the appointment being reviewed
+- `hidden` (boolean): Whether the review is hidden from public view (for moderation)
 
 ## Queries
 
@@ -144,12 +171,23 @@ appointments/{appointmentId}
    )
    ```
 
+4. **Get Doctor Reviews**
+   ```javascript
+   query(
+     collection(db, 'doctorReviews'),
+     where('doctorId', '==', doctorId),
+     where('hidden', '==', false),
+     orderBy('reviewDate', 'desc')
+   )
+   ```
+
 ## Relationships
 
 - Admin document with role="doctor" references a doctordetails document using the username field
 - A doctor (identified by username) can have multiple availability slots (doctorSlots documents)
 - Each availability slot (doctorSlots document) can be booked for one appointment (appointments document)
 - A patient can have multiple appointments with different doctors
+- An appointment can have one review in the doctorReviews collection
 
 ## Security Rules
 
@@ -194,6 +232,15 @@ match /databases/{database}/documents {
                               resource.data.patientId == request.auth.uid || 
                               get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.role == 'superadmin');
   }
+  
+  // Doctor reviews rules
+  match /doctorReviews/{reviewId} {
+    allow read: if true;
+    allow create: if request.auth != null && request.resource.data.patientId == request.auth.uid;
+    allow update, delete: if request.auth != null && 
+                             (resource.data.patientId == request.auth.uid || 
+                              get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.role == 'superadmin');
+  }
 }
 ```
 
@@ -209,6 +256,9 @@ The following composite indexes should be created for efficient queries:
 
 3. Collection: `appointments`
    - Fields: `patientId` (Ascending), `appointmentDate` (Ascending)
+   
+4. Collection: `doctorReviews`
+   - Fields: `doctorId` (Ascending), `reviewDate` (Descending)
 
 ## Best Practices
 
@@ -217,3 +267,4 @@ The following composite indexes should be created for efficient queries:
 3. Implement transaction operations when creating appointments to ensure slot availability
 4. Set up Cloud Functions to handle appointment notifications and reminders
 5. Regularly audit and clean up expired slots 
+6. Use Cloud Functions to update the doctor's average rating when a new review is submitted 

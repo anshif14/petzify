@@ -7,6 +7,7 @@ import BookingInitializer from './BookingInitializer';
 import { useAlert } from '../../context/AlertContext';
 import { useUser } from '../../context/UserContext';
 import AuthModal from '../auth/AuthModal';
+import StarRating from '../common/StarRating';
 
 const DoctorBooking = () => {
   const [loading, setLoading] = useState(true);
@@ -98,7 +99,9 @@ const DoctorBooking = () => {
             photoURL: detailsData.photoURL || '',
             degrees: detailsData.degrees || [],
             designations: detailsData.designations || [],
-            certificates: detailsData.certificates || []
+            certificates: detailsData.certificates || [],
+            averageRating: detailsData.averageRating || 0,
+            reviewCount: detailsData.reviewCount || 0
           });
         });
         
@@ -138,7 +141,9 @@ const DoctorBooking = () => {
                 photoURL: '',
                 degrees: [],
                 designations: [],
-                certificates: []
+                certificates: [],
+                averageRating: 0,
+                reviewCount: 0
               });
             }
           }
@@ -500,6 +505,24 @@ const DoctorBooking = () => {
                                 <h4 className="text-lg font-medium text-gray-900">Dr. {doctor.name}</h4>
                                 <p className="text-primary">{doctor.specialization}</p>
                                 
+                                {/* Display doctor rating */}
+                                <div className="mt-1 flex items-center">
+                                  {doctor.reviewCount > 0 ? (
+                                    <>
+                                      <StarRating 
+                                        initialRating={doctor.averageRating} 
+                                        disabled={true} 
+                                        size="small"
+                                      />
+                                      <span className="text-sm text-gray-500 ml-2">
+                                        ({doctor.reviewCount} {doctor.reviewCount === 1 ? 'review' : 'reviews'})
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <span className="text-sm text-gray-500">No reviews yet</span>
+                                  )}
+                                </div>
+                                
                                 {/* Degrees */}
                                 {doctor.degrees && doctor.degrees.length > 0 && (
                                   <div className="mt-1 flex flex-wrap gap-1">
@@ -618,6 +641,20 @@ const DoctorBooking = () => {
                         <div>
                           <h4 className="text-lg font-medium text-gray-900">Dr. {selectedDoctor.name}</h4>
                           <p className="text-primary">{selectedDoctor.specialization}</p>
+                          
+                          {/* Display doctor rating */}
+                          {selectedDoctor.reviewCount > 0 && (
+                            <div className="flex items-center mt-1">
+                              <StarRating 
+                                initialRating={selectedDoctor.averageRating} 
+                                disabled={true} 
+                                size="small"
+                              />
+                              <span className="text-sm text-gray-500 ml-2">
+                                ({selectedDoctor.reviewCount} {selectedDoctor.reviewCount === 1 ? 'review' : 'reviews'})
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                       

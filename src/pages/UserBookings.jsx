@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getFirestore, collection, query, where, getDocs, orderBy, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { getFirestore, collection, query, where, getDocs, orderBy, doc, updateDoc, setDoc, addDoc, getDoc } from 'firebase/firestore';
 import { app } from '../firebase/config';
 import Navbar from '../components/common/Navbar';
 import Footer from '../components/common/Footer';
@@ -10,6 +10,7 @@ import AuthModal from '../components/auth/AuthModal';
 import PageLoader from '../components/common/PageLoader';
 import StarRating from '../components/common/StarRating';
 import ReviewForm from '../components/common/ReviewForm';
+import DoctorReviewForm from '../components/common/DoctorReviewForm';
 
 const UserBookings = () => {
   const [bookings, setBookings] = useState([]);
@@ -278,7 +279,99 @@ const UserBookings = () => {
     }));
   };
 
-  // Handle submitting a rating for a booking
+  // Handle submitting a rating for a doctor appointment
+  const handleSubmitDoctorRating = async (booking, reviewData) => {
+    if (!booking.id || ratingLoading) return;
+    
+    setRatingLoading(true);
+    try {
+      const db = getFirestore(app);
+      
+      // Only allow rating for vet appointments
+      if (booking.type !== 'vet') {
+        showError('Only vet appointments can be rated', 'Error');
+        return;
+      }
+      
+      // Create a new document in doctorReviews collection
+      const reviewRef = await addDoc(collection(db, 'doctorReviews'), {
+        doctorId: booking.doctorId,
+        doctorName: booking.doctorName,
+        appointmentId: booking.id,
+        patientId: currentUser.email,
+        patientName: booking.patientName,
+        petName: booking.petName,
+        petType: booking.petType,
+        rating: reviewData.rating,
+        review: reviewData.reviewText || '',
+        reviewImageUrl: reviewData.imageUrl || null,
+        reviewDate: new Date(),
+        appointmentDate: booking.appointmentDate,
+        hidden: false
+      });
+      
+      // Update the appointment with review info
+      const appointmentRef = doc(db, 'appointments', booking.id);
+      await updateDoc(appointmentRef, {
+        isReviewed: true,
+        rating: reviewData.rating,
+        review: reviewData.reviewText || '',
+        reviewImageUrl: reviewData.imageUrl || null,
+        reviewedAt: new Date()
+      });
+      
+      // Update the doctor's average rating in doctordetails
+      // This is optional and can also be done with a Cloud Function
+      const doctorDetailsRef = doc(db, 'doctordetails', booking.doctorId);
+      const doctorDetailsDoc = await getDoc(doctorDetailsRef);
+      
+      if (doctorDetailsDoc.exists()) {
+        const doctorData = doctorDetailsDoc.data();
+        const currentRating = doctorData.averageRating || 0;
+        const currentCount = doctorData.reviewCount || 0;
+        
+        // Calculate new average rating
+        const newCount = currentCount + 1;
+        const newAverage = (currentRating * currentCount + reviewData.rating) / newCount;
+        
+        await updateDoc(doctorDetailsRef, {
+          averageRating: newAverage,
+          reviewCount: newCount
+        });
+      }
+      
+      // Update local state to show rating
+      setBookings(prevBookings => 
+        prevBookings.map(b => 
+          b.id === booking.id 
+            ? {
+                ...b, 
+                isReviewed: true,
+                rating: reviewData.rating, 
+                review: reviewData.reviewText || '',
+                reviewImageUrl: reviewData.imageUrl || null,
+                reviewedAt: new Date()
+              } 
+            : b
+        )
+      );
+      
+      // Hide the review form
+      setShowReviewForm(prev => ({
+        ...prev,
+        [booking.id]: false
+      }));
+      
+      showSuccess('Thank you for your review!', 'Review Submitted');
+    } catch (error) {
+      console.error('Error submitting doctor review:', error);
+      showError('Could not submit your review. Please try again later.', 'Error');
+    } finally {
+      setRatingLoading(false);
+    }
+  };
+
+  // Handle submitting a rating for a boarding booking
   const handleSubmitRating = async (booking, reviewData) => {
     if (!booking.id || ratingLoading) return;
     
@@ -610,6 +703,87 @@ const UserBookings = () => {
                           </div>
                         )}
 
+                        {/* Rating section for completed vet appointments */}
+                        {booking.type === 'vet' && 
+                         booking.status?.toLowerCase() === 'completed' && (
+                          <div className="mt-4 pt-3 border-t border-gray-100">
+                            {booking.isReviewed ? (
+                              <div>
+                                <div className="flex justify-between items-center mb-2">
+                                  <p className="text-sm font-medium text-gray-700">Your Review:</p>
+                                  <button
+                                    onClick={() => toggleReviewForm(booking.id)}
+                                    className="text-sm text-primary hover:text-primary-dark"
+                                  >
+                                    {showReviewForm[booking.id] ? 'Cancel' : 'Edit Review'}
+                                  </button>
+                                </div>
+                                
+                                {!showReviewForm[booking.id] && (
+                                  <div>
+                                    <StarRating initialRating={booking.rating} disabled={true} />
+                                    
+                                    {booking.review && (
+                                      <p className="mt-2 text-sm text-gray-700">
+                                        "{booking.review}"
+                                      </p>
+                                    )}
+                                    
+                                    {booking.reviewImageUrl && (
+                                      <div className="mt-2">
+                                        <img 
+                                          src={booking.reviewImageUrl} 
+                                          alt="Review" 
+                                          className="review-image" 
+                                        />
+                                      </div>
+                                    )}
+                                    
+                                    <p className="text-xs text-gray-500 mt-2">
+                                      Reviewed on {booking.reviewedAt ? new Date(booking.reviewedAt).toLocaleDateString() : 'Unknown'}
+                                    </p>
+                                  </div>
+                                )}
+                                
+                                {showReviewForm[booking.id] && (
+                                  <DoctorReviewForm
+                                    initialRating={booking.rating}
+                                    onSubmit={(reviewData) => handleSubmitDoctorRating(booking, reviewData)}
+                                    loading={ratingLoading}
+                                    appointmentId={booking.id}
+                                    doctorName={booking.doctorName || 'the doctor'}
+                                  />
+                                )}
+                              </div>
+                            ) : (
+                              <div>
+                                <p className="text-sm font-medium text-gray-700 mb-2">
+                                  Share your experience with Dr. {booking.doctorName}
+                                </p>
+                                
+                                <button
+                                  onClick={() => toggleReviewForm(booking.id)}
+                                  className="text-sm bg-primary text-white px-3 py-1 rounded hover:bg-primary-dark"
+                                >
+                                  Write a Review
+                                </button>
+                                
+                                {showReviewForm[booking.id] && (
+                                  <div className="mt-3">
+                                    <DoctorReviewForm
+                                      initialRating={0}
+                                      onSubmit={(reviewData) => handleSubmitDoctorRating(booking, reviewData)}
+                                      loading={ratingLoading}
+                                      appointmentId={booking.id}
+                                      doctorName={booking.doctorName || 'the doctor'}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         {/* Rating section for completed boarding bookings */}
                         {booking.type === 'boarding' && 
                          booking.status?.toLowerCase() !== 'cancelled' && (
@@ -687,33 +861,6 @@ const UserBookings = () => {
                                   </div>
                                 )}
                               </div>
-                            )}
-
-                            {booking.type === 'vet' && (
-                              prescriptionsLoading ? (
-                                <div className="mt-2 ml-2 text-sm bg-gray-100 text-gray-600 px-3 py-1 rounded-full font-medium inline-flex items-center">
-                                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                  </svg>
-                                  Loading
-                                </div>
-                              ) : prescriptions[booking.id] ? (
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleViewPrescription(booking.id);
-                                  }}
-                                  className="mt-2 ml-2 text-sm bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full hover:bg-indigo-200 transition-colors font-medium focus:outline-none"
-                                >
-                                  <div className="flex items-center">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                    </svg>
-                                    Prescription
-                                  </div>
-                                </button>
-                              ) : null
                             )}
                           </div>
                         )}

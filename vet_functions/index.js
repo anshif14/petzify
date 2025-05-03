@@ -12,6 +12,8 @@ const { initializeApp } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
 const nodemailer = require("nodemailer");
 const logger = require("firebase-functions/logger");
+const functions = require("firebase-functions");
+const admin = require("firebase-admin");
 
 // Initialize Firebase Admin
 initializeApp();
@@ -1203,3 +1205,154 @@ exports.sendAppointmentReminders = onSchedule({
     logger.error("Error in appointment reminder function:", error);
   }
 });
+
+// Function to update doctor rating when a new review is submitted
+exports.updateDoctorRating = functions.firestore
+  .document('doctorReviews/{reviewId}')
+  .onCreate(async (snapshot, context) => {
+    try {
+      const reviewData = snapshot.data();
+      const doctorId = reviewData.doctorId;
+      
+      if (!doctorId) {
+        console.error('No doctorId found in review data');
+        return null;
+      }
+      
+      // Get all reviews for this doctor that are not hidden
+      const reviewsSnapshot = await db.collection('doctorReviews')
+        .where('doctorId', '==', doctorId)
+        .where('hidden', '==', false)
+        .get();
+      
+      if (reviewsSnapshot.empty) {
+        console.log('No matching reviews found');
+        return null;
+      }
+      
+      // Calculate new average rating
+      let totalRating = 0;
+      let reviewCount = 0;
+      
+      reviewsSnapshot.forEach(doc => {
+        const data = doc.data();
+        if (data.rating) {
+          totalRating += data.rating;
+          reviewCount++;
+        }
+      });
+      
+      const averageRating = reviewCount > 0 ? totalRating / reviewCount : 0;
+      
+      // Update the doctor document with new rating data
+      await db.collection('doctordetails').doc(doctorId).update({
+        averageRating: averageRating,
+        reviewCount: reviewCount,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+      
+      console.log(`Updated rating for doctor ${doctorId} to ${averageRating} (${reviewCount} reviews)`);
+      return null;
+    } catch (error) {
+      console.error('Error updating doctor rating:', error);
+      return null;
+    }
+  });
+
+// Function to handle review updates
+exports.updateDoctorRatingOnReviewChange = functions.firestore
+  .document('doctorReviews/{reviewId}')
+  .onUpdate(async (change, context) => {
+    try {
+      const newData = change.after.data();
+      const previousData = change.before.data();
+      const doctorId = newData.doctorId;
+      
+      // If the rating didn't change and the hidden status didn't change, ignore
+      if (newData.rating === previousData.rating && 
+          newData.hidden === previousData.hidden) {
+        return null;
+      }
+      
+      // Get all reviews for this doctor that are not hidden
+      const reviewsSnapshot = await db.collection('doctorReviews')
+        .where('doctorId', '==', doctorId)
+        .where('hidden', '==', false)
+        .get();
+      
+      // Calculate new average rating
+      let totalRating = 0;
+      let reviewCount = 0;
+      
+      reviewsSnapshot.forEach(doc => {
+        const data = doc.data();
+        if (data.rating) {
+          totalRating += data.rating;
+          reviewCount++;
+        }
+      });
+      
+      const averageRating = reviewCount > 0 ? totalRating / reviewCount : 0;
+      
+      // Update the doctor document with new rating data
+      await db.collection('doctordetails').doc(doctorId).update({
+        averageRating: averageRating,
+        reviewCount: reviewCount,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+      
+      console.log(`Updated rating for doctor ${doctorId} to ${averageRating} (${reviewCount} reviews)`);
+      return null;
+    } catch (error) {
+      console.error('Error updating doctor rating on review change:', error);
+      return null;
+    }
+  });
+
+// Function to handle review deletions 
+exports.updateDoctorRatingOnReviewDelete = functions.firestore
+  .document('doctorReviews/{reviewId}')
+  .onDelete(async (snapshot, context) => {
+    try {
+      const deletedData = snapshot.data();
+      const doctorId = deletedData.doctorId;
+      
+      if (!doctorId) {
+        console.error('No doctorId found in deleted review');
+        return null;
+      }
+      
+      // Get all remaining reviews for this doctor that are not hidden
+      const reviewsSnapshot = await db.collection('doctorReviews')
+        .where('doctorId', '==', doctorId)
+        .where('hidden', '==', false)
+        .get();
+      
+      // Calculate new average rating
+      let totalRating = 0;
+      let reviewCount = 0;
+      
+      reviewsSnapshot.forEach(doc => {
+        const data = doc.data();
+        if (data.rating) {
+          totalRating += data.rating;
+          reviewCount++;
+        }
+      });
+      
+      const averageRating = reviewCount > 0 ? totalRating / reviewCount : 0;
+      
+      // Update the doctor document with new rating data
+      await db.collection('doctordetails').doc(doctorId).update({
+        averageRating: averageRating,
+        reviewCount: reviewCount,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+      
+      console.log(`Updated rating for doctor ${doctorId} to ${averageRating} (${reviewCount} reviews)`);
+      return null;
+    } catch (error) {
+      console.error('Error updating doctor rating on review deletion:', error);
+      return null;
+    }
+  });
