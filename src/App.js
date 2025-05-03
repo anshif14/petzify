@@ -1,5 +1,7 @@
 import React, { useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from './firebase/config';
 import './App.css';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -35,6 +37,12 @@ import PetDetails from './pages/PetDetails';
 import PetBoarding from './pages/PetBoarding';
 import BoardingDetail from './pages/BoardingDetail';
 import PetBoardingAdmin from './pages/admin/PetBoardingAdmin';
+// TailTalks Community pages
+import TailTalks from './pages/TailTalks';
+import CommunityDetail from './pages/CommunityDetail';
+import CreateCommunity from './pages/CreateCommunity';
+import CreatePost from './pages/CreatePost';
+import PostDetail from './pages/PostDetail';
 
 // Import context providers
 import { AlertProvider } from './context/AlertContext';
@@ -97,7 +105,7 @@ function App() {
               <div className="md:hidden block"><MobileProfile /></div>
             </Layout>} />
             <Route path="/admin" element={<Layout><AdminLogin /></Layout>} />
-            
+
             {/* Admin Dashboard Route */}
             <Route path="/admin/dashboard" element={
               <Layout>
@@ -117,6 +125,14 @@ function App() {
             <Route path="/rehome" element={<Layout><PetRehoming /></Layout>} />
             <Route path="/find-furry-soulmate" element={<Layout><FindFurrySoulmate /></Layout>} />
             <Route path="/pets/:petId" element={<Layout><PetDetails /></Layout>} />
+            
+            {/* TailTalks Community Routes */}
+            <Route path="/tailtalk" element={<Layout><TailTalks /></Layout>} />
+            <Route path="/tailtalk/community/:communityId" element={<Layout><CommunityDetail /></Layout>} />
+            <Route path="/tailtalk/create-community" element={<Layout><CreateCommunity /></Layout>} />
+            <Route path="/tailtalk/community/:communityId/create-post" element={<Layout><CreatePost /></Layout>} />
+            <Route path="/tailtalk/community/:communityId/post/:postId" element={<Layout><PostDetail /></Layout>} />
+            
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Router>

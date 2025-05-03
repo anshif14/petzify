@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import logoImage from '../../assets/images/logo.png';
 import logoText from '../../assets/images/logo_text.png';
 import UserAccountButton from '../auth/UserAccountButton';
 
 const Navbar = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [cartItemCount, setCartItemCount] = useState(0);
@@ -72,6 +73,15 @@ const Navbar = () => {
             <NavLink to="/products" className={({isActive}) => isActive ? activeClass : inactiveClass}>
               Products
             </NavLink>
+
+            {/*//TODO:Tail Talks*/}
+            {/*<NavLink */}
+            {/*  to="/tailtalk" */}
+            {/*  className={location.pathname.includes('/tailtalk') ? activeClass : inactiveClass}*/}
+            {/*>*/}
+            {/*  TailTalks*/}
+            {/*</NavLink>*/}
+
             {/*<NavLink to="/book-appointment" className={({isActive}) => isActive ? activeClass : inactiveClass}>*/}
             {/*  Book Vet*/}
             {/*</NavLink>*/}
@@ -171,6 +181,14 @@ const Navbar = () => {
               onClick={() => setIsMobileMenuOpen(false)}
             >
               Products
+            </NavLink>
+            <NavLink to="/tailtalk" 
+              className={({isActive}) => 
+                `block px-3 py-2 rounded-md text-base font-medium ${isActive ? 'bg-primary text-white' : 'text-gray-700 hover:bg-gray-100'}`
+              }
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              TailTalks
             </NavLink>
             <NavLink to="/book-appointment" 
               className={({isActive}) => 
