@@ -257,7 +257,7 @@ const DoctorDashboard = () => {
             }`}
             onClick={() => setActiveTab('debug')}
           >
-            Debug
+            Quick Add
           </button>
         </div>
         
