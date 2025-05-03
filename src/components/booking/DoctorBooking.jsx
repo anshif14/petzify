@@ -43,26 +43,50 @@ const DoctorBooking = () => {
         setLoading(true);
         const db = getFirestore(app);
         
-        // Query for users with doctor role
+        // First get all admin users with doctor role to get the list of usernames
         const doctorsQuery = query(
           collection(db, 'admin'),
           where('role', '==', 'doctor')
         );
         
-        const querySnapshot = await getDocs(doctorsQuery);
+        const adminSnapshot = await getDocs(doctorsQuery);
+        
+        // Get the usernames of all doctors
+        const doctorUsernames = [];
+        adminSnapshot.forEach((doc) => {
+          const adminData = doc.data();
+          if (adminData.username) {
+            doctorUsernames.push(adminData.username);
+          }
+        });
+        
+        // If no doctors found, return empty list
+        if (doctorUsernames.length === 0) {
+          setDoctors([]);
+          setLoading(false);
+          return;
+        }
+        
+        // Now fetch doctor details from doctordetails collection
+        const doctorDetailsQuery = query(
+          collection(db, 'doctordetails'),
+          where('username', 'in', doctorUsernames)
+        );
+        
+        const detailsSnapshot = await getDocs(doctorDetailsQuery);
         
         const doctorsList = [];
-        querySnapshot.forEach((doc) => {
-          const doctorData = doc.data();
+        detailsSnapshot.forEach((doc) => {
+          const detailsData = doc.data();
           doctorsList.push({
             id: doc.id,
-            username: doctorData.username,
-            name: doctorData.name,
-            specialization: doctorData.profileInfo?.specialization || 'General Veterinarian',
-            experience: doctorData.profileInfo?.experience || '',
-            about: doctorData.profileInfo?.about || '',
-            consultationFee: doctorData.profileInfo?.consultationFee || '',
-            workingDays: doctorData.profileInfo?.workingDays || {
+            username: detailsData.username,
+            name: detailsData.name,
+            specialization: detailsData.specialization || 'General Veterinarian',
+            experience: detailsData.experience || '',
+            about: detailsData.about || '',
+            consultationFee: detailsData.consultationFee || '',
+            workingDays: detailsData.workingDays || {
               monday: true,
               tuesday: true,
               wednesday: true,
@@ -70,9 +94,55 @@ const DoctorBooking = () => {
               friday: true,
               saturday: false,
               sunday: false
-            }
+            },
+            photoURL: detailsData.photoURL || '',
+            degrees: detailsData.degrees || [],
+            designations: detailsData.designations || [],
+            certificates: detailsData.certificates || []
           });
         });
+        
+        // If there are doctors in admin but not in doctordetails, fetch their basic info
+        if (doctorUsernames.length > doctorsList.length) {
+          const foundUsernames = doctorsList.map(doctor => doctor.username);
+          const missingUsernames = doctorUsernames.filter(username => !foundUsernames.includes(username));
+          
+          // For each missing doctor, get their admin data
+          for (const username of missingUsernames) {
+            const adminUserQuery = query(
+              collection(db, 'admin'),
+              where('username', '==', username)
+            );
+            
+            const userSnapshot = await getDocs(adminUserQuery);
+            
+            if (!userSnapshot.empty) {
+              const userData = userSnapshot.docs[0].data();
+              doctorsList.push({
+                id: userSnapshot.docs[0].id,
+                username: userData.username,
+                name: userData.name || userData.username,
+                specialization: 'General Veterinarian',
+                experience: '',
+                about: '',
+                consultationFee: '',
+                workingDays: {
+                  monday: true,
+                  tuesday: true,
+                  wednesday: true,
+                  thursday: true,
+                  friday: true,
+                  saturday: false,
+                  sunday: false
+                },
+                photoURL: '',
+                degrees: [],
+                designations: [],
+                certificates: []
+              });
+            }
+          }
+        }
         
         setDoctors(doctorsList);
       } catch (error) {
@@ -410,40 +480,111 @@ const DoctorBooking = () => {
                         className="border border-gray-200 rounded-lg p-4 hover:border-primary hover:shadow-md transition-all cursor-pointer"
                         onClick={() => handleDoctorSelect(doctor)}
                       >
-                        <div className="flex flex-col md:flex-row md:items-center">
-                          <div className="md:w-1/4 mb-4 md:mb-0">
-                            <div className="w-20 h-20 bg-primary-light rounded-full flex items-center justify-center text-primary text-2xl font-bold mx-auto">
-                              {doctor.name.charAt(0)}
-                            </div>
+                        <div className="flex flex-col md:flex-row md:items-start">
+                          <div className="md:w-1/4 mb-4 md:mb-0 flex justify-center">
+                            {doctor.photoURL ? (
+                              <img 
+                                src={doctor.photoURL} 
+                                alt={`Dr. ${doctor.name}`} 
+                                className="w-24 h-24 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-24 h-24 bg-primary-light rounded-full flex items-center justify-center text-primary text-2xl font-bold">
+                                {doctor.name.charAt(0)}
+                              </div>
+                            )}
                           </div>
                           <div className="md:w-3/4">
-                            <h4 className="text-lg font-medium text-gray-900">Dr. {doctor.name}</h4>
-                            <p className="text-primary">{doctor.specialization}</p>
-                            {doctor.experience && (
-                              <p className="text-sm text-gray-600 mt-1">Experience: {doctor.experience} years</p>
-                            )}
-                            {doctor.about && (
-                              <p className="text-sm text-gray-600 mt-2">{doctor.about}</p>
-                            )}
-                            {doctor.consultationFee && (
-                              <p className="text-sm text-gray-600 mt-2">Consultation Fee: {doctor.consultationFee}</p>
-                            )}
-                            <div className="mt-2">
-                              <p className="text-xs text-gray-500">Working Days:</p>
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {Object.entries(doctor.workingDays).map(([day, isWorking]) => (
-                                  <span 
-                                    key={day} 
-                                    className={`text-xs px-2 py-1 rounded capitalize ${
-                                      isWorking 
-                                        ? 'bg-green-100 text-green-800' 
-                                        : 'bg-gray-100 text-gray-400 line-through'
-                                    }`}
-                                  >
-                                    {day}
-                                  </span>
-                                ))}
+                            <div className="flex flex-col md:flex-row md:justify-between md:items-start">
+                              <div>
+                                <h4 className="text-lg font-medium text-gray-900">Dr. {doctor.name}</h4>
+                                <p className="text-primary">{doctor.specialization}</p>
+                                
+                                {/* Degrees */}
+                                {doctor.degrees && doctor.degrees.length > 0 && (
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {doctor.degrees.map((degree, index) => (
+                                      <span key={index} className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full">
+                                        {degree}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                                
+                                {/* Designations */}
+                                {doctor.designations && doctor.designations.length > 0 && (
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {doctor.designations.map((designation, index) => (
+                                      <span key={index} className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full">
+                                        {designation}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                                
+                                {doctor.experience && (
+                                  <p className="text-sm text-gray-600 mt-2">Experience: {doctor.experience} years</p>
+                                )}
                               </div>
+                              
+                              {doctor.consultationFee && (
+                                <div className="mt-2 md:mt-0 text-right">
+                                  <span className="bg-primary-light text-white px-3 py-1 rounded-full text-sm font-medium">
+                                    Fee: ₹ {doctor.consultationFee}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                            
+                            {doctor.about && (
+                              <p className="text-sm text-gray-600 mt-3">{doctor.about}</p>
+                            )}
+                            
+                            {/* Certificates */}
+                            {doctor.certificates && doctor.certificates.length > 0 && (
+                              <div className="mt-3">
+                                <p className="text-sm font-medium text-gray-700">Certificates & Qualifications</p>
+                                <div className="flex overflow-x-auto gap-2 mt-1 pb-2">
+                                  {doctor.certificates.slice(0, 3).map((cert, index) => (
+                                    <a
+                                      key={index}
+                                      href={cert.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="min-w-[80px] flex-shrink-0"
+                                    >
+                                      {cert.type === 'image' ? (
+                                        <img 
+                                          src={cert.url} 
+                                          alt={`Certificate ${index + 1}`} 
+                                          className="w-20 h-20 object-cover border rounded" 
+                                        />
+                                      ) : (
+                                        <div className="w-20 h-20 bg-gray-100 border rounded flex items-center justify-center">
+                                          <span className="text-red-600 text-lg">PDF</span>
+                                        </div>
+                                      )}
+                                    </a>
+                                  ))}
+                                  {doctor.certificates.length > 3 && (
+                                    <div className="w-20 h-20 bg-gray-100 border rounded flex items-center justify-center">
+                                      <span className="text-gray-600 text-xs">+{doctor.certificates.length - 3} more</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                            
+                            <div className="mt-4 flex justify-end">
+                              <button 
+                                className="bg-primary text-white px-4 py-1 rounded-md text-sm hover:bg-primary-dark transition-colors"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDoctorSelect(doctor);
+                                }}
+                              >
+                                Select & Book
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -461,7 +602,66 @@ const DoctorBooking = () => {
                 
                 <div className="flex flex-col md:flex-row gap-6">
                   <div className="md:w-1/2">
-                    <p className="text-gray-700 mb-2">Selected Doctor: <span className="font-medium">Dr. {selectedDoctor.name}</span></p>
+                    <div className="bg-white p-4 rounded-lg shadow-sm mb-4">
+                      <div className="flex items-center mb-3">
+                        {selectedDoctor.photoURL ? (
+                          <img 
+                            src={selectedDoctor.photoURL} 
+                            alt={`Dr. ${selectedDoctor.name}`} 
+                            className="w-16 h-16 rounded-full object-cover mr-3"
+                          />
+                        ) : (
+                          <div className="w-16 h-16 bg-primary-light rounded-full flex items-center justify-center text-primary text-xl font-bold mr-3">
+                            {selectedDoctor.name.charAt(0)}
+                          </div>
+                        )}
+                        <div>
+                          <h4 className="text-lg font-medium text-gray-900">Dr. {selectedDoctor.name}</h4>
+                          <p className="text-primary">{selectedDoctor.specialization}</p>
+                        </div>
+                      </div>
+                      
+                      {selectedDoctor.degrees && selectedDoctor.degrees.length > 0 && (
+                        <div className="mb-2">
+                          <p className="text-sm font-medium text-gray-700">Degrees:</p>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {selectedDoctor.degrees.map((degree, index) => (
+                              <span key={index} className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full">
+                                {degree}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {selectedDoctor.designations && selectedDoctor.designations.length > 0 && (
+                        <div className="mb-2">
+                          <p className="text-sm font-medium text-gray-700">Designations:</p>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {selectedDoctor.designations.map((designation, index) => (
+                              <span key={index} className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full">
+                                {designation}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <p className="text-gray-700 mb-1">
+                        <span className="font-medium">Experience:</span> {selectedDoctor.experience} years
+                      </p>
+                      
+                      {selectedDoctor.consultationFee && (
+                        <p className="text-gray-700 mb-1">
+                          <span className="font-medium">Consultation Fee:</span> {selectedDoctor.consultationFee}
+                        </p>
+                      )}
+                      
+                      <div className="bg-gray-50 p-3 rounded mt-3">
+                        <p className="text-sm text-gray-700">{selectedDoctor.about}</p>
+                      </div>
+                    </div>
+                    
                     <div className="flex justify-center mb-4">
                       <Calendar
                         onChange={handleDateChange}
@@ -505,24 +705,12 @@ const DoctorBooking = () => {
                       )
                     )}
                     
-                    <div className="mt-6 flex justify-between">
+                    <div className="mt-4">
                       <button
                         onClick={() => setStep(1)}
-                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
+                        className="text-primary hover:text-primary-dark"
                       >
-                        Back
-                      </button>
-                      
-                      <button
-                        onClick={() => setStep(3)}
-                        disabled={!selectedSlot}
-                        className={`px-4 py-2 rounded-md ${
-                          selectedSlot
-                            ? 'bg-primary text-white hover:bg-primary-dark'
-                            : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                        } transition-colors`}
-                      >
-                        Continue
+                        &larr; Back to doctor selection
                       </button>
                     </div>
                   </div>

@@ -6,7 +6,7 @@ This document outlines the Firestore database schema for the Petzify doctor appo
 
 ### 1. admin
 
-This collection stores user accounts including those with the "doctor" role.
+This collection stores basic user accounts including those with the "doctor" role.
 
 **Document Structure:**
 ```
@@ -25,24 +25,46 @@ admin/{adminId}
   - `canManageMessages` (boolean): Permission to manage messages
   - `canManageUsers` (boolean): Permission to manage other users
   - `canEditProfile` (boolean): Permission to edit their own profile
-- `profileInfo` (map): Additional doctor profile information
-  - `specialization` (string): Veterinary specialization (e.g., "Surgery", "Dermatology")
-  - `experience` (string): Years of professional experience
-  - `qualifications` (string): Educational background and certifications
-  - `about` (string): Biographical information
-  - `consultationFee` (string): Fee charged for consultations
-  - `workingDays` (map): Days of the week the doctor is available
-    - `monday` (boolean)
-    - `tuesday` (boolean)
-    - `wednesday` (boolean)
-    - `thursday` (boolean)
-    - `friday` (boolean)
-    - `saturday` (boolean)
-    - `sunday` (boolean)
 - `createdAt` (timestamp): When the account was created
 - `updatedAt` (timestamp): When the account was last updated
 
-### 2. doctorSlots
+### 2. doctordetails
+
+This collection stores detailed profile information for doctors.
+
+**Document Structure:**
+```
+doctordetails/{username}
+```
+
+**Fields:**
+- `username` (string): Reference to the doctor's username (same as in admin)
+- `name` (string): The doctor's full name
+- `specialization` (string): Veterinary specialization (e.g., "Surgery", "Dermatology")
+- `experience` (string): Years of professional experience
+- `qualifications` (string): Educational background and certifications
+- `about` (string): Biographical information
+- `consultationFee` (string): Fee charged for consultations
+- `workingDays` (map): Days of the week the doctor is available
+  - `monday` (boolean)
+  - `tuesday` (boolean)
+  - `wednesday` (boolean)
+  - `thursday` (boolean)
+  - `friday` (boolean)
+  - `saturday` (boolean)
+  - `sunday` (boolean)
+- `photoURL` (string): URL to doctor's profile photo
+- `photoStoragePath` (string): Firebase Storage path to the profile photo
+- `certificates` (array): List of certificate objects
+  - `url` (string): URL to the certificate
+  - `storagePath` (string): Firebase Storage path to the certificate
+  - `name` (string): Name of the certificate file
+  - `type` (string): Type of certificate (e.g., "image", "pdf")
+- `degrees` (array): List of degree strings (e.g., "DVM", "BVSc")
+- `designations` (array): List of role/designation strings (e.g., "Chief Veterinarian")
+- `updatedAt` (timestamp): When the profile was last updated
+
+### 3. doctorSlots
 
 This collection stores the availability slots for each doctor.
 
@@ -60,7 +82,7 @@ doctorSlots/{slotId}
 - `isBooked` (boolean): Whether the slot is booked or available
 - `createdAt` (timestamp): When the slot was created
 
-### 3. appointments
+### 4. appointments
 
 This collection stores appointment bookings made by patients.
 
@@ -114,19 +136,18 @@ appointments/{appointmentId}
    )
    ```
 
-3. **Doctor's Today's Appointments**
+3. **Get Doctor Details**
    ```javascript
    query(
-     collection(db, 'appointments'),
-     where('doctorId', '==', doctorId),
-     where('appointmentDate', '>=', startOfToday),
-     where('appointmentDate', '<=', endOfToday)
+     collection(db, 'doctordetails'),
+     where('username', '==', doctorId)
    )
    ```
 
 ## Relationships
 
-- A doctor (admin document with role="doctor") can have multiple availability slots (doctorSlots documents)
+- Admin document with role="doctor" references a doctordetails document using the username field
+- A doctor (identified by username) can have multiple availability slots (doctorSlots documents)
 - Each availability slot (doctorSlots document) can be booked for one appointment (appointments document)
 - A patient can have multiple appointments with different doctors
 
@@ -139,6 +160,14 @@ match /databases/{database}/documents {
     allow read: if true;
     allow write: if request.auth != null && 
                    (request.auth.uid == adminId || 
+                    get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.role == 'superadmin');
+  }
+  
+  // Doctor details rules
+  match /doctordetails/{username} {
+    allow read: if true;
+    allow write: if request.auth != null && 
+                   (request.auth.uid == username || 
                     get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.role == 'superadmin');
   }
   
