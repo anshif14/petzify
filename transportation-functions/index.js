@@ -7,6 +7,9 @@
  * See a full list of supported triggers at https://firebase.google.com/docs/functions
  */
 
+// Load environment variables from .env file
+require('dotenv').config();
+
 const {onRequest} = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
@@ -33,6 +36,7 @@ const PETZIFY_LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/petzify-49
 
 // --- Email Config ---
 const getEmailConfig = () => {
+  // Access environment variables directly from process.env
   const portalEmail = process.env.GMAIL_EMAIL || "petzifyonline@gmail.com";
   const portalPassword = process.env.GMAIL_PASSWORD;
   const businessEmail = process.env.BUSINESS_EMAIL || "petzify.business@gmail.com";
@@ -40,6 +44,8 @@ const getEmailConfig = () => {
   if (!portalPassword) {
     throw new Error("Missing GMAIL_PASSWORD environment variable");
   }
+  
+  logger.info(`Email config loaded: ${portalEmail}, business: ${businessEmail}`);
   
   return { portalEmail, portalPassword, businessEmail };
 };
