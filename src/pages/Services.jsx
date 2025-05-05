@@ -3,11 +3,81 @@ import { Link } from 'react-router-dom';
 import ComingSoon from '../components/common/ComingSoon';
 import MobileBottomNav from '../components/common/MobileBottomNav';
 import Footer from '../components/common/Footer';
+import { useUser } from '../context/UserContext';
+import { doc, updateDoc, getFirestore } from 'firebase/firestore';
+import { toast } from 'react-toastify';
+import LocationDisplay from '../components/common/LocationDisplay';
 
 const Services = () => {
+  const { currentUser, isAuthenticated } = useUser();
+  const [userLocation, setUserLocation] = useState(null);
+
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, []);
+    
+    // Request and store user location when page loads
+    if (isAuthenticated()) {
+      getUserLocation();
+    }
+  }, [isAuthenticated]);
+
+  // Function to get user location and store it in Firestore
+  const getUserLocation = () => {
+    if (!navigator.geolocation) {
+      console.log('Geolocation is not supported by your browser');
+      return;
+    }
+    
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        setUserLocation({ latitude, longitude });
+        
+        console.log("Successfully got user location:", latitude, longitude);
+        
+        // Update location in user database if user is authenticated
+        if (currentUser && currentUser.email) {
+          try {
+            const db = getFirestore();
+            const userRef = doc(db, 'users', currentUser.email);
+            
+            await updateDoc(userRef, {
+              location: {
+                latitude,
+                longitude,
+                lastUpdated: new Date().toISOString()
+              }
+            });
+            
+            // Show success toast
+            toast.success('Location updated successfully', {
+              position: 'bottom-right',
+              autoClose: 2000
+            });
+          } catch (error) {
+            console.error('Error updating user location:', error);
+          }
+        }
+      },
+      (error) => {
+        console.log('Error getting location:', error);
+        
+        // Handle specific error codes
+        if (error.code === 1) {
+          console.log("Location permission denied by user");
+        } else if (error.code === 2) {
+          console.log("Position unavailable");
+        } else if (error.code === 3) {
+          console.log("Location request timed out");
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
+  };
 
   const [selectedService, setSelectedService] = useState(null);
   
@@ -205,6 +275,11 @@ const Services = () => {
 
         {/* Other Services Section */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          {/* Location display */}
+          <div className="flex justify-end mb-4">
+            <LocationDisplay />
+          </div>
+          
           <h2 className="text-3xl font-bold text-gray-900 text-center mb-12">Our Other Services</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">

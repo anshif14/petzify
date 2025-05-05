@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { collection, getDocs, query, where, getFirestore, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, query, where, getFirestore, orderBy, limit, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config.js';
 import useGoogleMaps from '../../utils/useGoogleMaps';
 import { Link, useNavigate } from 'react-router-dom';
@@ -566,7 +566,7 @@ const PetBoardingSearch = () => {
   };
 
   // Get user location
-  const getUserLocation = () => {
+  const getUserLocation = async () => {
     if (!navigator.geolocation) {
       console.log('Geolocation is not supported by your browser');
       // Fall back to fetching all boarding centers without location
@@ -576,8 +576,58 @@ const PetBoardingSearch = () => {
     
     setLocationLoading(true);
     
+    // If user is authenticated, try to get location from database first
+    const authState = JSON.parse(localStorage.getItem('user'));
+    if (authState && authState.email) {
+      try {
+        const db = getFirestore();
+        const userRef = doc(db, 'users', authState.email);
+        const userDoc = await getDoc(userRef);
+        
+        if (userDoc.exists() && userDoc.data().location) {
+          const storedLocation = userDoc.data().location;
+          const lastUpdated = new Date(storedLocation.lastUpdated);
+          const now = new Date();
+          
+          // Use stored location if it's less than 30 minutes old
+          if ((now - lastUpdated) < 30 * 60 * 1000) {
+            console.log("Using stored location from database");
+            const { latitude, longitude } = storedLocation;
+            setUserLocation({ latitude, longitude });
+            
+            // Update the location in searchParams
+            setSearchParams(prev => ({
+              ...prev,
+              location: "Saved Location" // This is just a display value
+            }));
+            
+            // Now fetch boarding centers with the stored location
+            fetchBoardingCenters().then(centers => {
+              if (centers.length > 0) {
+                const filtered = filterCentersByDistance(
+                  centers,
+                  latitude, 
+                  longitude,
+                  parseFloat(searchParams.radius || 10)
+                );
+                filtered.sort((a, b) => a.distance - b.distance);
+                setFilteredCenters(filtered);
+              }
+            });
+            
+            setLocationLoading(false);
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching location from database:', error);
+        // Continue with getting current location
+      }
+    }
+    
+    // If no stored location or it's too old, get current location
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
         const { latitude, longitude } = position.coords;
         console.log("Successfully got user location:", latitude, longitude);
         setUserLocation({ latitude, longitude });
@@ -601,6 +651,25 @@ const PetBoardingSearch = () => {
             setFilteredCenters(filtered);
           }
         });
+        
+        // If user is authenticated, update location in database
+        if (authState && authState.email) {
+          try {
+            const db = getFirestore();
+            const userRef = doc(db, 'users', authState.email);
+            
+            await updateDoc(userRef, {
+              location: {
+                latitude,
+                longitude,
+                lastUpdated: new Date().toISOString()
+              }
+            });
+            console.log("Updated user location in database");
+          } catch (error) {
+            console.error('Error updating user location in database:', error);
+          }
+        }
         
         setLocationLoading(false);
       },

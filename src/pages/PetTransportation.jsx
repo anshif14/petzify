@@ -1,9 +1,26 @@
 import React, { useState, useEffect } from 'react';
+// Add Firebase imports
+import { db } from '../firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useUser } from '../context/UserContext';
+import AuthModal from '../components/auth/AuthModal';
+import { useNavigate } from 'react-router-dom';
 
 const PetTransportation = () => {
+  const navigate = useNavigate();
+  const { currentUser, isAuthenticated, authInitialized } = useUser();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  // Check if user is authenticated when component loads
+  useEffect(() => {
+    if (authInitialized && !isAuthenticated()) {
+      setShowAuthModal(true);
+    }
+  }, [authInitialized, isAuthenticated]);
 
   const [formData, setFormData] = useState({
     petName: '',
@@ -65,27 +82,70 @@ const PetTransportation = () => {
   };
 
   const handleLocationSelect = (location, type) => {
+    // Determine the correct state key based on pincode type
+    const locationKey = type === 'fromPincode' ? 'fromLocation' : 'toLocation';
+    
+    // Update the location with selection data
     setFormData(prev => ({
       ...prev,
-      [`${type}Location`]: {
+      [locationKey]: {
         district: location.District,
         state: location.State,
         area: location.Name
       }
     }));
+    
+    // Clear the place options to hide the dropdown
     setPlaceOptions(prev => ({ ...prev, [type]: [] }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Check if user is authenticated before proceeding
+    if (!isAuthenticated()) {
+      setShowAuthModal(true);
+      return;
+    }
+    
     setLoading(prev => ({ ...prev, submit: true }));
     
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      // Get user information from authentication
+      const userEmail = currentUser?.email || '';
+      const userName = currentUser?.name || 'User';
+      const userPhone = currentUser?.phone || '';
+      
+      // Prepare transportation data
+      const transportationData = {
+        petName: formData.petName,
+        petType: formData.petType,
+        petSize: formData.petWeight + " kg", // Convert weight to size with unit
+        pickupAddress: formData.fromLocation ? 
+          `${formData.fromLocation.area}, ${formData.fromLocation.district}, ${formData.fromLocation.state}` : 
+          '',
+        dropoffAddress: formData.toLocation ? 
+          `${formData.toLocation.area}, ${formData.toLocation.district}, ${formData.toLocation.state}` : 
+          '',
+        pickupDate: serverTimestamp(),
+        transportType: 'Standard', // Default value, can be enhanced with options
+        customerName: userName,
+        customerEmail: userEmail,
+        customerPhone: userPhone,
+        notes: "", // You can add a notes field to the form if needed
+        createdAt: serverTimestamp(),
+        status: 'Pending',
+        emailSent: false
+      };
+      
+      // Save to Firestore
+      await addDoc(collection(db, 'petTransportation'), transportationData);
+      
+      // Show success message
       setLoading(prev => ({ ...prev, submit: false }));
       setShowSuccess(true);
       
-      // Reset form after 3 seconds
+      // Reset form after success
       setTimeout(() => {
         setShowSuccess(false);
         setFormData({
@@ -98,7 +158,11 @@ const PetTransportation = () => {
           toLocation: null,
         });
       }, 3000);
-    }, 1000);
+    } catch (error) {
+      console.error('Error saving transportation data:', error);
+      setLoading(prev => ({ ...prev, submit: false }));
+      // Here you could add error handling UI
+    }
   };
 
   return (
@@ -193,33 +257,48 @@ const PetTransportation = () => {
                   <div className="space-y-6">
                     <div className="relative">
                       <label className="block text-sm font-medium text-gray-700 mb-2">From Pincode</label>
-                      <input
-                        type="text"
-                        required
-                        value={formData.fromPincode}
-                        onChange={(e) => handlePincodeChange(e, 'fromPincode')}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm h-12 px-4"
-                        placeholder="Enter 6-digit pincode"
-                      />
+                      <div className="flex">
+                        <input
+                          type="text"
+                          required
+                          value={formData.fromPincode}
+                          onChange={(e) => handlePincodeChange(e, 'fromPincode')}
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm h-12 px-4"
+                          placeholder="Enter 6-digit pincode"
+                        />
+                        {formData.fromLocation && (
+                          <div className="absolute right-3 top-11 text-green-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
                       {loading.fromPincode && (
                         <p className="mt-2 text-sm text-gray-500">Fetching locations...</p>
                       )}
                       {formData.fromLocation && (
-                        <div className="mt-2 flex items-center space-x-2 text-gray-700">
-                          <svg className="h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div className="mt-2 p-2 bg-green-50 border border-green-100 rounded-md flex items-center space-x-2 text-gray-700">
+                          <svg className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                           </svg>
-                          <span className="text-sm font-medium">{formData.fromLocation.area}</span>
+                          <div>
+                            <span className="text-sm font-medium block">{formData.fromLocation.area}</span>
+                            <span className="text-xs text-gray-500">{formData.fromLocation.district}, {formData.fromLocation.state}</span>
+                          </div>
                         </div>
                       )}
                       {placeOptions.fromPincode.length > 0 && (
-                        <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg max-h-60 overflow-auto">
+                        <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg max-h-60 overflow-auto border border-gray-200">
+                          <div className="sticky top-0 bg-gray-50 p-2 text-xs font-medium text-gray-500 border-b">
+                            Select a location from the list below
+                          </div>
                           {placeOptions.fromPincode.map((place, index) => (
                             <button
                               key={index}
                               type="button"
-                              className="w-full text-left px-4 py-3 hover:bg-gray-100 focus:outline-none"
+                              className="w-full text-left px-4 py-3 hover:bg-gray-100 focus:outline-none border-b border-gray-100"
                               onClick={() => handleLocationSelect(place, 'fromPincode')}
                             >
                               <p className="font-medium text-gray-900">{place.Name}</p>
@@ -232,33 +311,48 @@ const PetTransportation = () => {
 
                     <div className="relative">
                       <label className="block text-sm font-medium text-gray-700 mb-2">To Pincode</label>
-                      <input
-                        type="text"
-                        required
-                        value={formData.toPincode}
-                        onChange={(e) => handlePincodeChange(e, 'toPincode')}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm h-12 px-4"
-                        placeholder="Enter 6-digit pincode"
-                      />
+                      <div className="flex">
+                        <input
+                          type="text"
+                          required
+                          value={formData.toPincode}
+                          onChange={(e) => handlePincodeChange(e, 'toPincode')}
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm h-12 px-4"
+                          placeholder="Enter 6-digit pincode"
+                        />
+                        {formData.toLocation && (
+                          <div className="absolute right-3 top-11 text-green-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
                       {loading.toPincode && (
                         <p className="mt-2 text-sm text-gray-500">Fetching locations...</p>
                       )}
                       {formData.toLocation && (
-                        <div className="mt-2 flex items-center space-x-2 text-gray-700">
-                          <svg className="h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div className="mt-2 p-2 bg-green-50 border border-green-100 rounded-md flex items-center space-x-2 text-gray-700">
+                          <svg className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                           </svg>
-                          <span className="text-sm font-medium">{formData.toLocation.area}</span>
+                          <div>
+                            <span className="text-sm font-medium block">{formData.toLocation.area}</span>
+                            <span className="text-xs text-gray-500">{formData.toLocation.district}, {formData.toLocation.state}</span>
+                          </div>
                         </div>
                       )}
                       {placeOptions.toPincode.length > 0 && (
-                        <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg max-h-60 overflow-auto">
+                        <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg max-h-60 overflow-auto border border-gray-200">
+                          <div className="sticky top-0 bg-gray-50 p-2 text-xs font-medium text-gray-500 border-b">
+                            Select a location from the list below
+                          </div>
                           {placeOptions.toPincode.map((place, index) => (
                             <button
                               key={index}
                               type="button"
-                              className="w-full text-left px-4 py-3 hover:bg-gray-100 focus:outline-none"
+                              className="w-full text-left px-4 py-3 hover:bg-gray-100 focus:outline-none border-b border-gray-100"
                               onClick={() => handleLocationSelect(place, 'toPincode')}
                             >
                               <p className="font-medium text-gray-900">{place.Name}</p>
@@ -304,6 +398,17 @@ const PetTransportation = () => {
           </div>
         </div>
       </div>
+
+      {/* Authentication Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        initialMode="login"
+        onSuccess={() => {
+          setShowAuthModal(false);
+          // After successful login, the user can submit the form
+        }}
+      />
     </div>
   );
 };
