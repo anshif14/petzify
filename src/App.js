@@ -37,6 +37,9 @@ import PetDetails from './pages/PetDetails';
 import PetBoarding from './pages/PetBoarding';
 import BoardingDetail from './pages/BoardingDetail';
 import PetBoardingAdmin from './pages/admin/PetBoardingAdmin';
+import PetGrooming from './pages/PetGrooming';
+import GroomingDashboard from './pages/GroomingDashboard';
+import GroomingAdmin from './pages/admin/GroomingAdmin';
 // TailTalks Community pages
 import TailTalks from './pages/TailTalks';
 import CommunityDetail from './pages/CommunityDetail';
@@ -115,6 +118,22 @@ function App() {
               </Layout>
             } />
 
+            <Route path="/admin/pet-boarding" element={
+              <Layout>
+                <AdminRoute>
+                  <PetBoardingAdmin />
+                </AdminRoute>
+              </Layout>
+            } />
+
+            <Route path="/admin/grooming" element={
+              <Layout>
+                <AdminRoute>
+                  <GroomingAdmin />
+                </AdminRoute>
+              </Layout>
+            } />
+
             <Route path="/admin/pet-parenting/:id" element={<Layout><PetDetails /></Layout>} />
 
             <Route path="/download/ios" element={<Layout><AppDownloadComing storeType="ios" /></Layout>} />
@@ -122,6 +141,8 @@ function App() {
             <Route path="/services/transportation" element={<Layout><PetTransportation /></Layout>} />
             <Route path="/services/boarding" element={<Layout><PetBoarding /></Layout>} />
             <Route path="/services/boarding/:id" element={<Layout><BoardingDetail /></Layout>} />
+            <Route path="/services/grooming" element={<Layout><PetGrooming /></Layout>} />
+            <Route path="/services/grooming/dashboard" element={<Layout><GroomingDashboard /></Layout>} />
             <Route path="/rehome" element={<Layout><PetRehoming /></Layout>} />
             <Route path="/find-furry-soulmate" element={<Layout><FindFurrySoulmate /></Layout>} />
             <Route path="/pets/:petId" element={<Layout><PetDetails /></Layout>} />

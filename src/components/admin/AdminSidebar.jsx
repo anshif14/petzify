@@ -21,6 +21,7 @@ const AdminSidebar = ({
   const [pendingProductCount, setPendingProductCount] = useState(0);
   const [pendingOrderCount, setPendingOrderCount] = useState(0);
   const [pendingBoardingCount, setPendingBoardingCount] = useState(0);
+  const [pendingGroomingCount, setPendingGroomingCount] = useState(0);
 
   useEffect(() => {
     const fetchCounts = async () => {
@@ -30,42 +31,42 @@ const AdminSidebar = ({
         // Fetch pending pet count
         if (canManagePetParenting) {
           console.log('Fetching pending pet count...');
-          const petsQuery = query(
-            collection(db, 'rehoming_pets'),
+          const petQuery = query(
+            collection(db, 'rehomePets'),
             where('status', '==', 'pending')
           );
-          const petsSnapshot = await getDocs(petsQuery);
-          console.log('Pending pets count:', petsSnapshot.size);
-          setPendingPetCount(petsSnapshot.size);
+          const petSnapshot = await getDocs(petQuery);
+          console.log('Pending pets count:', petSnapshot.size);
+          setPendingPetCount(petSnapshot.size);
         }
 
         // Fetch pending product count
         if (canManageProducts) {
           console.log('Fetching pending product count...');
-          const productsQuery = query(
+          const productQuery = query(
             collection(db, 'products'),
             where('status', '==', 'pending')
           );
-          const productsSnapshot = await getDocs(productsQuery);
-          console.log('Pending products count:', productsSnapshot.size);
-          setPendingProductCount(productsSnapshot.size);
+          const productSnapshot = await getDocs(productQuery);
+          console.log('Pending products count:', productSnapshot.size);
+          setPendingProductCount(productSnapshot.size);
         }
 
         // Fetch pending order count
         if (canManageOrders) {
           console.log('Fetching pending order count...');
-          const ordersQuery = query(
+          const orderQuery = query(
             collection(db, 'orders'),
             where('status', '==', 'pending')
           );
-          const ordersSnapshot = await getDocs(ordersQuery);
-          console.log('Pending orders count:', ordersSnapshot.size);
-          setPendingOrderCount(ordersSnapshot.size);
+          const orderSnapshot = await getDocs(orderQuery);
+          console.log('Pending orders count:', orderSnapshot.size);
+          setPendingOrderCount(orderSnapshot.size);
         }
 
         // Fetch pending boarding center count
         if (canManageServices) {
-          console.log('Fetching pending boarding center count...');
+          console.log('Fetching pending boarding count...');
           const boardingQuery = query(
             collection(db, 'petBoardingCenters'),
             where('status', '==', 'pending')
@@ -73,6 +74,18 @@ const AdminSidebar = ({
           const boardingSnapshot = await getDocs(boardingQuery);
           console.log('Pending boarding centers count:', boardingSnapshot.size);
           setPendingBoardingCount(boardingSnapshot.size);
+        }
+
+        // Fetch pending grooming count
+        if (canManageServices) {
+          console.log('Fetching pending grooming count...');
+          const groomingQuery = query(
+            collection(db, 'groomingCenters'),
+            where('status', '==', 'pending')
+          );
+          const groomingSnapshot = await getDocs(groomingQuery);
+          console.log('Pending grooming centers count:', groomingSnapshot.size);
+          setPendingGroomingCount(groomingSnapshot.size);
         }
       } catch (error) {
         console.error('Error fetching counts:', error);
@@ -88,10 +101,11 @@ const AdminSidebar = ({
     let unsubscribeProducts;
     let unsubscribeOrders;
     let unsubscribeBoarding;
+    let unsubscribeGrooming;
 
     if (canManagePetParenting) {
       const petsQuery = query(
-        collection(db, 'rehoming_pets'),
+        collection(db, 'rehomePets'),
         where('status', '==', 'pending')
       );
       unsubscribePets = onSnapshot(petsQuery, (snapshot) => {
@@ -134,12 +148,25 @@ const AdminSidebar = ({
       });
     }
 
+    // Add listener for grooming centers
+    if (canManageServices) {
+      const groomingQuery = query(
+        collection(db, 'groomingCenters'),
+        where('status', '==', 'pending')
+      );
+      unsubscribeGrooming = onSnapshot(groomingQuery, (snapshot) => {
+        console.log('Real-time grooming centers update:', snapshot.size);
+        setPendingGroomingCount(snapshot.size);
+      });
+    }
+
     // Cleanup listeners
     return () => {
       if (unsubscribePets) unsubscribePets();
       if (unsubscribeProducts) unsubscribeProducts();
       if (unsubscribeOrders) unsubscribeOrders();
       if (unsubscribeBoarding) unsubscribeBoarding();
+      if (unsubscribeGrooming) unsubscribeGrooming();
     };
   }, [canManagePetParenting, canManageProducts, canManageOrders, canManageServices]);
 
@@ -266,6 +293,29 @@ const AdminSidebar = ({
                 {pendingBoardingCount > 0 && (
                   <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
                     {pendingBoardingCount}
+                  </span>
+                )}
+              </button>
+            </li>
+          )}
+
+          {canManageServices && (
+            <li>
+              <button
+                onClick={() => setActiveComponent('services')}
+                className={`flex items-center w-full px-6 py-3 text-left transition-colors ${
+                  activeComponent === 'services'
+                    ? 'bg-primary text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                Grooming Management
+                {(pendingBoardingCount > 0 || pendingGroomingCount > 0) && (
+                  <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
+                    {pendingBoardingCount + pendingGroomingCount}
                   </span>
                 )}
               </button>

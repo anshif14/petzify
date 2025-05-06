@@ -19,6 +19,7 @@ import ReviewsAdminManager from '../components/admin/ReviewsAdminManager';
 import { auth, db } from '../firebase/index';
 import { useNavigate } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
+import ServicesAdmin from './admin/ServicesAdmin';
 
 const AdminDashboard = () => {
   const [activeComponent, setActiveComponent] = useState('dashboard');
@@ -97,6 +98,11 @@ const AdminDashboard = () => {
     (Array.isArray(adminData?.permissions) && adminData?.permissions?.includes('manage_orders')) || 
     adminData?.role === 'superadmin';
 
+  const canManageServices = 
+    (adminData?.permissions?.canManageServices === true) || 
+    (Array.isArray(adminData?.permissions) && adminData?.permissions?.includes('manage_services')) || 
+    adminData?.role === 'superadmin';
+
   // If user is a doctor, render the DoctorDashboard
   if (isDoctor) {
     return (
@@ -165,6 +171,7 @@ const AdminDashboard = () => {
         canManagePetParenting={canManagePetParenting}
         canManageOrders={canManageOrders}
         canManageReviews={adminData?.role === 'superadmin'}
+        canManageServices={canManageServices}
       />
       
       <div className="flex-1 p-8">
@@ -276,6 +283,7 @@ const AdminDashboard = () => {
           {activeComponent === 'testimonials' && canEditContacts && <TestimonialsManager />}
           {activeComponent === 'pet-boarding' && <PetBoardingAdmin />}
           {activeComponent === 'reviews' && adminData?.role === 'superadmin' && <ReviewsAdminManager />}
+          {activeComponent === 'services' && canManageServices && <ServicesAdmin />}
         </div>
       </div>
     </div>

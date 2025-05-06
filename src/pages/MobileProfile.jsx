@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { getFirestore, doc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { app } from '../firebase/config';
 import { useUser } from '../context/UserContext';
@@ -16,6 +16,7 @@ const MobileProfile = () => {
   const { currentUser, isAuthenticated, authInitialized } = useUser();
   const { showSuccess, showError } = useAlert();
   const navigate = useNavigate();
+  const [hasGroomingCenter, setHasGroomingCenter] = useState(false);
 
   // Profile data state
   const [profileData, setProfileData] = useState({
@@ -41,10 +42,11 @@ const MobileProfile = () => {
   }, [authInitialized, isAuthenticated]);
 
   useEffect(() => {
-    if (currentUser && activeTab) {
+    if (currentUser) {
       fetchUserData();
+      checkGroomingCenter();
     }
-  }, [currentUser, activeTab]);
+  }, [currentUser]);
 
   const fetchUserData = async () => {
     try {
@@ -200,6 +202,26 @@ const MobileProfile = () => {
       showError('Failed to load profile data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkGroomingCenter = async () => {
+    if (!currentUser || !currentUser.email) return;
+    
+    try {
+      const db = getFirestore(app);
+      const groomingCentersRef = collection(db, 'groomingCenters');
+      
+      const q = query(
+        groomingCentersRef,
+        where('email', '==', currentUser.email),
+        where('status', '==', 'approved')
+      );
+      
+      const querySnapshot = await getDocs(q);
+      setHasGroomingCenter(!querySnapshot.empty);
+    } catch (error) {
+      console.error('Error checking grooming center:', error);
     }
   };
 
@@ -431,6 +453,31 @@ const MobileProfile = () => {
                       Change Password
                     </button>
                   </div>
+
+                  {/* Business Dashboards Section */}
+                  {(hasGroomingCenter) && (
+                    <div className="mt-6 pt-6 border-t">
+                      <h2 className="text-lg font-semibold mb-4">Your Business Dashboards</h2>
+                      <div className="space-y-3">
+                        {hasGroomingCenter && (
+                          <Link to="/services/grooming/dashboard" className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100">
+                            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center mr-3">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                              </svg>
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-medium text-gray-900">Grooming Center Dashboard</p>
+                              <p className="text-sm text-gray-600">Manage your grooming center bookings and reviews</p>
+                            </div>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -525,7 +572,7 @@ const MobileProfile = () => {
                 {pets.length === 0 ? (
                   <div className="text-center py-8">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905 0 .905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
                     </svg>
                     <p className="mt-2 text-gray-500">You haven't added any pets yet</p>
                     <button className="mt-4 px-4 py-2 bg-primary text-white rounded-lg">
