@@ -56,7 +56,7 @@ const Layout = ({ children }) => {
   return (
     <div className="App min-h-screen bg-secondary-light text-primary-dark flex flex-col">
       {!isAdminPage && <Navbar />}
-      <main className={`flex-grow ${!isAdminPage ? 'pt-20' : ''}`}>
+      <main className={`flex-grow ${!isAdminPage ? 'pt-24 md:pt-28' : ''}`}>
         {children}
       </main>
       {!isAdminPage && <Footer />}

@@ -7,76 +7,57 @@ import { useUser } from '../context/UserContext';
 import { doc, updateDoc, getFirestore } from 'firebase/firestore';
 import { toast } from 'react-toastify';
 import LocationDisplay from '../components/common/LocationDisplay';
+import { getUserLocation } from '../utils/locationService';
 
 const Services = () => {
   const { currentUser, isAuthenticated } = useUser();
   const [userLocation, setUserLocation] = useState(null);
+  const [locationStatus, setLocationStatus] = useState('idle');
 
   useEffect(() => {
     window.scrollTo(0, 0);
     
     // Request and store user location when page loads
     if (isAuthenticated()) {
-      getUserLocation();
+      handleGetUserLocation();
     }
   }, [isAuthenticated]);
 
   // Function to get user location and store it in Firestore
-  const getUserLocation = () => {
-    if (!navigator.geolocation) {
-      console.log('Geolocation is not supported by your browser');
-      return;
-    }
+  const handleGetUserLocation = async () => {
+    setLocationStatus('loading');
     
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        setUserLocation({ latitude, longitude });
-        
-        console.log("Successfully got user location:", latitude, longitude);
-        
-        // Update location in user database if user is authenticated
-        if (currentUser && currentUser.email) {
-          try {
-            const db = getFirestore();
-            const userRef = doc(db, 'users', currentUser.email);
-            
-            await updateDoc(userRef, {
-              location: {
-                latitude,
-                longitude,
-                lastUpdated: new Date().toISOString()
-              }
+    try {
+      await getUserLocation({
+        onLocationUpdate: (locationData) => {
+          if (locationData) {
+            setUserLocation({
+              latitude: locationData.latitude,
+              longitude: locationData.longitude
             });
             
             // Show success toast
-            toast.success('Location updated successfully', {
-              position: 'bottom-right',
-              autoClose: 2000
-            });
-          } catch (error) {
-            console.error('Error updating user location:', error);
+            // toast.success('Location updated successfully', {
+            //   position: 'bottom-right',
+            //   autoClose: 2000
+            // });
           }
+        },
+        onError: (error) => {
+          console.error('Error getting location:', error);
+          toast.error('Failed to get your location', {
+            position: 'bottom-right',
+            autoClose: 3000
+          });
+        },
+        onStatusChange: (status) => {
+          setLocationStatus(status);
         }
-      },
-      (error) => {
-        console.log('Error getting location:', error);
-        
-        // Handle specific error codes
-        if (error.code === 1) {
-          console.log("Location permission denied by user");
-        } else if (error.code === 2) {
-          console.log("Position unavailable");
-        } else if (error.code === 3) {
-          console.log("Location request timed out");
-        }
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
-      }
-    );
+      });
+    } catch (error) {
+      console.error('Error in location service:', error);
+      setLocationStatus('error');
+    }
   };
 
   const [selectedService, setSelectedService] = useState(null);

@@ -5,9 +5,10 @@ import useGoogleMaps from '../../utils/useGoogleMaps';
 import { Link, useNavigate } from 'react-router-dom';
 import RatingDisplay from '../common/RatingDisplay';
 import StarRating from '../common/StarRating';
+import { getUserLocation, calculateDistance } from '../../utils/locationService';
 
 // Create a separate Map component to isolate the Google Maps rendering
-const DetailMap = ({ center, userLocation, isLoaded, loadMap }) => {
+const DetailMap = ({ center, userLocation, isLoaded, loadMap, locationName }) => {
   const mapRef = useRef(null);
   const [mapIsLoaded, setMapIsLoaded] = useState(false);
   
@@ -121,7 +122,7 @@ const DetailMap = ({ center, userLocation, isLoaded, loadMap }) => {
         )}
       </div>
       <p className="text-sm text-gray-600">
-        <strong>Address:</strong> {center.address}, {center.city}, {center.pincode}
+        <strong>Address:</strong> {locationName || `${center.address}, ${center.city}, ${center.pincode}`}
       </p>
       {center.latitude && center.longitude && (
         <p className="text-sm text-gray-600">
@@ -182,19 +183,84 @@ const PetBoardingSearch = () => {
   const [centersRatings, setCentersRatings] = useState({});
   const [centerReviews, setCenterReviews] = useState({});
   const [loadingReviews, setLoadingReviews] = useState(false);
+  // Add state for storing location names
+  const [locationNames, setLocationNames] = useState({});
+  // Add state for tracking location status
+  const [locationStatus, setLocationStatus] = useState('idle');
 
-  // Function to calculate distance between two coordinates using the Haversine formula
-  const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 6371; // Radius of the earth in km
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-      Math.sin(dLon/2) * Math.sin(dLon/2); 
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
-    const distance = R * c; // Distance in km
-    return distance;
+  // Function to get location name using Google Places API reverse geocoding
+  const getLocationNameFromCoordinates = async (latitude, longitude, centerId) => {
+    if (!latitude || !longitude || locationNames[centerId]) return;
+    
+    try {
+      // Check if Google Maps is loaded
+      if (!window.google || !window.google.maps) {
+        await loadMap();
+        
+        // If still not loaded, return
+        if (!window.google || !window.google.maps) {
+          console.log('Google Maps API not loaded');
+          return;
+        }
+      }
+      
+      // Create geocoder
+      const geocoder = new window.google.maps.Geocoder();
+      
+      // Execute reverse geocoding
+      geocoder.geocode({ location: { lat: parseFloat(latitude), lng: parseFloat(longitude) } }, (results, status) => {
+        if (status === 'OK' && results[0]) {
+          // Get the most relevant address components
+          let locationName = '';
+          
+          // Look for different address components in order of preference
+          const result = results[0];
+          
+          // Extract address components
+          const locality = result.address_components.find(
+            component => component.types.includes('locality')
+          );
+          
+          const subLocality = result.address_components.find(
+            component => component.types.includes('sublocality') || component.types.includes('sublocality_level_1')
+          );
+          
+          const neighborhood = result.address_components.find(
+            component => component.types.includes('neighborhood')
+          );
+          
+          const administrative = result.address_components.find(
+            component => component.types.includes('administrative_area_level_2') || component.types.includes('administrative_area_level_1')
+          );
+          
+          // Determine the best name to use for the location
+          if (subLocality && locality) {
+            // If we have both, show neighborhood and city format
+            locationName = `${subLocality.long_name}, ${locality.long_name}`;
+          } else if (locality) {
+            // Just city
+            locationName = locality.long_name;
+          } else if (subLocality || neighborhood) {
+            // Just area
+            locationName = (subLocality || neighborhood).long_name;
+          } else if (administrative) {
+            // Just administrative area (county/state)
+            locationName = administrative.long_name;
+          } else {
+            // Fall back to formatted address, but shortened
+            locationName = result.formatted_address.split(',').slice(0, 2).join(',');
+          }
+          
+          // Update location names state
+          setLocationNames(prev => ({
+            ...prev,
+            [centerId]: locationName
+          }));
+        }
+      });
+    } catch (error) {
+      console.error('Error reverse geocoding:', error);
+    }
   };
 
   // Function to filter centers by distance
@@ -241,17 +307,15 @@ const PetBoardingSearch = () => {
       // Fetch ratings for all centers
       await fetchCentersRatings(centers);
       
-      // If we already have user location, apply the distance filtering
-      if (userLocation) {
-        const filtered = filterCentersByDistance(
-          centers,
-          userLocation.latitude,
-          userLocation.longitude,
-          parseFloat(searchParams.radius || 10)
-        );
-        filtered.sort((a, b) => a.distance - b.distance);
-        setFilteredCenters(filtered);
-      }
+      // Request reverse geocoding for each center location
+      centers.forEach(center => {
+        const latitude = parseFloat(center.latitude) || parseFloat(center.location?.latitude) || 0;
+        const longitude = parseFloat(center.longitude) || parseFloat(center.location?.longitude) || 0;
+        
+        if (latitude !== 0 && longitude !== 0) {
+          getLocationNameFromCoordinates(latitude, longitude, center.id);
+        }
+      });
       
       return centers;
     } catch (err) {
@@ -263,10 +327,61 @@ const PetBoardingSearch = () => {
     }
   };
 
-  // Move this useEffect after the fetchBoardingCenters function
+  // Update this useEffect to use the new location service
   useEffect(() => {
-    // Get location first, then fetch boarding centers in the callback
-    getUserLocation();
+    // Get location and then fetch boarding centers
+    const loadData = async () => {
+      setLocationStatus('loading');
+      
+      try {
+        // Use the shared location service
+        await getUserLocation({
+          onLocationUpdate: (locationData) => {
+            if (locationData) {
+              setUserLocation({
+                latitude: locationData.latitude,
+                longitude: locationData.longitude
+              });
+              
+              // Update the search parameters with the location name
+              setSearchParams(prev => ({
+                ...prev,
+                location: locationData.locationName || "Current Location"
+              }));
+              
+              // Fetch and filter boarding centers with this location
+              fetchBoardingCenters().then(centers => {
+                if (centers?.length > 0) {
+                  const filtered = filterCentersByDistance(
+                    centers,
+                    locationData.latitude,
+                    locationData.longitude,
+                    parseFloat(searchParams.radius || 10)
+                  );
+                  filtered.sort((a, b) => a.distance - b.distance);
+                  setFilteredCenters(filtered);
+                }
+              });
+            }
+          },
+          onError: (error) => {
+            console.error('Error getting location:', error);
+            // Still fetch boarding centers even if location fails
+            fetchBoardingCenters();
+          },
+          onStatusChange: (status) => {
+            setLocationStatus(status);
+          }
+        });
+      } catch (error) {
+        console.error('Error in location service:', error);
+        setLocationStatus('error');
+        // Still fetch boarding centers even if location fails
+        fetchBoardingCenters();
+      }
+    };
+    
+    loadData();
   }, []);
   
   // Fetch ratings for all boarding centers
@@ -450,7 +565,17 @@ const PetBoardingSearch = () => {
   // Replace modal opening with navigation to detail page
   const navigateToCenterDetail = (center) => {
     if (center && center.id) {
-      navigate(`/services/boarding/${center.id}`);
+      // Add location name as a query parameter if available
+      const params = new URLSearchParams();
+      
+      if (locationNames[center.id]) {
+        params.append('locationName', locationNames[center.id]);
+      }
+      
+      const queryString = params.toString();
+      const url = `/services/boarding/${center.id}${queryString ? `?${queryString}` : ''}`;
+      
+      navigate(url);
     }
   };
   
@@ -565,136 +690,56 @@ const PetBoardingSearch = () => {
     closeDetails();
   };
 
-  // Get user location
-  const getUserLocation = async () => {
-    if (!navigator.geolocation) {
-      console.log('Geolocation is not supported by your browser');
-      // Fall back to fetching all boarding centers without location
-      fetchBoardingCenters();
-      return;
-    }
-    
+  // Replace the getUserLocation function with this simpler version that just calls the service
+  const handleGetUserLocation = async () => {
     setLocationLoading(true);
+    setLocationStatus('loading');
     
-    // If user is authenticated, try to get location from database first
-    const authState = JSON.parse(localStorage.getItem('user'));
-    if (authState && authState.email) {
-      try {
-        const db = getFirestore();
-        const userRef = doc(db, 'users', authState.email);
-        const userDoc = await getDoc(userRef);
-        
-        if (userDoc.exists() && userDoc.data().location) {
-          const storedLocation = userDoc.data().location;
-          const lastUpdated = new Date(storedLocation.lastUpdated);
-          const now = new Date();
-          
-          // Use stored location if it's less than 30 minutes old
-          if ((now - lastUpdated) < 30 * 60 * 1000) {
-            console.log("Using stored location from database");
-            const { latitude, longitude } = storedLocation;
-            setUserLocation({ latitude, longitude });
+    try {
+      await getUserLocation({
+        // Force a fresh location check by disabling local storage and database
+        useLocalStorage: false,
+        onLocationUpdate: (locationData) => {
+          if (locationData) {
+            setUserLocation({
+              latitude: locationData.latitude,
+              longitude: locationData.longitude
+            });
             
-            // Update the location in searchParams
+            // Update the search parameters with the location name
             setSearchParams(prev => ({
               ...prev,
-              location: "Saved Location" // This is just a display value
+              location: locationData.locationName || "Current Location"
             }));
             
-            // Now fetch boarding centers with the stored location
+            // Fetch and filter boarding centers with this location
             fetchBoardingCenters().then(centers => {
-              if (centers.length > 0) {
+              if (centers?.length > 0) {
                 const filtered = filterCentersByDistance(
                   centers,
-                  latitude, 
-                  longitude,
+                  locationData.latitude,
+                  locationData.longitude,
                   parseFloat(searchParams.radius || 10)
                 );
                 filtered.sort((a, b) => a.distance - b.distance);
                 setFilteredCenters(filtered);
               }
             });
-            
-            setLocationLoading(false);
-            return;
           }
+        },
+        onError: (error) => {
+          console.error('Error getting location:', error);
+          alert('Unable to get your location. Please check your location permissions and try again.');
+        },
+        onStatusChange: (status) => {
+          setLocationStatus(status);
         }
-      } catch (error) {
-        console.error('Error fetching location from database:', error);
-        // Continue with getting current location
-      }
+      });
+    } catch (error) {
+      console.error('Error in location service:', error);
+    } finally {
+      setLocationLoading(false);
     }
-    
-    // If no stored location or it's too old, get current location
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        console.log("Successfully got user location:", latitude, longitude);
-        setUserLocation({ latitude, longitude });
-        
-        // Update the location in searchParams to show that we're using current location
-        setSearchParams(prev => ({
-          ...prev,
-          location: "Current Location" // This is just a display value
-        }));
-        
-        // Now that we have the location, fetch boarding centers
-        fetchBoardingCenters().then(centers => {
-          if (centers.length > 0) {
-            const filtered = filterCentersByDistance(
-              centers,
-              latitude,
-              longitude,
-              parseFloat(searchParams.radius || 10)
-            );
-            filtered.sort((a, b) => a.distance - b.distance);
-            setFilteredCenters(filtered);
-          }
-        });
-        
-        // If user is authenticated, update location in database
-        if (authState && authState.email) {
-          try {
-            const db = getFirestore();
-            const userRef = doc(db, 'users', authState.email);
-            
-            await updateDoc(userRef, {
-              location: {
-                latitude,
-                longitude,
-                lastUpdated: new Date().toISOString()
-              }
-            });
-            console.log("Updated user location in database");
-          } catch (error) {
-            console.error('Error updating user location in database:', error);
-          }
-        }
-        
-        setLocationLoading(false);
-      },
-      (error) => {
-        console.log('Error getting location:', error);
-        setLocationLoading(false);
-        
-        // Handle specific error codes
-        if (error.code === 1) {
-          console.log("Location permission denied by user");
-        } else if (error.code === 2) {
-          console.log("Position unavailable");
-        } else if (error.code === 3) {
-          console.log("Location request timed out");
-        }
-        
-        // Still fetch boarding centers even if location fails
-        fetchBoardingCenters();
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
-      }
-    );
   };
 
   if (loading) {
@@ -738,15 +783,31 @@ const PetBoardingSearch = () => {
               />
               <button
                 type="button"
-                onClick={getUserLocation}
+                onClick={handleGetUserLocation}
                 className="px-3 py-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600 flex items-center"
-                disabled={locationLoading}
+                disabled={locationLoading || locationStatus === 'loading' || locationStatus === 'getting-location' || locationStatus === 'getting-location-name' || locationStatus === 'saving-to-database'}
               >
-                {locationLoading ? (
+                {locationLoading || locationStatus === 'loading' || locationStatus === 'getting-location' ? (
                   <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
+                ) : locationStatus === 'getting-location-name' ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Finding location name...</span>
+                  </>
+                ) : locationStatus === 'saving-to-database' ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Saving...</span>
+                  </>
                 ) : (
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -849,58 +910,44 @@ const PetBoardingSearch = () => {
                       </div>
                       
                       <div className="p-4">
-                        <h4 className="text-lg font-semibold text-gray-900 mb-2">{center.centerName}</h4>
-                        <p className="text-gray-600 text-sm mb-2">{center.city}, {center.pincode}</p>
-                        
-                        <div className="flex items-center mb-2">
+                        <div className="flex justify-between items-start">
+                          <h3 className="text-lg font-medium text-gray-900">{center.centerName}</h3>
+                          
                           {/* Display rating if available */}
-                          {centersRatings[center.id] ? (
+                          {centersRatings[center.id] && (
                             <RatingDisplay 
                               rating={centersRatings[center.id].avgRating} 
                               reviewCount={centersRatings[center.id].count}
                               size="small"
                             />
-                          ) : (
-                            <div className="flex text-amber-500">
-                              {[...Array(5)].map((_, i) => (
-                                <svg key={i} className="h-4 w-4 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
-                                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                </svg>
+                          )}
+                        </div>
+                        
+                        <p className="text-sm text-gray-500 mt-1">
+                          {locationNames[center.id] || center.city || 'Location not specified'}
+                        </p>
+                        
+                        <div className="mt-3">
+                          {center.petTypes && center.petTypes.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {center.petTypes.map(petType => (
+                                <span
+                                  key={petType}
+                                  className="inline-block px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full"
+                                >
+                                  {petType}
+                                </span>
                               ))}
-                              <span className="ml-1 text-sm text-gray-700">No ratings yet</span>
                             </div>
                           )}
                         </div>
                         
-                        <div className="flex flex-wrap gap-1 mb-3">
-                          {center.petTypesAccepted && Object.entries(center.petTypesAccepted)
-                            .filter(([_, value]) => value)
-                            .map(([petType]) => (
-                              <span 
-                                key={petType} 
-                                className="inline-block bg-primary-light text-primary text-xs px-2 py-1 rounded-full"
-                              >
-                                {petType.charAt(0).toUpperCase() + petType.slice(1)}
-                              </span>
-                            ))
-                          }
-                        </div>
-                        
-                        <div className="border-t border-gray-200 pt-3 flex justify-between items-center">
-                          <div className="text-primary font-semibold">
-                            ₹{center.perDayCharge}
-                          </div>
-                          
-                          <Link
-                            to={`/services/boarding/${center.id}`}
-                            className="flex items-center text-primary hover:text-primary-dark"
-                          >
-                            View Details
-                            <svg className="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                          </Link>
-                        </div>
+                        <Link
+                          to={`/services/boarding/${center.id}`}
+                          className="mt-4 w-full py-2 px-4 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors"
+                        >
+                          View Details
+                        </Link>
                       </div>
                     </div>
                   ))}
@@ -983,58 +1030,44 @@ const PetBoardingSearch = () => {
                         </div>
                         
                         <div className="p-4">
-                          <h4 className="text-lg font-semibold text-gray-900 mb-2">{center.centerName}</h4>
-                          <p className="text-gray-600 text-sm mb-2">{center.city}, {center.pincode}</p>
-                          
-                          <div className="flex items-center mb-2">
+                          <div className="flex justify-between items-start">
+                            <h3 className="text-lg font-medium text-gray-900">{center.centerName}</h3>
+                            
                             {/* Display rating if available */}
-                            {centersRatings[center.id] ? (
+                            {centersRatings[center.id] && (
                               <RatingDisplay 
                                 rating={centersRatings[center.id].avgRating} 
                                 reviewCount={centersRatings[center.id].count}
                                 size="small"
                               />
-                            ) : (
-                              <div className="flex text-amber-500">
-                                {[...Array(5)].map((_, i) => (
-                                  <svg key={i} className="h-4 w-4 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
-                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                  </svg>
+                            )}
+                          </div>
+                          
+                          <p className="text-sm text-gray-500 mt-1">
+                            {locationNames[center.id] || center.city || 'Location not specified'}
+                          </p>
+                          
+                          <div className="mt-3">
+                            {center.petTypes && center.petTypes.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {center.petTypes.map(petType => (
+                                  <span
+                                    key={petType}
+                                    className="inline-block px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full"
+                                  >
+                                    {petType}
+                                  </span>
                                 ))}
-                                <span className="ml-1 text-sm text-gray-700">No ratings yet</span>
                               </div>
                             )}
                           </div>
                           
-                          <div className="flex flex-wrap gap-1 mb-3">
-                            {center.petTypesAccepted && Object.entries(center.petTypesAccepted)
-                              .filter(([_, value]) => value)
-                              .map(([petType]) => (
-                                <span 
-                                  key={petType} 
-                                  className="inline-block bg-primary-light text-white text-xs px-2 py-1 rounded-full"
-                                >
-                                  {petType.charAt(0).toUpperCase() + petType.slice(1)}
-                                </span>
-                              ))
-                            }
-                          </div>
-                          
-                          <div className="border-t border-gray-200 pt-3 flex justify-between items-center">
-                            <div className="text-primary font-semibold">
-                              ₹{center.perDayCharge}
-                            </div>
-                            
-                            <Link
-                              to={`/services/boarding/${center.id}`}
-                              className="flex items-center text-primary hover:text-primary-dark"
-                            >
-                              View Details
-                              <svg className="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                              </svg>
-                            </Link>
-                          </div>
+                          <Link
+                            to={`/services/boarding/${center.id}`}
+                            className="mt-4 w-full py-2 px-4 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors"
+                          >
+                            View Details
+                          </Link>
                         </div>
                       </div>
                     ))}
@@ -1077,58 +1110,44 @@ const PetBoardingSearch = () => {
                         </div>
                         
                         <div className="p-4">
-                          <h4 className="text-lg font-semibold text-gray-900 mb-2">{center.centerName}</h4>
-                          <p className="text-gray-600 text-sm mb-2">{center.city}, {center.pincode}</p>
-                          
-                          <div className="flex items-center mb-2">
+                          <div className="flex justify-between items-start">
+                            <h3 className="text-lg font-medium text-gray-900">{center.centerName}</h3>
+                            
                             {/* Display rating if available */}
-                            {centersRatings[center.id] ? (
+                            {centersRatings[center.id] && (
                               <RatingDisplay 
                                 rating={centersRatings[center.id].avgRating} 
                                 reviewCount={centersRatings[center.id].count}
                                 size="small"
                               />
-                            ) : (
-                              <div className="flex text-amber-500">
-                                {[...Array(5)].map((_, i) => (
-                                  <svg key={i} className="h-4 w-4 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
-                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                  </svg>
+                            )}
+                          </div>
+                          
+                          <p className="text-sm text-gray-500 mt-1">
+                            {locationNames[center.id] || center.city || 'Location not specified'}
+                          </p>
+                          
+                          <div className="mt-3">
+                            {center.petTypes && center.petTypes.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {center.petTypes.map(petType => (
+                                  <span
+                                    key={petType}
+                                    className="inline-block px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full"
+                                  >
+                                    {petType}
+                                  </span>
                                 ))}
-                                <span className="ml-1 text-sm text-gray-700">No ratings yet</span>
                               </div>
                             )}
                           </div>
                           
-                          <div className="flex flex-wrap gap-1 mb-3">
-                            {center.petTypesAccepted && Object.entries(center.petTypesAccepted)
-                              .filter(([_, value]) => value)
-                              .map(([petType]) => (
-                                <span 
-                                  key={petType} 
-                                  className="inline-block bg-primary-light text-white text-xs px-2 py-1 rounded-full"
-                                >
-                                  {petType.charAt(0).toUpperCase() + petType.slice(1)}
-                                </span>
-                              ))
-                            }
-                          </div>
-                          
-                          <div className="border-t border-gray-200 pt-3 flex justify-between items-center">
-                            <div className="text-primary font-semibold">
-                              ₹{center.perDayCharge}
-                            </div>
-                            
-                            <Link
-                              to={`/services/boarding/${center.id}`}
-                              className="flex items-center text-primary hover:text-primary-dark"
-                            >
-                              View Details
-                              <svg className="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                              </svg>
-                            </Link>
-                          </div>
+                          <Link
+                            to={`/services/boarding/${center.id}`}
+                            className="mt-4 w-full py-2 px-4 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors"
+                          >
+                            View Details
+                          </Link>
                         </div>
                       </div>
                     ))}
@@ -1171,58 +1190,44 @@ const PetBoardingSearch = () => {
                         </div>
                         
                         <div className="p-4">
-                          <h4 className="text-lg font-semibold text-gray-900 mb-2">{center.centerName}</h4>
-                          <p className="text-gray-600 text-sm mb-2">{center.city}, {center.pincode}</p>
-                          
-                          <div className="flex items-center mb-2">
+                          <div className="flex justify-between items-start">
+                            <h3 className="text-lg font-medium text-gray-900">{center.centerName}</h3>
+                            
                             {/* Display rating if available */}
-                            {centersRatings[center.id] ? (
+                            {centersRatings[center.id] && (
                               <RatingDisplay 
                                 rating={centersRatings[center.id].avgRating} 
                                 reviewCount={centersRatings[center.id].count}
                                 size="small"
                               />
-                            ) : (
-                              <div className="flex text-amber-500">
-                                {[...Array(5)].map((_, i) => (
-                                  <svg key={i} className="h-4 w-4 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
-                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                  </svg>
+                            )}
+                          </div>
+                          
+                          <p className="text-sm text-gray-500 mt-1">
+                            {locationNames[center.id] || center.city || 'Location not specified'}
+                          </p>
+                          
+                          <div className="mt-3">
+                            {center.petTypes && center.petTypes.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {center.petTypes.map(petType => (
+                                  <span
+                                    key={petType}
+                                    className="inline-block px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full"
+                                  >
+                                    {petType}
+                                  </span>
                                 ))}
-                                <span className="ml-1 text-sm text-gray-700">No ratings yet</span>
                               </div>
                             )}
                           </div>
                           
-                          <div className="flex flex-wrap gap-1 mb-3">
-                            {center.petTypesAccepted && Object.entries(center.petTypesAccepted)
-                              .filter(([_, value]) => value)
-                              .map(([petType]) => (
-                                <span 
-                                  key={petType} 
-                                  className="inline-block bg-primary-light text-primary text-xs px-2 py-1 rounded-full"
-                                >
-                                  {petType.charAt(0).toUpperCase() + petType.slice(1)}
-                                </span>
-                              ))
-                            }
-                          </div>
-                          
-                          <div className="border-t border-gray-200 pt-3 flex justify-between items-center">
-                            <div className="text-primary font-semibold">
-                              ₹{center.perDayCharge}
-                            </div>
-                            
-                            <Link
-                              to={`/services/boarding/${center.id}`}
-                              className="flex items-center text-primary hover:text-primary-dark"
-                            >
-                              View Details
-                              <svg className="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                              </svg>
-                            </Link>
-                          </div>
+                          <Link
+                            to={`/services/boarding/${center.id}`}
+                            className="mt-4 w-full py-2 px-4 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors"
+                          >
+                            View Details
+                          </Link>
                         </div>
                       </div>
                     ))}
@@ -1289,7 +1294,7 @@ const PetBoardingSearch = () => {
                       </div>
                       
                       <p className="text-sm text-gray-500 mt-1">
-                        {center.city || 'Location not specified'}
+                        {locationNames[center.id] || center.city || 'Location not specified'}
                       </p>
                       
                       <div className="mt-3">

@@ -14,7 +14,8 @@ const BoardingDetail = () => {
   const location = useLocation();
   const urlParams = new URLSearchParams(location.search);
   const [center, setCenter] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [pageLoading, setPageLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const [bookingDetails, setBookingDetails] = useState({
@@ -24,7 +25,9 @@ const BoardingDetail = () => {
     timeTo: urlParams.get('timeTo') || '18:00',
     petName: '',
     petType: 'dog',
+    petSize: '',
     specialInstructions: '',
+    notes: '' // Add the notes field explicitly
   });
   const [totalDays, setTotalDays] = useState(0);
   const [totalCost, setTotalCost] = useState(0);
@@ -33,6 +36,14 @@ const BoardingDetail = () => {
   const [ratings, setRatings] = useState([]);
   const [averageRating, setAverageRating] = useState(0);
   const [ratingCount, setRatingCount] = useState(0);
+  // Add state for location name from Google Places API
+  const [locationName, setLocationName] = useState(urlParams.get('locationName') || '');
+  // Add state for success dialog
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [bookingId, setBookingId] = useState('');
+  // Add state for error dialog
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   
   // Use useUser hook instead of UserContext
   const { currentUser, isAuthenticated } = useUser();
@@ -41,7 +52,7 @@ const BoardingDetail = () => {
   useEffect(() => {
     const fetchBoardingCenter = async () => {
       try {
-        setLoading(true);
+        setPageLoading(true);
         const centerRef = doc(db, 'petBoardingCenters', id);
         const centerSnap = await getDoc(centerRef);
         
@@ -69,7 +80,7 @@ const BoardingDetail = () => {
         console.error('Error fetching boarding center:', err);
         setError('Failed to load boarding center details');
       } finally {
-        setLoading(false);
+        setPageLoading(false);
       }
     };
 
@@ -176,7 +187,18 @@ const BoardingDetail = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setBookingDetails(prev => ({ ...prev, [name]: value }));
+    setBookingDetails(prev => {
+      const updatedState = { ...prev, [name]: value };
+      
+      // Sync notes and specialInstructions fields
+      if (name === 'notes') {
+        updatedState.specialInstructions = value;
+      } else if (name === 'specialInstructions') {
+        updatedState.notes = value;
+      }
+      
+      return updatedState;
+    });
   };
 
   // Handle successful authentication
@@ -195,7 +217,8 @@ const BoardingDetail = () => {
           petType: parsedForm.petType || prevForm.petType,
           petSize: parsedForm.petSize || prevForm.petSize,
           petName: parsedForm.petName || prevForm.petName,
-          notes: parsedForm.notes || prevForm.notes
+          specialInstructions: parsedForm.specialInstructions || parsedForm.notes || prevForm.specialInstructions,
+          notes: parsedForm.notes || parsedForm.specialInstructions || prevForm.notes
         }));
         localStorage.removeItem('tempBookingForm');
         
@@ -228,7 +251,7 @@ const BoardingDetail = () => {
 
   // Add the processing booking function
   const processBooking = async () => {
-    setLoading(true);
+    setSubmitting(true);
     try {
       // Create a booking document in Firestore
       const bookingData = {
@@ -247,7 +270,7 @@ const BoardingDetail = () => {
         petType: bookingDetails.petType,
         petSize: bookingDetails.petSize,
         petName: bookingDetails.petName,
-        notes: bookingDetails.notes,
+        notes: bookingDetails.notes || bookingDetails.specialInstructions || '',
         totalDays,
         perDayCharge: center.perDayCharge,
         totalCost,
@@ -268,20 +291,23 @@ const BoardingDetail = () => {
       // Send email to the user
       await sendEmailNotifications(bookingData, docRef.id);
       
-      // Show success message
-      alert('Booking request submitted successfully! You can check the status in My Bookings.');
+      // Set booking ID and show success dialog
+      setBookingId(docRef.id);
+      setShowSuccessDialog(true);
       
       // Clear any stored pending booking
       localStorage.removeItem('tempBookingForm');
       
-      // Redirect to My Bookings page
-      navigate('/my-bookings');
+      // No immediate redirect - let the user click the button in the success dialog
     } catch (error) {
       console.error('Error creating booking:', error);
       console.error('Error details:', error.message, error.code);
-      alert(`Failed to create booking: ${error.message}. Please try again.`);
+      
+      // Show error dialog instead of alert
+      setErrorMessage(error.message || 'Failed to create booking. Please try again.');
+      setShowErrorDialog(true);
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -671,7 +697,7 @@ const BoardingDetail = () => {
     }
   }, [center]);
 
-  if (loading) {
+  if (pageLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full text-center">
@@ -880,7 +906,7 @@ const BoardingDetail = () => {
               <h2 className="text-xl font-semibold mb-3">Location</h2>
               <div className="bg-gray-50 p-4 rounded-md mb-6">
                 <p className="font-medium mb-2">
-                  {center.address}, {center.city}, {center.pincode}
+                  {locationName || `${center.address}, ${center.city}, ${center.pincode}`}
                 </p>
                 
                 {center.distance && (
@@ -1139,7 +1165,8 @@ const BoardingDetail = () => {
                         petType: bookingDetails.petType,
                         petSize: bookingDetails.petSize,
                         petName: bookingDetails.petName,
-                        notes: bookingDetails.notes,
+                        specialInstructions: bookingDetails.specialInstructions,
+                        notes: bookingDetails.notes || '',
                         totalDays,
                         totalCost
                       }));
@@ -1322,6 +1349,121 @@ const BoardingDetail = () => {
         initialMode="login"
         onSuccess={handleAuthSuccess}
       />
+
+      {/* Success Dialog */}
+      {showSuccessDialog && (
+        <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="success-dialog" role="dialog" aria-modal="true">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            {/* Background overlay */}
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+            
+            {/* Center dialog vertically */}
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            
+            {/* Success Dialog Content */}
+            <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md sm:w-full sm:p-6">
+              <div>
+                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
+                  <svg className="h-6 w-6 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <div className="mt-3 text-center sm:mt-5">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900" id="success-dialog-title">
+                    Booking Confirmed!
+                  </h3>
+                  <div className="mt-2">
+                    <p className="text-sm text-gray-500">
+                      Your booking request for {center?.centerName} has been submitted successfully! 
+                    </p>
+                    <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                      <p className="text-sm font-medium text-gray-700">Booking Reference:</p>
+                      <p className="text-lg font-semibold text-primary mt-1">#{bookingId}</p>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-3">
+                      You can check the status of your booking in the My Bookings section. We've also sent you a confirmation email with all the details.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
+                <button
+                  type="button"
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary text-base font-medium text-white hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary sm:col-start-2 sm:text-sm"
+                  onClick={() => navigate('/my-bookings')}
+                >
+                  Go to My Bookings
+                </button>
+                <button
+                  type="button"
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary sm:mt-0 sm:col-start-1 sm:text-sm"
+                  onClick={() => setShowSuccessDialog(false)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error Dialog */}
+      {showErrorDialog && (
+        <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="error-dialog" role="dialog" aria-modal="true">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            {/* Background overlay */}
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+            
+            {/* Center dialog vertically */}
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            
+            {/* Error Dialog Content */}
+            <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md sm:w-full sm:p-6">
+              <div>
+                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                  <svg className="h-6 w-6 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <div className="mt-3 text-center sm:mt-5">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900" id="error-dialog-title">
+                    Booking Failed
+                  </h3>
+                  <div className="mt-2">
+                    <p className="text-sm text-gray-500">
+                      {errorMessage}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-5 sm:mt-6">
+                <button
+                  type="button"
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary text-base font-medium text-white hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary sm:text-sm"
+                  onClick={() => setShowErrorDialog(false)}
+                >
+                  Try Again
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Processing Overlay */}
+      {submitting && (
+        <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="processing-overlay" role="dialog" aria-modal="true">
+          <div className="flex items-center justify-center min-h-screen">
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+            
+            <div className="relative bg-white rounded-lg p-8 max-w-sm w-full mx-auto text-center">
+              <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent mx-auto mb-4"></div>
+              <h3 className="text-xl font-semibold mb-2">Processing Your Booking</h3>
+              <p className="text-gray-600">Please wait while we process your request...</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
