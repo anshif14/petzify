@@ -1,0 +1,158 @@
+[debug] [2025-05-06T14:07:16.363Z] ----------------------------------------------------------------------
+[debug] [2025-05-06T14:07:16.365Z] Command:       /usr/local/bin/node /opt/homebrew/bin/firebase functions:shell
+[debug] [2025-05-06T14:07:16.365Z] CLI Version:   13.33.0
+[debug] [2025-05-06T14:07:16.365Z] Platform:      darwin
+[debug] [2025-05-06T14:07:16.365Z] Node Version:  v22.14.0
+[debug] [2025-05-06T14:07:16.365Z] Time:          Tue May 06 2025 19:37:16 GMT+0530 (India Standard Time)
+[debug] [2025-05-06T14:07:16.365Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-05-06T14:07:16.366Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2025-05-06T14:07:16.475Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-05-06T14:07:16.475Z] > authorizing via signed-in user (anshifmohammed3@gmail.com)
+[debug] [2025-05-06T14:07:16.475Z] [iam] checking project petzify-49ed4 for permissions ["firebase.projects.get"]
+[debug] [2025-05-06T14:07:16.475Z] Checked if tokens are valid: false, expires at: 1746465726567
+[debug] [2025-05-06T14:07:16.475Z] Checked if tokens are valid: false, expires at: 1746465726567
+[debug] [2025-05-06T14:07:16.475Z] > refreshing access token with scopes: []
+[debug] [2025-05-06T14:07:16.475Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2025-05-06T14:07:16.476Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-05-06T14:07:16.748Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2025-05-06T14:07:16.748Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-05-06T14:07:16.766Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/petzify-49ed4:testIamPermissions [none]
+[debug] [2025-05-06T14:07:16.767Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/petzify-49ed4:testIamPermissions x-goog-quota-user=projects/petzify-49ed4
+[debug] [2025-05-06T14:07:16.767Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/petzify-49ed4:testIamPermissions {"permissions":["firebase.projects.get"]}
+[debug] [2025-05-06T14:07:17.141Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 200
+[debug] [2025-05-06T14:07:17.141Z] <<< [apiv2][body] GET https://firebase-public.firebaseio.com/cli.json {"cloudBuildErrorAfter":1594252800000,"cloudBuildWarnAfter":1590019200000,"defaultNode10After":1594252800000,"minVersion":"3.0.5","node8DeploysDisabledAfter":1613390400000,"node8RuntimeDisabledAfter":1615809600000,"node8WarnAfter":1600128000000}
+[debug] [2025-05-06T14:07:18.428Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/petzify-49ed4:testIamPermissions 200
+[debug] [2025-05-06T14:07:18.428Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/petzify-49ed4:testIamPermissions {"permissions":["firebase.projects.get"]}
+[warn] ⚠  functions: Functions Emulator unable to start on port 5000, starting on 5001 instead. {"metadata":{"emulator":{"name":"functions"},"message":"Functions Emulator unable to start on port 5000, starting on 5001 instead."}}
+[debug] [2025-05-06T14:07:19.414Z] [functions] Functions Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[debug] [2025-05-06T14:07:19.415Z] defaultcredentials: writing to file /Users/anshif/.config/firebase/anshifmohammed3_gmail_com_application_default_credentials.json
+[debug] [2025-05-06T14:07:19.416Z] DEBUG: Setting GAC to /Users/anshif/.config/firebase/anshifmohammed3_gmail_com_application_default_credentials.json
+[debug] [2025-05-06T14:07:19.416Z] Checked if tokens are valid: true, expires at: 1746544035748
+[debug] [2025-05-06T14:07:19.416Z] Checked if tokens are valid: true, expires at: 1746544035748
+[debug] [2025-05-06T14:07:19.416Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/petzify-49ed4/adminSdkConfig [none]
+[debug] [2025-05-06T14:07:20.777Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/petzify-49ed4/adminSdkConfig 200
+[debug] [2025-05-06T14:07:20.777Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/petzify-49ed4/adminSdkConfig {"projectId":"petzify-49ed4","storageBucket":"petzify-49ed4.firebasestorage.app"}
+[debug] [2025-05-06T14:07:20.793Z] [functions] Watching "/Users/anshif/StudioProjects/petzify/functions" for Cloud Functions...
+[debug] [2025-05-06T14:07:20.797Z] Validating nodejs source
+[debug] [2025-05-06T14:07:22.479Z] > [functions] package.json contents: {
+  "name": "functions",
+  "description": "Cloud Functions for Firebase",
+  "scripts": {
+    "serve": "firebase emulators:start --only functions",
+    "shell": "firebase functions:shell",
+    "start": "npm run shell",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log"
+  },
+  "engines": {
+    "node": "22"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-admin": "^13.2.0",
+    "firebase-functions": "^6.3.2",
+    "nodemailer": "^6.9.11"
+  },
+  "devDependencies": {
+    "firebase-functions-test": "^3.1.0"
+  },
+  "private": true
+}
+[debug] [2025-05-06T14:07:22.479Z] Building nodejs source
+[debug] [2025-05-06T14:07:22.479Z] Failed to find version of module node: reached end of search path /Users/anshif/StudioProjects/petzify/functions/node_modules
+[info] ✔  functions: Using node@22 from host. 
+[info] i  functions: Loaded environment variables from .env. 
+[debug] [2025-05-06T14:07:22.481Z] Could not find functions.yaml. Must use http discovery
+[debug] [2025-05-06T14:07:22.484Z] Found firebase-functions binary at '/Users/anshif/StudioProjects/petzify/functions/node_modules/.bin/firebase-functions'
+[info] Serving at port 8989
+
+[debug] [2025-05-06T14:07:22.832Z] Got response from /__/functions.yaml {"endpoints":{"sendCustomEmail":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"httpsTrigger":{},"entryPoint":"sendCustomEmail"},"onOrderCreated":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"eventTrigger":{"eventType":"google.cloud.firestore.document.v1.created","eventFilters":{"database":"(default)","namespace":"(default)"},"eventFilterPathPatterns":{"document":"orders/{orderId}"},"retry":false},"entryPoint":"onOrderCreated"},"onOrderUpdated":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"eventTrigger":{"eventType":"google.cloud.firestore.document.v1.updated","eventFilters":{"database":"(default)","namespace":"(default)"},"eventFilterPathPatterns":{"document":"orders/{orderId}"},"retry":false},"entryPoint":"onOrderUpdated"}},"specVersion":"v1alpha1","requiredAPIs":[],"extensions":{}}
+[debug] [2025-05-06T14:07:26.845Z] [functions] Loaded functions definitions from source: sendCustomEmail, onOrderCreated, onOrderUpdated.
+[debug] [2025-05-06T14:07:26.845Z] [functions[us-central1-sendCustomEmail]] http function initialized (http://127.0.0.1:5001/petzify-49ed4/us-central1/sendCustomEmail).
+[debug] [2025-05-06T14:07:26.845Z] [functions[us-central1-onOrderCreated]] function ignored because the firestore emulator does not exist or is not running.
+[debug] [2025-05-06T14:07:26.845Z] [functions[us-central1-onOrderUpdated]] function ignored because the firestore emulator does not exist or is not running.
+[debug] [2025-05-06T14:07:26.845Z] [functions] Watching "/Users/anshif/StudioProjects/petzify/vet_functions" for Cloud Functions...
+[debug] [2025-05-06T14:07:26.846Z] Validating nodejs source
+[debug] [2025-05-06T14:07:27.380Z] > [functions] package.json contents: {
+  "name": "functions",
+  "description": "Cloud Functions for Firebase",
+  "scripts": {
+    "serve": "firebase emulators:start --only functions",
+    "shell": "firebase functions:shell",
+    "start": "npm run shell",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log"
+  },
+  "engines": {
+    "node": "22"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-admin": "^12.6.0",
+    "firebase-functions": "^6.0.1",
+    "nodemailer": "^6.9.11"
+  },
+  "devDependencies": {
+    "firebase-functions-test": "^3.1.0"
+  },
+  "private": true
+}
+[debug] [2025-05-06T14:07:27.380Z] Building nodejs source
+[debug] [2025-05-06T14:07:27.381Z] Failed to find version of module node: reached end of search path /Users/anshif/StudioProjects/petzify/vet_functions/node_modules
+[info] ✔  functions: Using node@22 from host. 
+[info] i  functions: Loaded environment variables from .env. 
+[debug] [2025-05-06T14:07:27.381Z] Could not find functions.yaml. Must use http discovery
+[debug] [2025-05-06T14:07:27.382Z] Found firebase-functions binary at '/Users/anshif/StudioProjects/petzify/vet_functions/node_modules/.bin/firebase-functions'
+[info] Serving at port 8661
+
+[debug] [2025-05-06T14:07:27.760Z] Got response from /__/functions.yaml {"endpoints":{"sendAppointmentCreatedEmail":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"eventTrigger":{"eventType":"google.cloud.firestore.document.v1.created","eventFilters":{"database":"(default)","namespace":"(default)"},"eventFilterPathPatterns":{"document":"appointments/{appointmentId}"},"retry":false},"entryPoint":"sendAppointmentCreatedEmail"},"sendAppointmentStatusUpdatedEmail":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"eventTrigger":{"eventType":"google.cloud.firestore.document.v1.updated","eventFilters":{"database":"(default)","namespace":"(default)"},"eventFilterPathPatterns":{"document":"appointments/{appointmentId}"},"retry":false},"entryPoint":"sendAppointmentStatusUpdatedEmail"},"sendPrescriptionNotification":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"eventTrigger":{"eventType":"google.cloud.firestore.document.v1.created","eventFilters":{"database":"(default)","namespace":"(default)"},"eventFilterPathPatterns":{"document":"doctorPrescriptions/{prescriptionId}"},"retry":false},"entryPoint":"sendPrescriptionNotification"},"sendAppointmentReminders":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"scheduleTrigger":{"schedule":"every 5 minutes","retryConfig":{},"timeZone":"Asia/Kolkata"},"entryPoint":"sendAppointmentReminders"},"updateDoctorRating":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"eventTrigger":{"eventType":"google.cloud.firestore.document.v1.created","eventFilters":{"database":"(default)","namespace":"(default)"},"eventFilterPathPatterns":{"document":"doctorReviews/{reviewId}"},"retry":false},"entryPoint":"updateDoctorRating"},"updateDoctorRatingOnReviewChange":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"eventTrigger":{"eventType":"google.cloud.firestore.document.v1.updated","eventFilters":{"database":"(default)","namespace":"(default)"},"eventFilterPathPatterns":{"document":"doctorReviews/{reviewId}"},"retry":false},"entryPoint":"updateDoctorRatingOnReviewChange"},"updateDoctorRatingOnReviewDelete":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"eventTrigger":{"eventType":"google.cloud.firestore.document.v1.deleted","eventFilters":{"database":"(default)","namespace":"(default)"},"eventFilterPathPatterns":{"document":"doctorReviews/{reviewId}"},"retry":false},"entryPoint":"updateDoctorRatingOnReviewDelete"}},"specVersion":"v1alpha1","requiredAPIs":[{"api":"cloudscheduler.googleapis.com","reason":"Needed for scheduled functions."}],"extensions":{}}
+[debug] [2025-05-06T14:07:31.768Z] [functions] Loaded functions definitions from source: sendAppointmentCreatedEmail, sendAppointmentStatusUpdatedEmail, sendPrescriptionNotification, sendAppointmentReminders, updateDoctorRating, updateDoctorRatingOnReviewChange, updateDoctorRatingOnReviewDelete.
+[debug] [2025-05-06T14:07:31.768Z] [functions[us-central1-sendAppointmentCreatedEmail]] function ignored because the firestore emulator does not exist or is not running.
+[debug] [2025-05-06T14:07:31.768Z] [functions[us-central1-sendAppointmentStatusUpdatedEmail]] function ignored because the firestore emulator does not exist or is not running.
+[debug] [2025-05-06T14:07:31.768Z] [functions[us-central1-sendPrescriptionNotification]] function ignored because the firestore emulator does not exist or is not running.
+[debug] [2025-05-06T14:07:31.768Z] [functions[us-central1-sendAppointmentReminders]] function ignored because the pubsub emulator does not exist or is not running.
+[debug] [2025-05-06T14:07:31.768Z] [functions[us-central1-updateDoctorRating]] function ignored because the firestore emulator does not exist or is not running.
+[debug] [2025-05-06T14:07:31.768Z] [functions[us-central1-updateDoctorRatingOnReviewChange]] function ignored because the firestore emulator does not exist or is not running.
+[debug] [2025-05-06T14:07:31.768Z] [functions[us-central1-updateDoctorRatingOnReviewDelete]] function ignored because the firestore emulator does not exist or is not running.
+[debug] [2025-05-06T14:07:31.768Z] [functions] Watching "/Users/anshif/StudioProjects/petzify/transportation-functions" for Cloud Functions...
+[debug] [2025-05-06T14:07:31.769Z] Validating nodejs source
+[debug] [2025-05-06T14:07:32.156Z] > [functions] package.json contents: {
+  "name": "functions",
+  "description": "Cloud Functions for Firebase",
+  "scripts": {
+    "serve": "firebase emulators:start --only functions",
+    "shell": "firebase functions:shell",
+    "start": "npm run shell",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log"
+  },
+  "engines": {
+    "node": "22"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "dotenv": "^16.5.0",
+    "firebase-admin": "^12.6.0",
+    "firebase-functions": "^6.0.1",
+    "nodemailer": "^6.9.11"
+  },
+  "devDependencies": {
+    "firebase-functions-test": "^3.1.0"
+  },
+  "private": true
+}
+[debug] [2025-05-06T14:07:32.156Z] Building nodejs source
+[debug] [2025-05-06T14:07:32.156Z] Failed to find version of module node: reached end of search path /Users/anshif/StudioProjects/petzify/transportation-functions/node_modules
+[info] ✔  functions: Using node@22 from host. 
+[info] i  functions: Loaded environment variables from .env. 
+[debug] [2025-05-06T14:07:32.157Z] Could not find functions.yaml. Must use http discovery
+[debug] [2025-05-06T14:07:32.158Z] Found firebase-functions binary at '/Users/anshif/StudioProjects/petzify/transportation-functions/node_modules/.bin/firebase-functions'
+[info] Serving at port 8695
+
+[debug] [2025-05-06T14:07:32.441Z] Got response from /__/functions.yaml {"endpoints":{"onPetBoardingBooked":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"eventTrigger":{"eventType":"google.cloud.firestore.document.v1.created","eventFilters":{"database":"(default)","namespace":"(default)"},"eventFilterPathPatterns":{"document":"boardingBookings/{bookingId}"},"retry":false},"entryPoint":"onPetBoardingBooked"},"onPetTransportationBooked":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"eventTrigger":{"eventType":"google.cloud.firestore.document.v1.created","eventFilters":{"database":"(default)","namespace":"(default)"},"eventFilterPathPatterns":{"document":"petTransportation/{bookingId}"},"retry":false},"entryPoint":"onPetTransportationBooked"}},"specVersion":"v1alpha1","requiredAPIs":[],"extensions":{}}
+[debug] [2025-05-06T14:07:36.449Z] [functions] Loaded functions definitions from source: onPetBoardingBooked, onPetTransportationBooked.
+[debug] [2025-05-06T14:07:36.449Z] [functions[us-central1-onPetBoardingBooked]] function ignored because the firestore emulator does not exist or is not running.
+[debug] [2025-05-06T14:07:36.449Z] [functions[us-central1-onPetTransportationBooked]] function ignored because the firestore emulator does not exist or is not running.
+[info] i  functions: Loaded functions: sendCustomEmail, onOrderCreated, onOrderUpdated, sendAppointmentCreatedEmail, sendAppointmentStatusUpdatedEmail, sendPrescriptionNotification, sendAppointmentReminders, updateDoctorRating, updateDoctorRatingOnReviewChange, updateDoctorRatingOnReviewDelete, onPetBoardingBooked, onPetTransportationBooked 
+[warn] ⚠  functions: The following emulators are not running, calls to these services will affect production: firestore, database, pubsub, storage, eventarc, tasks 

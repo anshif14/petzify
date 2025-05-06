@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { getFirestore, collection, addDoc, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, getDocs, query, where, orderBy, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { app } from '../firebase/config';
 import { useUser } from '../context/UserContext';
 import { useAlert } from '../context/AlertContext';
@@ -220,6 +220,65 @@ const PetRehoming = () => {
     }
   };
 
+  // Function to mark a pet as sold
+  const handleMarkAsSold = async (petId) => {
+    if (!petId) return;
+    
+    try {
+      setLoading(true);
+      const db = getFirestore(app);
+      const petRef = doc(db, 'rehoming_pets', petId);
+      
+      await updateDoc(petRef, {
+        status: 'sold',
+        updatedAt: new Date().toISOString()
+      });
+      
+      // Update local state
+      setPets(prevPets => 
+        prevPets.map(pet => 
+          pet.id === petId 
+            ? { ...pet, status: 'sold', updatedAt: new Date().toISOString() } 
+            : pet
+        )
+      );
+      
+      showSuccess('Pet marked as sold successfully!');
+    } catch (error) {
+      console.error('Error marking pet as sold:', error);
+      showError('Failed to update pet status. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Function to delete a pet ad
+  const handleDeleteAd = async (petId) => {
+    if (!petId) return;
+    
+    if (!window.confirm('Are you sure you want to delete this pet ad? This action cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      const db = getFirestore(app);
+      const petRef = doc(db, 'rehoming_pets', petId);
+      
+      await deleteDoc(petRef);
+      
+      // Update local state
+      setPets(prevPets => prevPets.filter(pet => pet.id !== petId));
+      
+      showSuccess('Pet ad deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting pet ad:', error);
+      showError('Failed to delete pet ad. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleAuthSuccess = () => {
     setShowAuthModal(false);
     fetchPets();
@@ -232,6 +291,8 @@ const PetRehoming = () => {
         return 'bg-green-100 text-green-800';
       case 'rejected':
         return 'bg-red-100 text-red-800';
+      case 'sold':
+        return 'bg-blue-100 text-blue-800';
       case 'pending':
       default:
         return 'bg-yellow-100 text-yellow-800';
@@ -583,6 +644,24 @@ const PetRehoming = () => {
                           <span className="font-medium">KCI:</span> {pet.hasKCICertificate ? 'Yes' : 'No'}
                         </div>
                       )}
+                    </div>
+                    
+                    {/* Action Buttons */}
+                    <div className="mt-4 flex space-x-3">
+                      {pet.status === 'approved' && (
+                        <button
+                          onClick={() => handleMarkAsSold(pet.id)}
+                          className="px-3 py-1.5 bg-green-600 text-white text-sm rounded hover:bg-green-700 focus:outline-none transition-colors"
+                        >
+                          Mark as Sold
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDeleteAd(pet.id)}
+                        className="px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700 focus:outline-none transition-colors"
+                      >
+                        Delete Ad
+                      </button>
                     </div>
                   </div>
                 </div>

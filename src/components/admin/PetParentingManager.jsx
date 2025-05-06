@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getFirestore, collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { getFirestore, collection, query, where, getDocs, doc, updateDoc, orderBy, limit, startAfter } from 'firebase/firestore';
 import { app } from '../../firebase/config';
 
 const PetParentingManager = () => {
@@ -11,61 +11,156 @@ const PetParentingManager = () => {
   const [pendingCount, setPendingCount] = useState(0);
   const [selectedPet, setSelectedPet] = useState(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [lastDoc, setLastDoc] = useState(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const batchSize = 10; // Number of documents to fetch per batch
   const navigate = useNavigate();
 
   // Fetch pets based on status
-  const fetchPets = async (status) => {
-    setLoading(true);
-    setError(null);
+  const fetchPets = async (status, clear = true) => {
+    if (clear) {
+      setLoading(true);
+      setError(null);
+    } else {
+      setLoadingMore(true);
+    }
+    
     try {
       const db = getFirestore(app);
-      const q = query(
-        collection(db, 'rehoming_pets'),
-        where('status', '==', status)
-      );
-      const querySnapshot = await getDocs(q);
-      const petsData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setPets(petsData);
+      console.log('Firestore instance created');
       
-      // Update pending count if fetching pending pets
-      if (status === 'pending') {
-        setPendingCount(petsData.length);
+      let q;
+      
+      if (!clear && lastDoc) {
+        // Pagination query - get the next batch
+        q = query(
+          collection(db, 'rehoming_pets'),
+          where('status', '==', status),
+          orderBy('createdAt', 'desc'),
+          limit(batchSize),
+          // Start after the last document we fetched
+          startAfter(lastDoc)
+        );
+      } else {
+        // Initial query
+        q = query(
+          collection(db, 'rehoming_pets'),
+          where('status', '==', status),
+          orderBy('createdAt', 'desc'),
+          limit(batchSize)
+        );
+      }
+      
+      console.log('Query created:', q);
+      
+      const querySnapshot = await getDocs(q);
+      console.log('Query snapshot received:', querySnapshot.size, 'documents');
+      
+      if (querySnapshot.empty) {
+        // No more documents to fetch
+        setHasMore(false);
+      } else {
+        // Update the last document reference for pagination
+        setLastDoc(querySnapshot.docs[querySnapshot.docs.length - 1]);
+        
+        const petsData = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        console.log('Pets data processed:', petsData.length, 'pets');
+        
+        if (clear) {
+          setPets(petsData);
+        } else {
+          // Append new pets to existing list
+          setPets(prevPets => [...prevPets, ...petsData]);
+        }
+        
+        // Update pending count if fetching pending pets
+        if (status === 'pending' && clear) {
+          // Get the total count of pending pets
+          try {
+            const countQuery = query(
+              collection(db, 'rehoming_pets'),
+              where('status', '==', 'pending')
+            );
+            const countSnapshot = await getDocs(countQuery);
+            setPendingCount(countSnapshot.size);
+          } catch (err) {
+            console.error('Error getting pending count:', err);
+          }
+        }
       }
     } catch (err) {
       console.error('Error fetching pets:', err);
+      console.error('Error details:', {
+        message: err.message,
+        code: err.code,
+        stack: err.stack
+      });
       setError('Failed to load pets. Please try again.');
     } finally {
-      setLoading(false);
+      if (clear) {
+        setLoading(false);
+      } else {
+        setLoadingMore(false);
+      }
+    }
+  };
+
+  // Load more pets
+  const loadMore = () => {
+    if (!loading && !loadingMore && hasMore) {
+      fetchPets(activeTab, false);
     }
   };
 
   // Update pet status
   const updatePetStatus = async (petId, newStatus) => {
+    const statusMessage = newStatus === 'approved' ? 'Approving' : 'Rejecting';
+    setLoading(true);
+    setError(null);
+    
     try {
       const db = getFirestore(app);
       const petRef = doc(db, 'rehoming_pets', petId);
+      
+      // Update the pet in Firestore
       await updateDoc(petRef, {
         status: newStatus,
         updatedAt: new Date()
       });
-      // Refresh the list and update counts
-      fetchPets(activeTab);
+      
+      console.log(`Successfully updated pet ${petId} to ${newStatus}`);
+      
+      // Update local state instead of re-fetching all pets
       if (activeTab === 'pending') {
+        // Remove pet from current list
+        setPets(currentPets => currentPets.filter(pet => pet.id !== petId));
+        
+        // Update pending count
         setPendingCount(prev => Math.max(0, prev - 1));
       }
+      
       // Close the detail view after updating status
       setSelectedPet(null);
     } catch (err) {
       console.error('Error updating pet status:', err);
-      setError('Failed to update pet status. Please try again.');
+      console.error('Error details:', {
+        message: err.message,
+        code: err.code,
+        stack: err.stack
+      });
+      setError(`Failed to ${statusMessage.toLowerCase()} pet. Please try again.`);
+    } finally {
+      setLoading(false);
     }
   };
 
   // Fetch pets when tab changes
   useEffect(() => {
+    console.log('Component mounted, fetching pets...');
     fetchPets(activeTab);
   }, [activeTab]);
 
@@ -84,6 +179,11 @@ const PetParentingManager = () => {
         prev === 0 ? selectedPet.mediaFiles.length - 1 : prev - 1
       );
     }
+  };
+
+  // Handle selecting a pet for detail view
+  const handleSelectPet = (pet) => {
+    navigate(`/admin/pet-parenting/${pet.id}`);
   };
 
   return (
@@ -144,58 +244,119 @@ const PetParentingManager = () => {
           No {activeTab} pet requests found.
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {pets.map(pet => (
-            <div 
-              key={pet.id} 
-              className="bg-white rounded-lg shadow-md overflow-hidden cursor-pointer hover:shadow-lg transition-shadow duration-300"
-              onClick={() => navigate(`/admin/pet-parenting/${pet.id}`)}
-            >
-              <div className="relative h-48 overflow-hidden">
-                {pet.mediaFiles && pet.mediaFiles.length > 0 ? (
-                  <div className="relative h-full">
-                    <img 
-                      src={pet.mediaFiles[0].url} 
-                      alt={pet.name} 
-                      className="w-full h-full object-cover"
-                    />
-                    {pet.mediaFiles.length > 1 && (
-                      <div className="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded-full">
-                        +{pet.mediaFiles.length - 1} more
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                )}
-              </div>
-              <div className="p-4">
-                <h3 className="text-lg font-semibold text-gray-900">{pet.name}</h3>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  <span className="px-2 py-1 bg-primary-light text-primary text-xs rounded-full">{pet.type}</span>
-                  {pet.breed && <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">{pet.breed}</span>}
-                  {pet.age && <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">{pet.age}</span>}
-                  {pet.gender && <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">{pet.gender}</span>}
-                  {pet.price && <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">₹{pet.price}</span>}
-                  {pet.type === 'Dog' && pet.hasKCICertificate && (
-                    <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">KCI Certified</span>
+        <div className="space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {pets.map(pet => (
+              <div 
+                key={pet.id} 
+                className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
+              >
+                <div 
+                  className="relative h-48 overflow-hidden cursor-pointer"
+                  onClick={() => handleSelectPet(pet)}
+                >
+                  {pet.mediaFiles && pet.mediaFiles.length > 0 ? (
+                    <div className="relative h-full">
+                      <img 
+                        src={pet.mediaFiles[0].url} 
+                        alt={pet.name} 
+                        className="w-full h-full object-cover"
+                      />
+                      {pet.mediaFiles.length > 1 && (
+                        <div className="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded-full">
+                          +{pet.mediaFiles.length - 1} more
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
                   )}
                 </div>
-                <p className="mt-3 text-gray-600 line-clamp-3">{pet.description}</p>
-                
-                <div className="mt-4 space-y-2">
-                  <p className="text-sm">
-                    <span className="font-semibold">Submitted:</span>{' '}
-                    {new Date(pet.createdAt?.seconds * 1000).toLocaleDateString()}
-                  </p>
+                <div className="p-4">
+                  <div className="cursor-pointer" onClick={() => handleSelectPet(pet)}>
+                    <h3 className="text-lg font-semibold text-gray-900">{pet.name}</h3>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <span className="px-2 py-1 bg-primary-light text-primary text-xs rounded-full">{pet.type}</span>
+                      {pet.breed && <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">{pet.breed}</span>}
+                      {pet.age && <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">{pet.age}</span>}
+                      {pet.gender && <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">{pet.gender}</span>}
+                      {pet.price && <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">₹{pet.price}</span>}
+                      {pet.type === 'Dog' && pet.hasKCICertificate && (
+                        <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">KCI Certified</span>
+                      )}
+                    </div>
+                    <p className="mt-3 text-gray-600 line-clamp-3">{pet.description}</p>
+                    
+                    <div className="mt-4 space-y-2">
+                      <p className="text-sm">
+                        <span className="font-semibold">Submitted:</span>{' '}
+                        {new Date(pet.createdAt?.seconds * 1000).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Add action buttons for pending pets */}
+                  {activeTab === 'pending' && (
+                    <div className="mt-4 flex space-x-2 pt-3 border-t border-gray-100">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updatePetStatus(pet.id, 'approved');
+                        }}
+                        disabled={loading}
+                        className="flex-1 px-3 py-2 rounded text-sm font-medium bg-green-500 text-white hover:bg-green-600 transition-colors flex items-center justify-center"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        Approve
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updatePetStatus(pet.id, 'rejected');
+                        }}
+                        disabled={loading}
+                        className="flex-1 px-3 py-2 rounded text-sm font-medium bg-red-500 text-white hover:bg-red-600 transition-colors flex items-center justify-center"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
+                        Reject
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
+            ))}
+          </div>
+          
+          {hasMore && (
+            <div className="flex justify-center mt-6">
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className={`px-4 py-2 rounded-md transition-colors ${
+                  loadingMore 
+                    ? 'bg-gray-300 cursor-not-allowed' 
+                    : 'bg-primary text-white hover:bg-primary-dark'
+                }`}
+              >
+                {loadingMore ? (
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                    Loading...
+                  </div>
+                ) : (
+                  'Load More'
+                )}
+              </button>
             </div>
-          ))}
+          )}
         </div>
       )}
 
@@ -346,21 +507,49 @@ const PetParentingManager = () => {
                     <div className="flex space-x-4">
                       <button
                         onClick={() => updatePetStatus(selectedPet.id, 'approved')}
-                        className="flex-1 px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition duration-200 flex items-center justify-center"
+                        disabled={loading}
+                        className={`flex-1 px-6 py-3 rounded-lg transition duration-200 flex items-center justify-center ${
+                          loading 
+                            ? 'bg-gray-400 cursor-not-allowed' 
+                            : 'bg-green-500 hover:bg-green-600 text-white'
+                        }`}
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                        Approve
+                        {loading ? (
+                          <>
+                            <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2"></div>
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                            Approve
+                          </>
+                        )}
                       </button>
                       <button
                         onClick={() => updatePetStatus(selectedPet.id, 'rejected')}
-                        className="flex-1 px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-200 flex items-center justify-center"
+                        disabled={loading}
+                        className={`flex-1 px-6 py-3 rounded-lg transition duration-200 flex items-center justify-center ${
+                          loading 
+                            ? 'bg-gray-400 cursor-not-allowed' 
+                            : 'bg-red-500 hover:bg-red-600 text-white'
+                        }`}
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                        </svg>
-                        Reject
+                        {loading ? (
+                          <>
+                            <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2"></div>
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                            </svg>
+                            Reject
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>

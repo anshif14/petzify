@@ -6,7 +6,8 @@ import UsersAdmin from './pages/admin/UsersAdmin';
 import ServicesAdmin from './pages/admin/ServicesAdmin';
 import BlogAdmin from './pages/admin/BlogAdmin';
 import SettingsAdmin from './pages/admin/SettingsAdmin';
-import PetParentingAdmin from './pages/admin/PetParentingAdmin';
+import PetParentingManager from './components/admin/PetParentingManager';
+import PetParentingDetails from './pages/admin/PetParentingDetails';
 import PetBoardingAdmin from './pages/admin/PetBoardingAdmin';
 import AdminRoute from './components/auth/AdminRoute';
 
@@ -16,7 +17,8 @@ const App = () => {
       <Route path="/admin" element={<Layout><Dashboard /></Layout>}>
         <Route path="users" element={<UsersAdmin />} />
         <Route path="services" element={<ServicesAdmin />} />
-        <Route path="pet-parenting" element={<PetParentingAdmin />} />
+        <Route path="pet-parenting" element={<PetParentingManager />} />
+        <Route path="pet-parenting/:id" element={<PetParentingDetails />} />
         <Route path="blog" element={<BlogAdmin />} />
         <Route path="settings" element={<SettingsAdmin />} />
         <Route path="pet-boarding" element={
