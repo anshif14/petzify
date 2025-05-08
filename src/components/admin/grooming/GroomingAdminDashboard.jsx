@@ -23,27 +23,28 @@ const GroomingAdminDashboard = ({ adminData }) => {
   const fetchAllGroomingBookings = async () => {
     try {
       setLoading(true);
-      console.log("Fetching all grooming bookings");
+      console.log("Fetching grooming bookings for this admin");
+      
+      // Check for centerId in both possible field names
+      const centerIdToUse = adminData?.centerId || adminData?.groomingCenterId;
+      
+      // Exit early if no admin data or centerId
+      if (!adminData || !centerIdToUse) {
+        console.log("No admin data or center ID found, no bookings to display");
+        setBookings([]);
+        setFilteredBookings([]);
+        setLoading(false);
+        return;
+      }
       
       const bookingsRef = collection(db, 'groomingBookings');
-      let bookingsQuery;
+      const bookingsQuery = query(
+        bookingsRef,
+        where('centerId', '==', centerIdToUse),
+        orderBy('createdAt', 'desc')
+      );
       
-      // If admin has centerId, filter by it, otherwise fetch all bookings
-      if (adminData && adminData.centerId) {
-        console.log("Filtering by centerId:", adminData.centerId);
-        bookingsQuery = query(
-          bookingsRef,
-          where('centerId', '==', adminData.centerId),
-          orderBy('createdAt', 'desc')
-        );
-      } else {
-        // For testing/development, fetch all bookings
-        console.log("No centerId found, fetching all bookings");
-        bookingsQuery = query(
-          bookingsRef,
-          orderBy('createdAt', 'desc')
-        );
-      }
+      console.log("Filtering by centerId:", centerIdToUse);
       
       const bookingsSnapshot = await getDocs(bookingsQuery);
       console.log("Bookings found:", bookingsSnapshot.size);
@@ -53,7 +54,6 @@ const GroomingAdminDashboard = ({ adminData }) => {
       // Process each booking
       for (const bookingDoc of bookingsSnapshot.docs) {
         const bookingData = bookingDoc.data();
-        console.log("Booking data:", bookingData);
         
         // Fetch user data for each booking
         let userData = {};

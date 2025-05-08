@@ -112,14 +112,6 @@ const PetGrooming = () => {
             <p className="text-xl max-w-2xl mx-auto">
               Professional grooming services to keep your pet looking and feeling their best. From baths and haircuts to nail trimming and ear cleaning.
             </p>
-            <div className="mt-8">
-              <button
-                onClick={toggleRegistrationForm}
-                className="bg-white text-primary hover:bg-gray-100 px-6 py-3 rounded-full font-medium transition-colors duration-300"
-              >
-                Register your grooming center with us
-              </button>
-            </div>
           </div>
         </div>
 
@@ -185,11 +177,22 @@ const PetGrooming = () => {
                 userLocation={userLocation}
                 loading={loading} 
               />
+              
+              {/* Registration button at the bottom */}
+              <div className="mt-12 mb-8 text-center">
+                <p className="text-gray-600 mb-4 text-sm">Are you a grooming service provider?</p>
+                <button
+                  onClick={toggleRegistrationForm}
+                  className="bg-transparent border border-primary text-primary hover:bg-primary/5 px-4 py-2 rounded text-sm font-normal transition-colors duration-300"
+                >
+                  Register your grooming center with us
+                </button>
+              </div>
             </>
           )}
         </div>
       </main>
-      <Footer />
+
       <MobileBottomNav />
     </>
   );

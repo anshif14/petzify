@@ -11,6 +11,12 @@ const GoogleMapSelector = ({ initialLocation, onLocationSelect }) => {
   // Initialize map once Google Maps is loaded
   useEffect(() => {
     if (isLoaded && !map && mapRef.current) {
+      // Check if places library is available
+      if (!window.google.maps.places) {
+        toast.error("Places library not loaded properly. Please refresh the page.");
+        return;
+      }
+      
       // Set default location (center of map) if no initial location provided
       const defaultLocation = initialLocation || { lat: 20.5937, lng: 78.9629 }; // Center of India by default
       
@@ -88,82 +94,87 @@ const GoogleMapSelector = ({ initialLocation, onLocationSelect }) => {
       
       // Create the search box and link it to the UI element
       const input = document.getElementById('map-search-input');
-      if (input) {
-        const searchBox = new window.google.maps.places.SearchBox(input);
-        
-        // Bias the SearchBox results towards current map's viewport
-        googleMap.addListener('bounds_changed', () => {
-          searchBox.setBounds(googleMap.getBounds());
-        });
-        
-        // Listen for the event fired when the user selects a prediction and retrieve more details
-        searchBox.addListener('places_changed', () => {
-          const places = searchBox.getPlaces();
+      if (input && window.google.maps.places) {
+        try {
+          const searchBox = new window.google.maps.places.SearchBox(input);
           
-          if (places.length === 0) {
-            return;
-          }
+          // Bias the SearchBox results towards current map's viewport
+          googleMap.addListener('bounds_changed', () => {
+            searchBox.setBounds(googleMap.getBounds());
+          });
           
-          // For each place, get the location.
-          const bounds = new window.google.maps.LatLngBounds();
-          
-          places.forEach((place) => {
-            if (!place.geometry || !place.geometry.location) {
-              console.log('Returned place contains no geometry');
+          // Listen for the event fired when the user selects a prediction and retrieve more details
+          searchBox.addListener('places_changed', () => {
+            const places = searchBox.getPlaces();
+            
+            if (places.length === 0) {
               return;
             }
             
-            // Create a marker for the place
-            if (mapMarker) {
-              mapMarker.setMap(null);
-            }
+            // For each place, get the location.
+            const bounds = new window.google.maps.LatLngBounds();
             
-            const position = {
-              lat: place.geometry.location.lat(),
-              lng: place.geometry.location.lng()
-            };
-            
-            mapMarker = new window.google.maps.Marker({
-              map: googleMap,
-              position: position,
-              draggable: true,
-              animation: window.google.maps.Animation.DROP,
-            });
-            
-            // Update marker state
-            setMarker(mapMarker);
-            
-            // Call the callback with the selected location
-            onLocationSelect({
-              latitude: position.lat,
-              longitude: position.lng
-            });
-            
-            // Add dragend event listener to the marker
-            mapMarker.addListener('dragend', () => {
-              const newPosition = {
-                lat: mapMarker.getPosition().lat(),
-                lng: mapMarker.getPosition().lng()
+            places.forEach((place) => {
+              if (!place.geometry || !place.geometry.location) {
+                console.log('Returned place contains no geometry');
+                return;
+              }
+              
+              // Create a marker for the place
+              if (mapMarker) {
+                mapMarker.setMap(null);
+              }
+              
+              const position = {
+                lat: place.geometry.location.lat(),
+                lng: place.geometry.location.lng()
               };
+              
+              mapMarker = new window.google.maps.Marker({
+                map: googleMap,
+                position: position,
+                draggable: true,
+                animation: window.google.maps.Animation.DROP,
+              });
+              
+              // Update marker state
+              setMarker(mapMarker);
               
               // Call the callback with the selected location
               onLocationSelect({
-                latitude: newPosition.lat,
-                longitude: newPosition.lng
+                latitude: position.lat,
+                longitude: position.lng
               });
+              
+              // Add dragend event listener to the marker
+              mapMarker.addListener('dragend', () => {
+                const newPosition = {
+                  lat: mapMarker.getPosition().lat(),
+                  lng: mapMarker.getPosition().lng()
+                };
+                
+                // Call the callback with the selected location
+                onLocationSelect({
+                  latitude: newPosition.lat,
+                  longitude: newPosition.lng
+                });
+              });
+              
+              // Extend the bounds to include the place's location
+              if (place.geometry.viewport) {
+                // Only geocodes have viewport.
+                bounds.union(place.geometry.viewport);
+              } else {
+                bounds.extend(place.geometry.location);
+              }
             });
             
-            // Extend the bounds to include the place's location
-            if (place.geometry.viewport) {
-              // Only geocodes have viewport.
-              bounds.union(place.geometry.viewport);
-            } else {
-              bounds.extend(place.geometry.location);
-            }
+            googleMap.fitBounds(bounds);
           });
-          
-          googleMap.fitBounds(bounds);
-        });
+        } catch (error) {
+          console.error("Error initializing SearchBox:", error);
+          toast.error("Error initializing map search. Please refresh and try again.");
+        }
       }
       
       // Save map instance to state

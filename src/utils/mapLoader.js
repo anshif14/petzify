@@ -8,6 +8,16 @@ let mapLoadingPromise = null;
 const activeListeners = new Map();
 
 /**
+ * Checks if a specific library is loaded in Google Maps
+ * @param {string} libraryName - Name of the library to check
+ * @returns {boolean} - Whether the library is loaded
+ */
+const isLibraryLoaded = (libraryName) => {
+  if (!window.google || !window.google.maps) return false;
+  return !!window.google.maps[libraryName];
+};
+
+/**
  * Loads the Google Maps script once and returns a promise
  * @param {Array} libraries - Optional array of libraries to load (e.g. ['places'])
  * @returns {Promise<void>} A promise that resolves when the script is loaded
@@ -15,7 +25,16 @@ const activeListeners = new Map();
 export const loadGoogleMapsScript = (libraries = []) => {
   // 1. Check if already loaded
   if (window.google && window.google.maps) {
-    return Promise.resolve();
+    // Verify that all requested libraries are loaded
+    const missingLibraries = libraries.filter(lib => !isLibraryLoaded(lib));
+    if (missingLibraries.length === 0) {
+      return Promise.resolve();
+    }
+    
+    // If some libraries are missing, try to reload with all libraries
+    console.warn(`Google Maps loaded but missing libraries: ${missingLibraries.join(', ')}. Attempting to reload.`);
+    // Clear existing promise to force reload
+    mapLoadingPromise = null;
   }
 
   // 2. Check if loading is already in progress
@@ -34,7 +53,14 @@ export const loadGoogleMapsScript = (libraries = []) => {
         removeEventListener(existingScriptElement, 'error', handleError);
         
         if (window.google && window.google.maps) {
-          resolve();
+          // Verify that all requested libraries are loaded
+          const missingLibraries = libraries.filter(lib => !isLibraryLoaded(lib));
+          if (missingLibraries.length === 0) {
+            resolve();
+          } else {
+            console.error(`Google Maps loaded but missing libraries: ${missingLibraries.join(', ')}`);
+            reject(new Error(`Google Maps loaded but missing requested libraries: ${missingLibraries.join(', ')}`));
+          }
         } else {
           // Should not happen if 'load' fired, but handle defensively
           console.error('Google Maps script loaded but window.google not found.');
@@ -62,6 +88,11 @@ export const loadGoogleMapsScript = (libraries = []) => {
 
   // 4. If script doesn't exist, create and load it
   mapLoadingPromise = new Promise((resolve, reject) => {
+    // If there was an existing script that failed, remove it
+    if (existingScriptElement) {
+      existingScriptElement.remove();
+    }
+    
     const script = document.createElement('script');
     script.id = SCRIPT_ID;
     script.type = 'text/javascript';
@@ -77,7 +108,15 @@ export const loadGoogleMapsScript = (libraries = []) => {
       removeEventListener(script, 'error', handleError);
       
       if (window.google && window.google.maps) {
-        resolve();
+        // Verify that all requested libraries are loaded
+        const missingLibraries = libraries.filter(lib => !isLibraryLoaded(lib));
+        if (missingLibraries.length === 0) {
+          resolve();
+        } else {
+          console.error(`Google Maps loaded but missing libraries: ${missingLibraries.join(', ')}`);
+          reject(new Error(`Google Maps loaded but missing requested libraries: ${missingLibraries.join(', ')}`));
+          mapLoadingPromise = null; // Reset promise
+        }
       } else {
         console.error('Google Maps script loaded but window.google not found.');
         reject(new Error('Google Maps loaded but window.google not found.'));

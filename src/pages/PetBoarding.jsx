@@ -18,22 +18,12 @@ const PetBoarding = () => {
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
       <div className="bg-gradient-to-r from-primary to-primary-dark text-white py-8 relative">
-        <div className="container mx-auto px-6 flex justify-between items-center">
+        <div className="container mx-auto px-6">
           <div className="text-left">
             <h1 className="text-3xl md:text-4xl font-bold">Pet Boarding Service</h1>
             <p className="text-lg max-w-xl mt-2">
               Safe and comfortable accommodation for your pets when you're away.
             </p>
-          </div>
-          
-          {/* Register button */}
-          <div className="hidden md:block">
-            <button
-              onClick={() => handleViewChange('register')}
-              className="px-4 py-2 bg-white text-primary font-medium rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white"
-            >
-              Register Your Boarding Center
-            </button>
           </div>
         </div>
       </div>
@@ -62,11 +52,12 @@ const PetBoarding = () => {
           <div>
             <PetBoardingSearch />
             
-            {/* Mobile Register button for small screens */}
-            <div className="mt-8 text-center md:hidden">
+            {/* Registration button - visible on all screen sizes */}
+            <div className="mt-12 mb-8 text-center">
+              <p className="text-gray-600 mb-4 text-sm">Are you a pet boarding center owner?</p>
               <button
                 onClick={() => handleViewChange('register')}
-                className="px-6 py-3 bg-primary text-white font-medium rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                className="bg-transparent border border-primary text-primary hover:bg-primary/5 px-4 py-2 rounded text-sm font-normal transition-colors duration-300"
               >
                 Register Your Boarding Center
               </button>

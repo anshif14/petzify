@@ -89,6 +89,15 @@ const Services = () => {
       link: '/services/boarding',
       image: 'https://doggyvilleindia.in/wp-content/uploads/2024/09/how-to-choose-the-best-dog-boarding-facility-for-your-pet.jpg'
     },
+    {
+      id: 6,
+      title: 'Pet Grooming',
+      description: 'Complete grooming services from baths and haircuts to nail trimming and ear cleaning.',
+      icon: '✂️',
+      linkText: 'Book Your Grooming Centre',
+      link: '/services/grooming',
+      image: 'https://images.unsplash.com/photo-1516734212186-a967f81ad0d7?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1471&q=80'
+    },
     // {
     //   id: 2,
     //   title: 'Find Your Furry Soulmate',
@@ -121,14 +130,7 @@ const Services = () => {
       comingSoon: true,
       image: 'https://images.unsplash.com/photo-1494947665470-20322015e3a8?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80'
     },
-    {
-      id: 6,
-      title: 'Pet Grooming',
-      description: 'Complete grooming services from baths and haircuts to nail trimming and ear cleaning.',
-      icon: '✂️',
-      link: '/services/grooming',
-      image: 'https://images.unsplash.com/photo-1516734212186-a967f81ad0d7?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1471&q=80'
-    },
+
 
     {
       id: 8,

@@ -30,7 +30,7 @@ const GroomingDetail = () => {
     petBreed: '',
     petAge: '',
     petWeight: '',
-    serviceType: '',
+    selectedServices: [],
     specialInstructions: ''
   });
 
@@ -66,25 +66,32 @@ const GroomingDetail = () => {
   // Update price calculation when booking details change
   useEffect(() => {
     calculateBookingCost();
-  }, [bookingDetails.serviceType, center]);
+  }, [bookingDetails.selectedServices, center]);
 
   const calculateBookingCost = () => {
-    if (!bookingDetails.serviceType || !center) {
+    if (!bookingDetails.selectedServices || !bookingDetails.selectedServices.length || !center) {
       setTotalCost(0);
       return;
     }
     
-    // Find the selected service and its price
-    const selectedService = center.services?.find(service => 
-      service.name === bookingDetails.serviceType
-    );
+    let calculatedTotal = 0;
     
-    if (selectedService && selectedService.price) {
-      setTotalCost(selectedService.price);
-    } else {
-      // Default price if not specified
-      setTotalCost(500);
-    }
+    // Calculate total cost for all selected services
+    bookingDetails.selectedServices.forEach(serviceName => {
+      // Find the selected service and its price
+      const selectedService = center.services?.find(service => 
+        (typeof service === 'string' ? service : service.name) === serviceName
+      );
+      
+      if (selectedService && selectedService.price) {
+        calculatedTotal += Number(selectedService.price);
+      } else {
+        // Default price if not specified
+        calculatedTotal += 500;
+      }
+    });
+    
+    setTotalCost(calculatedTotal);
   };
 
   const handleInputChange = (e) => {
@@ -93,6 +100,22 @@ const GroomingDetail = () => {
       ...prev,
       [name]: value
     }));
+  };
+
+  // Handle checkbox change for services
+  const handleServiceChange = (e) => {
+    const { value, checked } = e.target;
+    
+    setBookingDetails(prev => {
+      const updatedServices = checked 
+        ? [...prev.selectedServices, value] // Add service
+        : prev.selectedServices.filter(service => service !== value); // Remove service
+      
+      return {
+        ...prev,
+        selectedServices: updatedServices
+      };
+    });
   };
 
   // Handle successful authentication
@@ -111,7 +134,7 @@ const GroomingDetail = () => {
           petBreed: parsedForm.petBreed || prevForm.petBreed,
           petAge: parsedForm.petAge || prevForm.petAge,
           petWeight: parsedForm.petWeight || prevForm.petWeight,
-          serviceType: parsedForm.serviceType || prevForm.serviceType,
+          selectedServices: parsedForm.selectedServices || prevForm.selectedServices,
           specialInstructions: parsedForm.specialInstructions || prevForm.specialInstructions
         }));
         localStorage.removeItem('tempBookingForm');
@@ -130,6 +153,12 @@ const GroomingDetail = () => {
   // Update the handleSubmit function
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Check if at least one service is selected
+    if (bookingDetails.selectedServices.length === 0) {
+      toast.error('Please select at least one service');
+      return;
+    }
     
     // Check if user is logged in
     if (!isAuthenticated()) {
@@ -160,7 +189,7 @@ const GroomingDetail = () => {
           bookingTime: bookingData.time,
           petName: bookingData.petName,
           petType: bookingData.petType,
-          serviceType: bookingData.serviceType,
+          serviceType: bookingData.selectedServices.join(', '),
           totalCost,
           specialInstructions: bookingData.specialInstructions || 'None'
         }
@@ -182,7 +211,7 @@ const GroomingDetail = () => {
             bookingTime: bookingData.time,
             petName: bookingData.petName,
             petType: bookingData.petType,
-            serviceType: bookingData.serviceType,
+            serviceType: bookingData.selectedServices.join(', '),
             totalCost,
             specialInstructions: bookingData.specialInstructions || 'None'
           }
@@ -215,7 +244,8 @@ const GroomingDetail = () => {
         petBreed: bookingDetails.petBreed,
         petAge: bookingDetails.petAge,
         petWeight: bookingDetails.petWeight,
-        serviceType: bookingDetails.serviceType,
+        selectedServices: bookingDetails.selectedServices,
+        serviceType: bookingDetails.selectedServices.join(', '),
         specialInstructions: bookingDetails.specialInstructions || '',
         totalCost,
         status: 'pending',
@@ -671,35 +701,142 @@ const GroomingDetail = () => {
                 />
               </div>
               
-              {/* Service Type */}
+              {/* Service Type - Replace dropdown with checkboxes */}
               <div className="mb-4">
-                <label htmlFor="serviceType" className="block text-sm font-medium text-gray-700 mb-1">Service Type</label>
-                <select
-                  id="serviceType"
-                  name="serviceType"
-                  value={bookingDetails.serviceType}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
-                  required
-                >
-                  <option value="">Select service</option>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Services</label>
+                <p className="text-xs text-gray-500 mb-2">Select one or more services</p>
+                
+                <div className="space-y-2">
                   {center.services && center.services.length > 0 ? (
-                    center.services.map((service, index) => (
-                      <option key={index} value={typeof service === 'string' ? service : service.name}>
-                        {typeof service === 'string' ? service : `${service.name} (₹${service.price || 'Price on request'})`}
-                      </option>
-                    ))
+                    center.services.map((service, index) => {
+                      const serviceName = typeof service === 'string' ? service : service.name;
+                      const servicePrice = typeof service === 'string' ? 'Price on request' : (service.price || 'Price on request');
+                      
+                      return (
+                        <div key={index} className="flex items-start">
+                          <input
+                            type="checkbox"
+                            id={`service-${index}`}
+                            name={`service-${index}`}
+                            value={serviceName}
+                            checked={bookingDetails.selectedServices.includes(serviceName)}
+                            onChange={handleServiceChange}
+                            className="h-4 w-4 mt-1 text-primary focus:ring-primary border-gray-300 rounded"
+                          />
+                          <label htmlFor={`service-${index}`} className="ml-2 block text-sm text-gray-700">
+                            {serviceName} {servicePrice !== 'Price on request' && `(₹${servicePrice})`}
+                          </label>
+                        </div>
+                      );
+                    })
                   ) : (
                     <>
-                      <option value="Basic Grooming">Basic Grooming</option>
-                      <option value="Full Grooming">Full Grooming</option>
-                      <option value="Bath & Brush">Bath & Brush</option>
-                      <option value="Nail Trimming">Nail Trimming</option>
-                      <option value="Special Treatment">Special Treatment</option>
+                      <div className="flex items-start">
+                        <input
+                          type="checkbox"
+                          id="service-basic"
+                          name="service-basic"
+                          value="Basic Grooming"
+                          checked={bookingDetails.selectedServices.includes('Basic Grooming')}
+                          onChange={handleServiceChange}
+                          className="h-4 w-4 mt-1 text-primary focus:ring-primary border-gray-300 rounded"
+                        />
+                        <label htmlFor="service-basic" className="ml-2 block text-sm text-gray-700">
+                          Basic Grooming
+                        </label>
+                      </div>
+                      <div className="flex items-start">
+                        <input
+                          type="checkbox"
+                          id="service-full"
+                          name="service-full"
+                          value="Full Grooming"
+                          checked={bookingDetails.selectedServices.includes('Full Grooming')}
+                          onChange={handleServiceChange}
+                          className="h-4 w-4 mt-1 text-primary focus:ring-primary border-gray-300 rounded"
+                        />
+                        <label htmlFor="service-full" className="ml-2 block text-sm text-gray-700">
+                          Full Grooming
+                        </label>
+                      </div>
+                      <div className="flex items-start">
+                        <input
+                          type="checkbox"
+                          id="service-bath"
+                          name="service-bath"
+                          value="Bath & Brush"
+                          checked={bookingDetails.selectedServices.includes('Bath & Brush')}
+                          onChange={handleServiceChange}
+                          className="h-4 w-4 mt-1 text-primary focus:ring-primary border-gray-300 rounded"
+                        />
+                        <label htmlFor="service-bath" className="ml-2 block text-sm text-gray-700">
+                          Bath & Brush
+                        </label>
+                      </div>
+                      <div className="flex items-start">
+                        <input
+                          type="checkbox"
+                          id="service-nail"
+                          name="service-nail"
+                          value="Nail Trimming"
+                          checked={bookingDetails.selectedServices.includes('Nail Trimming')}
+                          onChange={handleServiceChange}
+                          className="h-4 w-4 mt-1 text-primary focus:ring-primary border-gray-300 rounded"
+                        />
+                        <label htmlFor="service-nail" className="ml-2 block text-sm text-gray-700">
+                          Nail Trimming
+                        </label>
+                      </div>
+                      <div className="flex items-start">
+                        <input
+                          type="checkbox"
+                          id="service-special"
+                          name="service-special"
+                          value="Special Treatment"
+                          checked={bookingDetails.selectedServices.includes('Special Treatment')}
+                          onChange={handleServiceChange}
+                          className="h-4 w-4 mt-1 text-primary focus:ring-primary border-gray-300 rounded"
+                        />
+                        <label htmlFor="service-special" className="ml-2 block text-sm text-gray-700">
+                          Special Treatment
+                        </label>
+                      </div>
                     </>
                   )}
-                </select>
+                </div>
+                
+                {bookingDetails.selectedServices.length === 0 && (
+                  <p className="text-xs text-red-500 mt-1">Please select at least one service</p>
+                )}
               </div>
+              
+              {/* Pricing Summary - Add this section after the service selection */}
+              {bookingDetails.selectedServices.length > 0 && (
+                <div className="mb-6 mt-4 bg-gray-50 p-4 rounded-md border border-gray-200">
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">Service Summary</h3>
+                  <div className="space-y-2 mb-3">
+                    {bookingDetails.selectedServices.map((service, index) => {
+                      const serviceObj = center.services?.find(s => 
+                        (typeof s === 'string' ? s : s.name) === service
+                      );
+                      const price = serviceObj && typeof serviceObj !== 'string' 
+                        ? Number(serviceObj.price) || 500
+                        : 500;
+                      
+                      return (
+                        <div key={index} className="flex justify-between text-sm">
+                          <span>{service}</span>
+                          <span>₹{price}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="border-t border-gray-200 pt-2 flex justify-between font-medium">
+                    <span>Total</span>
+                    <span>₹{totalCost}</span>
+                  </div>
+                </div>
+              )}
               
               {/* Special Instructions */}
               <div className="mb-6">
@@ -750,7 +887,7 @@ const GroomingDetail = () => {
                         petBreed: bookingDetails.petBreed,
                         petAge: bookingDetails.petAge,
                         petWeight: bookingDetails.petWeight,
-                        serviceType: bookingDetails.serviceType,
+                        selectedServices: bookingDetails.selectedServices,
                         specialInstructions: bookingDetails.specialInstructions,
                         totalCost
                       }));

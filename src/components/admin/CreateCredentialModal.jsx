@@ -46,7 +46,8 @@ const CreateCredentialModal = ({ center, onClose, onSuccess }) => {
         },
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        groomingCenterId: center.id, // Link to the grooming center
+        groomingCenterId: center.id, // Legacy field name
+        centerId: center.id, // Standard field name for consistency
       };
 
       // Add boarding center ID if provided

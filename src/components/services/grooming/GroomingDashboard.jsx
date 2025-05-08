@@ -69,20 +69,20 @@ const GroomingDashboard = () => {
       if (activeTab === 'upcoming') {
         bookingsQuery = query(
           bookingsRef,
-          where('groomingCenterId', '==', centerInfo.id),
+          where('centerId', '==', centerInfo.id),
           where('status', 'in', ['confirmed', 'pending']),
           where('appointmentDate', '>=', now)
         );
       } else if (activeTab === 'past') {
         bookingsQuery = query(
           bookingsRef,
-          where('groomingCenterId', '==', centerInfo.id),
+          where('centerId', '==', centerInfo.id),
           where('appointmentDate', '<', now)
         );
       } else if (activeTab === 'cancelled') {
         bookingsQuery = query(
           bookingsRef,
-          where('groomingCenterId', '==', centerInfo.id),
+          where('centerId', '==', centerInfo.id),
           where('status', '==', 'cancelled')
         );
       }
@@ -125,7 +125,7 @@ const GroomingDashboard = () => {
         const reviewsRef = collection(db, 'groomingReviews');
         const reviewsQuery = query(
           reviewsRef,
-          where('groomingCenterId', '==', centerInfo.id)
+          where('centerId', '==', centerInfo.id)
         );
         
         const reviewsSnapshot = await getDocs(reviewsQuery);
