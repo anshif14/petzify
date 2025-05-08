@@ -3,12 +3,15 @@ import { collection, query, where, getDocs, doc, updateDoc, deleteDoc, orderBy }
 import { db } from '../../firebase/config';
 import { toast } from 'react-toastify';
 import { Link } from 'react-router-dom';
+import CreateCredentialModal from '../../components/admin/CreateCredentialModal';
 
 const GroomingAdmin = () => {
   const [groomingCenters, setGroomingCenters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('pending');
   const [selectedCenter, setSelectedCenter] = useState(null);
+  const [showCredentialModal, setShowCredentialModal] = useState(false);
+  const [centerForCredential, setCenterForCredential] = useState(null);
   
   useEffect(() => {
     fetchGroomingCenters();
@@ -142,6 +145,18 @@ const GroomingAdmin = () => {
     });
   };
   
+  // Handle creating admin credentials
+  const handleCreateCredential = (center) => {
+    setCenterForCredential(center);
+    setShowCredentialModal(true);
+  };
+  
+  // Handle credential creation success
+  const handleCredentialSuccess = (adminId) => {
+    toast.success('Admin credentials created successfully!');
+    console.log('Admin created with ID:', adminId);
+  };
+  
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-7xl mx-auto">
@@ -272,6 +287,22 @@ const GroomingAdmin = () => {
                           </button>
                         </div>
                       )}
+                      {activeTab === 'approved' && (
+                        <div className="mt-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCreateCredential(center);
+                            }}
+                            className="text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded hover:bg-indigo-200 flex items-center"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                            </svg>
+                            Credentials
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -311,6 +342,24 @@ const GroomingAdmin = () => {
                             className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded"
                           >
                             Reject
+                          </button>
+                        </div>
+                      ) : activeTab === 'approved' ? (
+                        <div className="flex space-x-3">
+                          <button
+                            onClick={() => handleCreateCredential(selectedCenter)}
+                            className="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded flex items-center"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                            </svg>
+                            Create Credential
+                          </button>
+                          <button
+                            onClick={() => handleDelete(selectedCenter.id)}
+                            className="text-red-600 hover:text-red-800 px-4 py-2"
+                          >
+                            Delete
                           </button>
                         </div>
                       ) : (
@@ -485,6 +534,15 @@ const GroomingAdmin = () => {
           </div>
         )}
       </div>
+      
+      {/* Credential Modal */}
+      {showCredentialModal && centerForCredential && (
+        <CreateCredentialModal 
+          center={centerForCredential}
+          onClose={() => setShowCredentialModal(false)}
+          onSuccess={handleCredentialSuccess}
+        />
+      )}
     </div>
   );
 };

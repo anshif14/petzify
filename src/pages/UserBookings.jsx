@@ -79,13 +79,39 @@ const UserBookings = () => {
         });
       });
       
+      // Fetch grooming bookings
+      const groomingQuery = query(
+        collection(db, 'groomingBookings'),
+        where('userEmail', '==', currentUser.email),
+        orderBy('createdAt', 'desc')
+      );
+      
+      const groomingSnapshot = await getDocs(groomingQuery);
+      const groomingList = [];
+      
+      groomingSnapshot.forEach((doc) => {
+        const data = doc.data();
+        groomingList.push({
+          id: doc.id,
+          type: 'grooming',
+          appointmentDate: new Date(data.date + ' ' + data.time),
+          petName: data.petName,
+          petType: data.petType,
+          reason: `Pet Grooming: ${data.serviceType}`,
+          centerName: data.centerName,
+          status: data.status,
+          createdAt: data.createdAt?.toDate?.() || new Date(),
+          ...data
+        });
+      });
+      
       // Combine and sort all bookings by date
-      const allBookings = [...appointmentsList, ...boardingList].sort((a, b) => 
+      const allBookings = [...appointmentsList, ...boardingList, ...groomingList].sort((a, b) => 
         b.appointmentDate - a.appointmentDate
       );
       
       setBookings(allBookings);
-      console.log(`Loaded ${appointmentsList.length} appointments and ${boardingList.length} boarding bookings`);
+      console.log(`Loaded ${appointmentsList.length} appointments, ${boardingList.length} boarding bookings, and ${groomingList.length} grooming bookings`);
     } catch (error) {
       console.error('Error fetching bookings:', error);
       showError('Could not load your bookings. Please try again later.', 'Error');
@@ -191,6 +217,11 @@ const UserBookings = () => {
       return '🏠';
     }
     
+    // If it's a grooming appointment, use a scissors icon
+    if (bookingType === 'grooming') {
+      return '✂️';
+    }
+    
     // Otherwise use pet type icons for vet appointments
     switch (petType?.toLowerCase()) {
       case 'dog':
@@ -232,7 +263,7 @@ const UserBookings = () => {
     try {
       const db = getFirestore(app);
       
-      // Check if this is a regular appointment or a boarding booking
+      // Check what type of booking it is
       if (booking.type === 'vet') {
         const appointmentRef = doc(db, 'appointments', booking.id);
         
@@ -247,6 +278,15 @@ const UserBookings = () => {
         
         // Update boarding booking status to cancelled
         await updateDoc(boardingRef, {
+          status: 'cancelled',
+          cancelledAt: new Date().toISOString(),
+          cancelledBy: 'customer'
+        });
+      } else if (booking.type === 'grooming') {
+        const groomingRef = doc(db, 'groomingBookings', booking.id);
+        
+        // Update grooming booking status to cancelled
+        await updateDoc(groomingRef, {
           status: 'cancelled',
           cancelledAt: new Date().toISOString(),
           cancelledBy: 'customer'
@@ -379,37 +419,64 @@ const UserBookings = () => {
     try {
       const db = getFirestore(app);
       
-      // Only allow rating for boarding bookings
-      if (booking.type !== 'boarding') {
-        showError('Only boarding bookings can be rated', 'Error');
+      // Check if this is a boarding or grooming booking
+      if (booking.type === 'boarding') {
+        // Create or update the rating document for boarding
+        const ratingRef = doc(db, 'boardingRatings', booking.id);
+        await setDoc(ratingRef, {
+          bookingId: booking.id,
+          centerId: booking.centerId,
+          centerName: booking.centerName,
+          rating: reviewData.rating,
+          comment: reviewData.reviewText || '',
+          imageUrl: reviewData.imageUrl || null,
+          userEmail: currentUser.email,
+          userName: currentUser.displayName || 'User',
+          ratedAt: new Date(),
+          petName: booking.petName,
+          petType: booking.petType,
+          bookingDate: booking.dateFrom
+        });
+        
+        // Update the boarding booking with rating info
+        const boardingRef = doc(db, 'petBoardingBookings', booking.id);
+        await updateDoc(boardingRef, {
+          rating: reviewData.rating,
+          review: reviewData.reviewText || '',
+          reviewImageUrl: reviewData.imageUrl || null,
+          ratedAt: new Date()
+        });
+      } else if (booking.type === 'grooming') {
+        // Create or update the rating document for grooming
+        const ratingRef = doc(db, 'groomingRatings', booking.id);
+        await setDoc(ratingRef, {
+          bookingId: booking.id,
+          centerId: booking.centerId,
+          centerName: booking.centerName,
+          rating: reviewData.rating,
+          comment: reviewData.reviewText || '',
+          imageUrl: reviewData.imageUrl || null,
+          userEmail: currentUser.email,
+          userName: currentUser.displayName || currentUser.fullName || 'User',
+          ratedAt: new Date(),
+          petName: booking.petName,
+          petType: booking.petType,
+          serviceType: booking.serviceType,
+          bookingDate: booking.date
+        });
+        
+        // Update the grooming booking with rating info
+        const groomingRef = doc(db, 'groomingBookings', booking.id);
+        await updateDoc(groomingRef, {
+          rating: reviewData.rating,
+          review: reviewData.reviewText || '',
+          reviewImageUrl: reviewData.imageUrl || null,
+          ratedAt: new Date()
+        });
+      } else {
+        showError('This booking type cannot be rated', 'Error');
         return;
       }
-      
-      // Create or update the rating document
-      const ratingRef = doc(db, 'boardingRatings', booking.id);
-      await setDoc(ratingRef, {
-        bookingId: booking.id,
-        centerId: booking.centerId,
-        centerName: booking.centerName,
-        rating: reviewData.rating,
-        comment: reviewData.reviewText || '',
-        imageUrl: reviewData.imageUrl || null,
-        userEmail: currentUser.email,
-        userName: currentUser.displayName || 'User',
-        ratedAt: new Date(),
-        petName: booking.petName,
-        petType: booking.petType,
-        bookingDate: booking.dateFrom
-      });
-      
-      // Update the booking with rating info
-      const boardingRef = doc(db, 'petBoardingBookings', booking.id);
-      await updateDoc(boardingRef, {
-        rating: reviewData.rating,
-        review: reviewData.reviewText || '',
-        reviewImageUrl: reviewData.imageUrl || null,
-        ratedAt: new Date()
-      });
       
       // Update local state to show rating
       setBookings(prevBookings => 
@@ -546,6 +613,11 @@ const UserBookings = () => {
                                       Boarding
                                     </span>
                                   )}
+                                  {booking.type === 'grooming' && (
+                                    <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                                      Grooming
+                                    </span>
+                                  )}
                                 </p>
                               </div>
                             </div>
@@ -663,6 +735,11 @@ const UserBookings = () => {
                                   {booking.type === 'boarding' && (
                                     <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
                                       Boarding
+                                    </span>
+                                  )}
+                                  {booking.type === 'grooming' && (
+                                    <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                                      Grooming
                                     </span>
                                   )}
                                 </p>
@@ -857,6 +934,87 @@ const UserBookings = () => {
                                       loading={ratingLoading}
                                       bookingId={booking.id}
                                       centerName={booking.centerName || 'this boarding center'}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Rating section for completed grooming bookings */}
+                        {booking.type === 'grooming' && 
+                         booking.status?.toLowerCase() !== 'cancelled' && (
+                          <div className="mt-4 pt-3 border-t border-gray-100">
+                            {booking.rating ? (
+                              <div>
+                                <div className="flex justify-between items-center mb-2">
+                                  <p className="text-sm font-medium text-gray-700">Your Review:</p>
+                                  <button
+                                    onClick={() => toggleReviewForm(booking.id)}
+                                    className="text-sm text-primary hover:text-primary-dark"
+                                  >
+                                    {showReviewForm[booking.id] ? 'Cancel' : 'Edit Review'}
+                                  </button>
+                                </div>
+                                
+                                {!showReviewForm[booking.id] && (
+                                  <div>
+                                    <StarRating initialRating={booking.rating} disabled={true} />
+                                    
+                                    {booking.review && (
+                                      <p className="mt-2 text-sm text-gray-700">
+                                        "{booking.review}"
+                                      </p>
+                                    )}
+                                    
+                                    {booking.reviewImageUrl && (
+                                      <div className="mt-2">
+                                        <img 
+                                          src={booking.reviewImageUrl} 
+                                          alt="Review" 
+                                          className="review-image" 
+                                        />
+                                      </div>
+                                    )}
+                                    
+                                    <p className="text-xs text-gray-500 mt-2">
+                                      Reviewed on {booking.ratedAt ? new Date(booking.ratedAt).toLocaleDateString() : 'Unknown'}
+                                    </p>
+                                  </div>
+                                )}
+                                
+                                {showReviewForm[booking.id] && (
+                                  <ReviewForm
+                                    initialRating={booking.rating}
+                                    onSubmit={(reviewData) => handleSubmitRating(booking, reviewData)}
+                                    loading={ratingLoading}
+                                    bookingId={booking.id}
+                                    centerName={booking.centerName || 'this grooming center'}
+                                  />
+                                )}
+                              </div>
+                            ) : (
+                              <div>
+                                <p className="text-sm font-medium text-gray-700 mb-2">
+                                  Share your experience with this grooming center
+                                </p>
+                                
+                                <button
+                                  onClick={() => toggleReviewForm(booking.id)}
+                                  className="text-sm bg-primary text-white px-3 py-1 rounded hover:bg-primary-dark"
+                                >
+                                  Write a Review
+                                </button>
+                                
+                                {showReviewForm[booking.id] && (
+                                  <div className="mt-3">
+                                    <ReviewForm
+                                      initialRating={0}
+                                      onSubmit={(reviewData) => handleSubmitRating(booking, reviewData)}
+                                      loading={ratingLoading}
+                                      bookingId={booking.id}
+                                      centerName={booking.centerName || 'this grooming center'}
                                     />
                                   </div>
                                 )}

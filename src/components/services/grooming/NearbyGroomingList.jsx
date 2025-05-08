@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { calculateDistance } from '../../../utils/locationService';
+import { Link } from 'react-router-dom';
 
 // Dummy grooming centers data
 const dummyGroomingCenters = [
   {
-    id: 'gc1',
+    id: 'kWMvaCAHcWJyALyFyGmi',
     name: 'PetPamper Grooming Spa',
     description: 'Luxurious grooming for all breeds with specialized treatments and spa services.',
     type: 'Grooming Center',
@@ -174,7 +175,7 @@ const NearbyGroomingList = ({ groomingCenters, userLocation, loading }) => {
 
   // Placeholder for actual booking logic
   const handleBookNow = (centerId) => {
-    alert(`Booking functionality will be implemented for center ID: ${centerId}`);
+    // This function is no longer needed as we'll use Link component
   };
 
   if (loading) {
@@ -295,7 +296,7 @@ const NearbyGroomingList = ({ groomingCenters, userLocation, loading }) => {
                   </div>
                 </div>
                 
-                <p className="text-gray-600 mb-4">{center.description}</p>
+                <p className="text-gray-600 mb-4 line-clamp-5">{center.description}</p>
                 
                 {/* Location and Distance */}
                 <div className="flex items-center text-gray-500 mb-2">
@@ -337,12 +338,12 @@ const NearbyGroomingList = ({ groomingCenters, userLocation, loading }) => {
                     </svg>
                     Contact
                   </a>
-                  <button
-                    onClick={() => handleBookNow(center.id)}
+                  <Link
+                    to={`/services/grooming/${center.id}`}
                     className="inline-flex items-center px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded transition-colors"
                   >
                     Book Now
-                  </button>
+                  </Link>
                 </div>
               </div>
             </div>

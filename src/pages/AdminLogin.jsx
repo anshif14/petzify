@@ -71,8 +71,15 @@ const AdminLogin = () => {
           isLoggedIn: true
         }));
         
-        // Redirect to admin dashboard
-        navigate('/admin/dashboard');
+        // Redirect based on admin role
+        if (adminData.role === 'grooming_admin') {
+          navigate('/admin/grooming-dashboard');
+        } else if (adminData.role === 'boarding_admin') {
+          navigate('/admin/boarding-dashboard');
+        } else {
+          // Default admin dashboard for superadmin or other roles
+          navigate('/admin/dashboard');
+        }
       } else {
         // Wrong password
         setError('Invalid password');

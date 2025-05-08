@@ -5,6 +5,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useUser } from '../../../context/UserContext';
 import { toast } from 'react-toastify';
 import AuthModal from '../../auth/AuthModal';
+import GoogleMapSelector from './GoogleMapSelector';
+import CustomFeatureInput from './CustomFeatureInput';
 
 const GroomingRegistrationForm = ({ userLocation, onSubmitSuccess }) => {
   const { currentUser, isAuthenticated, authInitialized } = useUser();
@@ -33,6 +35,8 @@ const GroomingRegistrationForm = ({ userLocation, onSubmitSuccess }) => {
       flea: false,
       specialty: false
     },
+    customServices: [],
+    facilities: [],
     website: '',
     operatingHours: {
       monday: { open: '08:00', close: '18:00', closed: false },
@@ -152,6 +156,30 @@ const GroomingRegistrationForm = ({ userLocation, onSubmitSuccess }) => {
     return Promise.all(uploadPromises);
   };
   
+  // Handle custom services change
+  const handleCustomServicesChange = (updatedServices) => {
+    setFormData(prev => ({
+      ...prev,
+      customServices: updatedServices
+    }));
+  };
+  
+  // Handle facilities change
+  const handleFacilitiesChange = (updatedFacilities) => {
+    setFormData(prev => ({
+      ...prev,
+      facilities: updatedFacilities
+    }));
+  };
+  
+  // Handle map location selection
+  const handleLocationSelect = (location) => {
+    setFormData(prev => ({
+      ...prev,
+      location
+    }));
+  };
+  
   // Form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -180,6 +208,10 @@ const GroomingRegistrationForm = ({ userLocation, onSubmitSuccess }) => {
       // Upload images first
       const imageUrls = await uploadImages();
       
+      // Prepare services list including both checkboxes and custom ones
+      const standardServices = Object.keys(formData.services).filter(key => formData.services[key]);
+      const allServices = [...standardServices, ...formData.customServices];
+      
       // Prepare data based on service type
       let submissionData = {
         name: formData.name,
@@ -188,7 +220,8 @@ const GroomingRegistrationForm = ({ userLocation, onSubmitSuccess }) => {
         phone: formData.phone,
         email: formData.email,
         website: formData.website || '',
-        services: Object.keys(formData.services).filter(key => formData.services[key]),
+        services: allServices,
+        facilities: formData.facilities,
         images: imageUrls,
         submittedBy: currentUser.email,
         status: 'pending',
@@ -517,6 +550,16 @@ const GroomingRegistrationForm = ({ userLocation, onSubmitSuccess }) => {
                   />
                 </div>
               </div>
+              
+              <div className="mt-4">
+                <h4 className="block text-sm font-medium text-gray-700 mb-2">
+                  Mark Your Location on Google Maps *
+                </h4>
+                <GoogleMapSelector 
+                  initialLocation={formData.location}
+                  onLocationSelect={handleLocationSelect}
+                />
+              </div>
             </div>
           </div>
         ) : (
@@ -559,6 +602,16 @@ const GroomingRegistrationForm = ({ userLocation, onSubmitSuccess }) => {
                   <option value="30">30 km</option>
                 </select>
               </div>
+              
+              <div className="md:col-span-2 mt-4">
+                <h4 className="block text-sm font-medium text-gray-700 mb-2">
+                  Mark Your Base Location on Google Maps *
+                </h4>
+                <GoogleMapSelector 
+                  initialLocation={formData.location}
+                  onLocationSelect={handleLocationSelect}
+                />
+              </div>
             </div>
           </div>
         )}
@@ -566,7 +619,7 @@ const GroomingRegistrationForm = ({ userLocation, onSubmitSuccess }) => {
         {/* Services Offered */}
         <div className="space-y-4">
           <h3 className="text-lg font-medium text-gray-900">Services Offered</h3>
-          <p className="text-sm text-gray-500">Select all services that apply</p>
+          <p className="text-sm text-gray-500">Select all services that apply or add your own</p>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="flex items-center">
@@ -681,6 +734,25 @@ const GroomingRegistrationForm = ({ userLocation, onSubmitSuccess }) => {
               </label>
             </div>
           </div>
+          
+          {/* Custom Services */}
+          <div className="mt-6">
+            <CustomFeatureInput
+              initialFeatures={formData.customServices}
+              onChange={handleCustomServicesChange}
+            />
+          </div>
+        </div>
+        
+        {/* Facilities Section */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium text-gray-900">Facilities</h3>
+          <p className="text-sm text-gray-500">Add the facilities and amenities you offer</p>
+          
+          <CustomFeatureInput
+            initialFeatures={formData.facilities}
+            onChange={handleFacilitiesChange}
+          />
         </div>
         
         {/* Business Hours - Only for Grooming Centers */}

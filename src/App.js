@@ -39,7 +39,9 @@ import BoardingDetail from './pages/BoardingDetail';
 import PetBoardingAdmin from './pages/admin/PetBoardingAdmin';
 import PetGrooming from './pages/PetGrooming';
 import GroomingDashboard from './pages/GroomingDashboard';
+import GroomingDetail from './pages/GroomingDetail';
 import GroomingAdmin from './pages/admin/GroomingAdmin';
+import GroomingAdminDashboard from './pages/admin/GroomingAdminDashboard';
 // TailTalks Community pages
 import TailTalks from './pages/TailTalks';
 import CommunityDetail from './pages/CommunityDetail';
@@ -134,6 +136,14 @@ function App() {
               </Layout>
             } />
 
+            <Route path="/admin/grooming-dashboard" element={
+              <Layout>
+                <AdminRoute>
+                  <GroomingAdminDashboard />
+                </AdminRoute>
+              </Layout>
+            } />
+
             <Route path="/admin/pet-parenting/:id" element={<Layout><PetDetails /></Layout>} />
 
             <Route path="/download/ios" element={<Layout><AppDownloadComing storeType="ios" /></Layout>} />
@@ -143,6 +153,7 @@ function App() {
             <Route path="/services/boarding/:id" element={<Layout><BoardingDetail /></Layout>} />
             <Route path="/services/grooming" element={<Layout><PetGrooming /></Layout>} />
             <Route path="/services/grooming/dashboard" element={<Layout><GroomingDashboard /></Layout>} />
+            <Route path="/services/grooming/:id" element={<Layout><GroomingDetail /></Layout>} />
             <Route path="/rehome" element={<Layout><PetRehoming /></Layout>} />
             <Route path="/find-furry-soulmate" element={<Layout><FindFurrySoulmate /></Layout>} />
             <Route path="/pets/:petId" element={<Layout><PetDetails /></Layout>} />

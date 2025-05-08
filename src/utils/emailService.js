@@ -7,18 +7,29 @@ const FIREBASE_FUNCTIONS_URL = 'https://us-central1-petzify-49ed4.cloudfunctions
 
 /**
  * Send an email using the Firebase Cloud Function
- * @param {string} to - Recipient email address
- * @param {string} subject - Email subject
- * @param {string} html - HTML content of the email
- * @param {string} [cc] - Optional CC recipient
- * @returns {Promise<Response>} - Fetch response object
+ * @param {Object} emailDetails - Email details object
+ * @param {string} emailDetails.to - Recipient email address
+ * @param {string} emailDetails.subject - Email subject
+ * @param {string} [emailDetails.html] - HTML content of the email (optional if using template)
+ * @param {string} [emailDetails.cc] - Optional CC recipient
+ * @param {string} [emailDetails.templateId] - ID of the email template to use
+ * @param {Object} [emailDetails.dynamic_template_data] - Data to populate the template
+ * @returns {Promise<Object>} - Response object with success/error information
  */
-export const sendEmail = async ({ to, subject, html, cc }) => {
-  console.log('Starting email send process...', { to, subject });
+export const sendEmail = async ({ to, subject, html, cc, templateId, dynamic_template_data }) => {
+  console.log('Starting email send process...', { to, subject, templateId });
   
   try {
-    // Construct the URL for Firebase Function
-    const endpoint = `${FIREBASE_FUNCTIONS_URL}/sendCustomEmail`;
+    // Determine which endpoint to use based on whether a template is provided
+    let endpoint = `${FIREBASE_FUNCTIONS_URL}/sendCustomEmail`;
+    let bodyData = { to, subject, html, cc };
+    
+    // If a template ID is provided, adjust endpoint and body data
+    if (templateId) {
+      endpoint = `${FIREBASE_FUNCTIONS_URL}/sendTemplateEmail`;
+      bodyData = { to, subject, templateId, dynamic_template_data, cc };
+    }
+    
     console.log('Sending email to endpoint:', endpoint);
 
     // Make the API request
@@ -27,7 +38,7 @@ export const sendEmail = async ({ to, subject, html, cc }) => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ to, subject, html, cc }),
+      body: JSON.stringify(bodyData),
     });
 
     console.log('Email API response status:', response.status);
