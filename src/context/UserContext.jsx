@@ -186,8 +186,14 @@ export const UserProvider = ({ children }) => {
   // Check if user is authenticated
   const isAuthenticated = () => {
     // Only report authentication status after initialization is complete
-    if (!authInitialized) return false;
-    return !!currentUser;
+    if (!authInitialized) {
+      console.log('Authentication not yet initialized');
+      return false;
+    }
+    
+    const isAuth = !!currentUser;
+    console.log('Authentication check:', { isAuth, currentUser, authInitialized });
+    return isAuth;
   };
 
   // Create the value object with all the functions and state

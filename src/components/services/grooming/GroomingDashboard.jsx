@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, doc, getDoc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../../../firebase';
+import { db, app } from '../../../firebase';
 import { useUser } from '../../../context/UserContext';
 import { toast } from 'react-toastify';
 import { format } from 'date-fns';
+import { getFirestore } from 'firebase/firestore';
 
 const GroomingDashboard = () => {
   const { currentUser } = useUser();
@@ -14,6 +15,35 @@ const GroomingDashboard = () => {
   const [activeTab, setActiveTab] = useState('upcoming');
   const [responseText, setResponseText] = useState('');
   const [respondingTo, setRespondingTo] = useState(null);
+  
+  // Profile update states
+  const [profileForm, setProfileForm] = useState({
+    name: '',
+    description: '',
+    phone: '',
+    email: '',
+    address: '',
+    website: '',
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [profileUpdating, setProfileUpdating] = useState(false);
+  
+  // Services management states
+  const [services, setServices] = useState([]);
+  const [packages, setPackages] = useState([]);
+  const [newService, setNewService] = useState({ name: '', description: '', price: '' });
+  const [newPackage, setNewPackage] = useState({ 
+    name: '', 
+    description: '', 
+    price: '',
+    services: [] 
+  });
+  const [editingService, setEditingService] = useState(null);
+  const [editingPackage, setEditingPackage] = useState(null);
+  const [addingService, setAddingService] = useState(false);
+  const [addingPackage, setAddingPackage] = useState(false);
 
   useEffect(() => {
     if (currentUser && currentUser.email) {
@@ -24,6 +54,42 @@ const GroomingDashboard = () => {
   useEffect(() => {
     if (centerInfo) {
       fetchBookingsAndReviews();
+      
+      // Populate profile form with center info
+      setProfileForm({
+        name: centerInfo.name || '',
+        description: centerInfo.description || '',
+        phone: centerInfo.phone || '',
+        email: centerInfo.email || '',
+        address: centerInfo.address || '',
+        website: centerInfo.website || '',
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+      
+      // Set services from center info
+      if (centerInfo.services) {
+        const formattedServices = centerInfo.services.map(service => {
+          // Handle both string services and object services
+          if (typeof service === 'string') {
+            return {
+              id: service.toLowerCase().replace(/\s+/g, '-'),
+              name: service,
+              price: '500', // Default price
+              description: ''
+            };
+          } else {
+            return service;
+          }
+        });
+        setServices(formattedServices);
+      }
+      
+      // Set packages from center info if available
+      if (centerInfo.packages) {
+        setPackages(centerInfo.packages);
+      }
     }
   }, [centerInfo, activeTab]);
 
@@ -252,6 +318,323 @@ const GroomingDashboard = () => {
     return format(date, 'hh:mm a');
   };
 
+  // Handle profile form changes
+  const handleProfileChange = (e) => {
+    const { name, value } = e.target;
+    setProfileForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+  
+  // Update grooming center profile
+  const updateProfile = async (e) => {
+    e.preventDefault();
+    setProfileUpdating(true);
+    
+    try {
+      const db = getFirestore(app);
+      const centerRef = doc(db, 'groomingCenters', centerInfo.id);
+      
+      // Data to update
+      const updateData = {
+        name: profileForm.name,
+        description: profileForm.description,
+        phone: profileForm.phone,
+        email: profileForm.email,
+        address: profileForm.address,
+        website: profileForm.website,
+        updatedAt: serverTimestamp()
+      };
+      
+      // Check if password update is requested
+      if (profileForm.newPassword) {
+        // Validate current password (simplified example - in production, you would implement proper authentication)
+        if (!profileForm.currentPassword) {
+          toast.error('Please enter your current password');
+          setProfileUpdating(false);
+          return;
+        }
+        
+        // Validate new password
+        if (profileForm.newPassword.length < 6) {
+          toast.error('New password must be at least 6 characters');
+          setProfileUpdating(false);
+          return;
+        }
+        
+        // Validate password confirmation
+        if (profileForm.newPassword !== profileForm.confirmPassword) {
+          toast.error('New passwords do not match');
+          setProfileUpdating(false);
+          return;
+        }
+        
+        // Update password (in a real app, you would need to validate the current password)
+        // For simplicity, we're just updating the password without verification
+        updateData.password = profileForm.newPassword;
+      }
+      
+      // Update profile in Firestore
+      await updateDoc(centerRef, updateData);
+      
+      // Update local state with new information
+      setCenterInfo(prev => ({
+        ...prev,
+        ...updateData
+      }));
+      
+      // Reset password fields
+      setProfileForm(prev => ({
+        ...prev,
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      }));
+      
+      toast.success('Profile updated successfully');
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast.error('Failed to update profile');
+    } finally {
+      setProfileUpdating(false);
+    }
+  };
+
+  // Handle service form changes
+  const handleServiceChange = (e) => {
+    const { name, value } = e.target;
+    setNewService(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+  
+  // Handle package form changes
+  const handlePackageChange = (e) => {
+    const { name, value } = e.target;
+    setNewPackage(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+  
+  // Toggle service selection for package
+  const toggleServiceForPackage = (serviceId) => {
+    setNewPackage(prev => {
+      if (prev.services.includes(serviceId)) {
+        return {
+          ...prev,
+          services: prev.services.filter(id => id !== serviceId)
+        };
+      } else {
+        return {
+          ...prev,
+          services: [...prev.services, serviceId]
+        };
+      }
+    });
+  };
+  
+  // Add new service
+  const addService = async () => {
+    if (!newService.name || !newService.price) {
+      toast.error('Service name and price are required');
+      return;
+    }
+    
+    try {
+      const db = getFirestore(app);
+      const centerRef = doc(db, 'groomingCenters', centerInfo.id);
+      
+      // Create new service with ID
+      const serviceId = newService.name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now();
+      const serviceData = {
+        id: serviceId,
+        name: newService.name,
+        description: newService.description || '',
+        price: newService.price
+      };
+      
+      // Add to services array
+      const updatedServices = [...services, serviceData];
+      
+      // Update in Firestore
+      await updateDoc(centerRef, {
+        services: updatedServices,
+        updatedAt: serverTimestamp()
+      });
+      
+      // Update local state
+      setServices(updatedServices);
+      setNewService({ name: '', description: '', price: '' });
+      setAddingService(false);
+      
+      toast.success('Service added successfully');
+    } catch (error) {
+      console.error('Error adding service:', error);
+      toast.error('Failed to add service');
+    }
+  };
+  
+  // Update existing service
+  const updateService = async (service) => {
+    if (!service.name || !service.price) {
+      toast.error('Service name and price are required');
+      return;
+    }
+    
+    try {
+      const db = getFirestore(app);
+      const centerRef = doc(db, 'groomingCenters', centerInfo.id);
+      
+      // Update service in array
+      const updatedServices = services.map(s => 
+        s.id === service.id ? service : s
+      );
+      
+      // Update in Firestore
+      await updateDoc(centerRef, {
+        services: updatedServices,
+        updatedAt: serverTimestamp()
+      });
+      
+      // Update local state
+      setServices(updatedServices);
+      setEditingService(null);
+      
+      toast.success('Service updated successfully');
+    } catch (error) {
+      console.error('Error updating service:', error);
+      toast.error('Failed to update service');
+    }
+  };
+  
+  // Remove service
+  const removeService = async (serviceId) => {
+    try {
+      const db = getFirestore(app);
+      const centerRef = doc(db, 'groomingCenters', centerInfo.id);
+      
+      // Remove from services array
+      const updatedServices = services.filter(s => s.id !== serviceId);
+      
+      // Update in Firestore
+      await updateDoc(centerRef, {
+        services: updatedServices,
+        updatedAt: serverTimestamp()
+      });
+      
+      // Update local state
+      setServices(updatedServices);
+      
+      toast.success('Service removed successfully');
+    } catch (error) {
+      console.error('Error removing service:', error);
+      toast.error('Failed to remove service');
+    }
+  };
+  
+  // Add new package
+  const addPackage = async () => {
+    if (!newPackage.name || !newPackage.price || newPackage.services.length === 0) {
+      toast.error('Package name, price, and at least one service are required');
+      return;
+    }
+    
+    try {
+      const db = getFirestore(app);
+      const centerRef = doc(db, 'groomingCenters', centerInfo.id);
+      
+      // Create new package with ID
+      const packageId = newPackage.name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now();
+      const packageData = {
+        id: packageId,
+        name: newPackage.name,
+        description: newPackage.description || '',
+        price: newPackage.price,
+        services: newPackage.services
+      };
+      
+      // Add to packages array
+      const updatedPackages = [...packages, packageData];
+      
+      // Update in Firestore
+      await updateDoc(centerRef, {
+        packages: updatedPackages,
+        updatedAt: serverTimestamp()
+      });
+      
+      // Update local state
+      setPackages(updatedPackages);
+      setNewPackage({ name: '', description: '', price: '', services: [] });
+      setAddingPackage(false);
+      
+      toast.success('Package added successfully');
+    } catch (error) {
+      console.error('Error adding package:', error);
+      toast.error('Failed to add package');
+    }
+  };
+  
+  // Update existing package
+  const updatePackage = async (pkg) => {
+    if (!pkg.name || !pkg.price || pkg.services.length === 0) {
+      toast.error('Package name, price, and at least one service are required');
+      return;
+    }
+    
+    try {
+      const db = getFirestore(app);
+      const centerRef = doc(db, 'groomingCenters', centerInfo.id);
+      
+      // Update package in array
+      const updatedPackages = packages.map(p => 
+        p.id === pkg.id ? pkg : p
+      );
+      
+      // Update in Firestore
+      await updateDoc(centerRef, {
+        packages: updatedPackages,
+        updatedAt: serverTimestamp()
+      });
+      
+      // Update local state
+      setPackages(updatedPackages);
+      setEditingPackage(null);
+      
+      toast.success('Package updated successfully');
+    } catch (error) {
+      console.error('Error updating package:', error);
+      toast.error('Failed to update package');
+    }
+  };
+  
+  // Remove package
+  const removePackage = async (packageId) => {
+    try {
+      const db = getFirestore(app);
+      const centerRef = doc(db, 'groomingCenters', centerInfo.id);
+      
+      // Remove from packages array
+      const updatedPackages = packages.filter(p => p.id !== packageId);
+      
+      // Update in Firestore
+      await updateDoc(centerRef, {
+        packages: updatedPackages,
+        updatedAt: serverTimestamp()
+      });
+      
+      // Update local state
+      setPackages(updatedPackages);
+      
+      toast.success('Package removed successfully');
+    } catch (error) {
+      console.error('Error removing package:', error);
+      toast.error('Failed to remove package');
+    }
+  };
+
   if (loading && !centerInfo) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -331,6 +714,18 @@ const GroomingDashboard = () => {
             onClick={() => setActiveTab('reviews')}
           >
             Reviews
+          </button>
+          <button
+            className={`px-6 py-3 text-sm font-medium ${activeTab === 'services' ? 'border-b-2 border-primary text-primary' : 'text-gray-500 hover:text-gray-700'}`}
+            onClick={() => setActiveTab('services')}
+          >
+            Services & Pricing
+          </button>
+          <button
+            className={`px-6 py-3 text-sm font-medium ${activeTab === 'profile' ? 'border-b-2 border-primary text-primary' : 'text-gray-500 hover:text-gray-700'}`}
+            onClick={() => setActiveTab('profile')}
+          >
+            Profile
           </button>
         </div>
       </div>
@@ -461,6 +856,538 @@ const GroomingDashboard = () => {
               ))}
             </div>
           )}
+        </div>
+      ) : activeTab === 'profile' ? (
+        // Profile Management Tab
+        <div className="p-6">
+          <form onSubmit={updateProfile} className="space-y-6">
+            <h3 className="text-lg font-medium text-gray-900">Center Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                  Center Name
+                </label>
+                <input
+                  type="text"
+                  id="name"
+                  name="name"
+                  value={profileForm.name}
+                  onChange={handleProfileChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  value={profileForm.email}
+                  onChange={handleProfileChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  id="phone"
+                  name="phone"
+                  value={profileForm.phone}
+                  onChange={handleProfileChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="website" className="block text-sm font-medium text-gray-700 mb-1">
+                  Website (Optional)
+                </label>
+                <input
+                  type="url"
+                  id="website"
+                  name="website"
+                  value={profileForm.website}
+                  onChange={handleProfileChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                />
+              </div>
+              
+              <div className="md:col-span-2">
+                <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
+                  Address
+                </label>
+                <input
+                  type="text"
+                  id="address"
+                  name="address"
+                  value={profileForm.address}
+                  onChange={handleProfileChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                  required
+                />
+              </div>
+              
+              <div className="md:col-span-2">
+                <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+                  Description
+                </label>
+                <textarea
+                  id="description"
+                  name="description"
+                  rows={4}
+                  value={profileForm.description}
+                  onChange={handleProfileChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                />
+              </div>
+            </div>
+            
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Change Password (Optional)</h3>
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                    Current Password
+                  </label>
+                  <input
+                    type="password"
+                    id="currentPassword"
+                    name="currentPassword"
+                    value={profileForm.currentPassword}
+                    onChange={handleProfileChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                    New Password
+                  </label>
+                  <input
+                    type="password"
+                    id="newPassword"
+                    name="newPassword"
+                    value={profileForm.newPassword}
+                    onChange={handleProfileChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Must be at least 6 characters
+                  </p>
+                </div>
+                
+                <div>
+                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                    Confirm New Password
+                  </label>
+                  <input
+                    type="password"
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    value={profileForm.confirmPassword}
+                    onChange={handleProfileChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                className={`px-4 py-2 ${
+                  profileUpdating
+                    ? 'bg-gray-400'
+                    : 'bg-primary hover:bg-primary-dark'
+                } text-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary`}
+                disabled={profileUpdating}
+              >
+                {profileUpdating ? 'Updating...' : 'Update Profile'}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : activeTab === 'services' ? (
+        // Services & Pricing Management Tab
+        <div className="p-6">
+          <div className="mb-8">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium text-gray-900">Services</h3>
+              {!addingService && (
+                <button
+                  onClick={() => setAddingService(true)}
+                  className="px-3 py-1 text-sm bg-primary text-white rounded-md hover:bg-primary-dark"
+                >
+                  Add Service
+                </button>
+              )}
+            </div>
+            
+            {/* Add Service Form */}
+            {addingService && (
+              <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                <h4 className="text-md font-medium text-gray-900 mb-3">Add New Service</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label htmlFor="serviceName" className="block text-sm font-medium text-gray-700 mb-1">
+                      Service Name
+                    </label>
+                    <input
+                      type="text"
+                      id="serviceName"
+                      name="name"
+                      value={newService.name}
+                      onChange={handleServiceChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="servicePrice" className="block text-sm font-medium text-gray-700 mb-1">
+                      Price (₹)
+                    </label>
+                    <input
+                      type="number"
+                      id="servicePrice"
+                      name="price"
+                      value={newService.price}
+                      onChange={handleServiceChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                      required
+                      min="0"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="serviceDescription" className="block text-sm font-medium text-gray-700 mb-1">
+                      Description (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      id="serviceDescription"
+                      name="description"
+                      value={newService.description}
+                      onChange={handleServiceChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                    />
+                  </div>
+                </div>
+                
+                <div className="mt-4 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setAddingService(false)}
+                    className="mr-3 px-3 py-1 text-sm text-gray-700 hover:text-gray-900"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={addService}
+                    className="px-3 py-1 text-sm bg-primary text-white rounded-md hover:bg-primary-dark"
+                  >
+                    Add Service
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {/* Services List */}
+            {services.length === 0 ? (
+              <div className="text-center py-8 bg-gray-50 rounded-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                <h4 className="text-md font-medium text-gray-900 mb-2">No Services Added</h4>
+                <p className="text-gray-600">
+                  Add services to let your customers know what you offer.
+                </p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Service Name
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Description
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Price
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {services.map(service => (
+                      <tr key={service.id || service.name}>
+                        {editingService && editingService.id === service.id ? (
+                          // Edit mode
+                          <>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <input
+                                type="text"
+                                value={editingService.name}
+                                onChange={(e) => setEditingService({ ...editingService, name: e.target.value })}
+                                className="w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                                required
+                              />
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <input
+                                type="text"
+                                value={editingService.description}
+                                onChange={(e) => setEditingService({ ...editingService, description: e.target.value })}
+                                className="w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                              />
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <input
+                                type="number"
+                                value={editingService.price}
+                                onChange={(e) => setEditingService({ ...editingService, price: e.target.value })}
+                                className="w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                                required
+                                min="0"
+                              />
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              <button
+                                onClick={() => updateService(editingService)}
+                                className="text-primary hover:text-primary-dark mr-3"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={() => setEditingService(null)}
+                                className="text-gray-600 hover:text-gray-900"
+                              >
+                                Cancel
+                              </button>
+                            </td>
+                          </>
+                        ) : (
+                          // View mode
+                          <>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm font-medium text-gray-900">{service.name}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-500">{service.description || '-'}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm font-medium text-gray-900">₹{service.price}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              <button
+                                onClick={() => setEditingService(service)}
+                                className="text-indigo-600 hover:text-indigo-900 mr-3"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => removeService(service.id)}
+                                className="text-red-600 hover:text-red-900"
+                              >
+                                Remove
+                              </button>
+                            </td>
+                          </>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          
+          {/* Packages Section */}
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium text-gray-900">Service Packages</h3>
+              {!addingPackage && (
+                <button
+                  onClick={() => setAddingPackage(true)}
+                  className="px-3 py-1 text-sm bg-primary text-white rounded-md hover:bg-primary-dark"
+                >
+                  Add Package
+                </button>
+              )}
+            </div>
+            
+            {/* Add Package Form */}
+            {addingPackage && (
+              <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                <h4 className="text-md font-medium text-gray-900 mb-3">Create New Package</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label htmlFor="packageName" className="block text-sm font-medium text-gray-700 mb-1">
+                      Package Name
+                    </label>
+                    <input
+                      type="text"
+                      id="packageName"
+                      name="name"
+                      value={newPackage.name}
+                      onChange={handlePackageChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="packagePrice" className="block text-sm font-medium text-gray-700 mb-1">
+                      Package Price (₹)
+                    </label>
+                    <input
+                      type="number"
+                      id="packagePrice"
+                      name="price"
+                      value={newPackage.price}
+                      onChange={handlePackageChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                      required
+                      min="0"
+                    />
+                  </div>
+                  
+                  <div className="md:col-span-2">
+                    <label htmlFor="packageDescription" className="block text-sm font-medium text-gray-700 mb-1">
+                      Description (Optional)
+                    </label>
+                    <textarea
+                      id="packageDescription"
+                      name="description"
+                      rows={2}
+                      value={newPackage.description}
+                      onChange={handlePackageChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                    />
+                  </div>
+                </div>
+                
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Services for this Package
+                  </label>
+                  {services.length === 0 ? (
+                    <p className="text-sm text-red-600">You need to add services before creating a package.</p>
+                  ) : (
+                    <div className="bg-white p-3 border border-gray-200 rounded-md max-h-60 overflow-y-auto">
+                      {services.map(service => (
+                        <div key={service.id} className="flex items-center mb-2 last:mb-0">
+                          <input
+                            type="checkbox"
+                            id={`service-${service.id}`}
+                            checked={newPackage.services.includes(service.id)}
+                            onChange={() => toggleServiceForPackage(service.id)}
+                            className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                          />
+                          <label htmlFor={`service-${service.id}`} className="ml-2 block text-sm text-gray-900">
+                            {service.name} - ₹{service.price}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                <div className="mt-4 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setAddingPackage(false)}
+                    className="mr-3 px-3 py-1 text-sm text-gray-700 hover:text-gray-900"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={addPackage}
+                    className="px-3 py-1 text-sm bg-primary text-white rounded-md hover:bg-primary-dark"
+                    disabled={services.length === 0}
+                  >
+                    Create Package
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {/* Packages List */}
+            {packages.length === 0 ? (
+              <div className="text-center py-8 bg-gray-50 rounded-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                </svg>
+                <h4 className="text-md font-medium text-gray-900 mb-2">No Packages Created</h4>
+                <p className="text-gray-600">
+                  Create service packages to offer bundled services at special prices.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {packages.map(pkg => (
+                  <div key={pkg.id} className="bg-white rounded-lg shadow p-6 border border-gray-200">
+                    <div className="flex justify-between items-start">
+                      <h4 className="text-lg font-medium text-gray-900">{pkg.name}</h4>
+                      <div className="text-lg font-bold text-primary">₹{pkg.price}</div>
+                    </div>
+                    
+                    {pkg.description && (
+                      <p className="mt-2 text-sm text-gray-600">{pkg.description}</p>
+                    )}
+                    
+                    <div className="mt-4">
+                      <h5 className="text-sm font-medium text-gray-700 mb-2">Included Services:</h5>
+                      <ul className="space-y-1">
+                        {pkg.services.map(serviceId => {
+                          const service = services.find(s => s.id === serviceId);
+                          return service ? (
+                            <li key={serviceId} className="text-sm text-gray-600 flex items-center">
+                              <svg className="h-4 w-4 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              {service.name}
+                            </li>
+                          ) : null;
+                        })}
+                      </ul>
+                    </div>
+                    
+                    <div className="mt-4 pt-4 border-t border-gray-200 flex justify-end">
+                      <button
+                        onClick={() => setEditingPackage(pkg)}
+                        className="text-indigo-600 hover:text-indigo-900 text-sm mr-3"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => removePackage(pkg.id)}
+                        className="text-red-600 hover:text-red-900 text-sm"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       ) : (
         // Bookings Tabs

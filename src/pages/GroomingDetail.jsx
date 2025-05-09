@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase';
+import { doc, getDoc, collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../firebase/config';
 import { useUser } from '../context/UserContext';
 import { toast } from 'react-toastify';
 import LoadingScreen from '../components/common/LoadingScreen';
 import AuthModal from '../components/auth/AuthModal';
 import { sendEmail } from '../utils/emailService';
+import { format } from 'date-fns';
 
 const GroomingDetail = () => {
   const { id } = useParams();
@@ -23,16 +24,21 @@ const GroomingDetail = () => {
   
   // Booking form state
   const [bookingDetails, setBookingDetails] = useState({
-    date: '',
+    date: format(new Date(), 'yyyy-MM-dd'),
     time: '',
-    petType: '',
+    petType: 'Dog',
     petName: '',
     petBreed: '',
     petAge: '',
     petWeight: '',
     selectedServices: [],
+    selectedPackage: null,
     specialInstructions: ''
   });
+
+  // Add new state for services and packages
+  const [services, setServices] = useState([]);
+  const [packages, setPackages] = useState([]);
 
   // Fetch center details
   useEffect(() => {
@@ -43,10 +49,14 @@ const GroomingDetail = () => {
         const centerSnap = await getDoc(centerRef);
         
         if (centerSnap.exists()) {
+          const centerData = centerSnap.data();
           setCenter({
             id: centerSnap.id,
-            ...centerSnap.data()
+            ...centerData
           });
+
+          // Fetch center-specific services and packages
+          fetchServicesAndPackages(centerSnap.id);
         } else {
           setError('Grooming center not found');
         }
@@ -63,13 +73,81 @@ const GroomingDetail = () => {
     }
   }, [id]);
 
+  // Add a new function to fetch services and packages
+  const fetchServicesAndPackages = async (centerId) => {
+    try {
+      // Fetch services
+      const servicesQuery = query(
+        collection(db, 'groomingServices'),
+        where('centerId', '==', centerId)
+      );
+      
+      const servicesSnapshot = await getDocs(servicesQuery);
+      const servicesList = servicesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      setServices(servicesList);
+      
+      // Add services to center object for compatibility with existing code
+      setCenter(prev => ({
+        ...prev,
+        services: servicesList
+      }));
+      
+      // Fetch packages
+      const packagesQuery = query(
+        collection(db, 'groomingPackages'),
+        where('centerId', '==', centerId)
+      );
+      
+      const packagesSnapshot = await getDocs(packagesQuery);
+      const packagesList = packagesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      setPackages(packagesList);
+      
+      // If no services found, use default services
+      if (servicesList.length === 0) {
+        const defaultServices = [
+          { name: "Basic Grooming", price: 800, description: "Basic grooming service" },
+          { name: "Full Grooming", price: 1200, description: "Complete grooming service" },
+          { name: "Bath & Brush", price: 600, description: "Bath and brush service" },
+          { name: "Nail Trimming", price: 400, description: "Professional nail trimming" },
+          { name: "Special Treatment", price: 1000, description: "Special treatment service" }
+        ];
+        
+        setServices(defaultServices);
+        setCenter(prev => ({
+          ...prev,
+          services: defaultServices
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching services and packages:', error);
+    }
+  };
+
   // Update price calculation when booking details change
   useEffect(() => {
     calculateBookingCost();
-  }, [bookingDetails.selectedServices, center]);
+  }, [bookingDetails.selectedServices, services]);
 
   const calculateBookingCost = () => {
-    if (!bookingDetails.selectedServices || !bookingDetails.selectedServices.length || !center) {
+    if (bookingDetails.selectedPackage) {
+      // If a package is selected, use its price
+      const selectedPackage = packages.find(pkg => pkg.id === bookingDetails.selectedPackage);
+      if (selectedPackage) {
+        setTotalCost(selectedPackage.price);
+        return;
+      }
+    }
+    
+    // Otherwise calculate based on individual services
+    if (!bookingDetails.selectedServices || !bookingDetails.selectedServices.length) {
       setTotalCost(0);
       return;
     }
@@ -79,9 +157,7 @@ const GroomingDetail = () => {
     // Calculate total cost for all selected services
     bookingDetails.selectedServices.forEach(serviceName => {
       // Find the selected service and its price
-      const selectedService = center.services?.find(service => 
-        (typeof service === 'string' ? service : service.name) === serviceName
-      );
+      const selectedService = services.find(service => service.name === serviceName);
       
       if (selectedService && selectedService.price) {
         calculatedTotal += Number(selectedService.price);
@@ -111,9 +187,31 @@ const GroomingDetail = () => {
         ? [...prev.selectedServices, value] // Add service
         : prev.selectedServices.filter(service => service !== value); // Remove service
       
+      // Check if the current selection no longer matches any package
+      let packageStillValid = false;
+      let updatedPackage = prev.selectedPackage;
+      
+      if (prev.selectedPackage) {
+        const selectedPackage = packages.find(pkg => pkg.id === prev.selectedPackage);
+        if (selectedPackage) {
+          const packageServiceNames = selectedPackage.services.map(s => s.name);
+          // Check if updated services exactly match package services (no more, no less)
+          const servicesMatch = 
+            packageServiceNames.length === updatedServices.length && 
+            packageServiceNames.every(s => updatedServices.includes(s));
+          
+          if (!servicesMatch) {
+            updatedPackage = null;
+          } else {
+            packageStillValid = true;
+          }
+        }
+      }
+      
       return {
         ...prev,
-        selectedServices: updatedServices
+        selectedServices: updatedServices,
+        selectedPackage: updatedPackage
       };
     });
   };
@@ -125,24 +223,10 @@ const GroomingDetail = () => {
     if (storedForm) {
       try {
         const parsedForm = JSON.parse(storedForm);
-        setBookingDetails(prevForm => ({
-          ...prevForm,
-          date: parsedForm.date || prevForm.date,
-          time: parsedForm.time || prevForm.time,
-          petType: parsedForm.petType || prevForm.petType,
-          petName: parsedForm.petName || prevForm.petName,
-          petBreed: parsedForm.petBreed || prevForm.petBreed,
-          petAge: parsedForm.petAge || prevForm.petAge,
-          petWeight: parsedForm.petWeight || prevForm.petWeight,
-          selectedServices: parsedForm.selectedServices || prevForm.selectedServices,
-          specialInstructions: parsedForm.specialInstructions || prevForm.specialInstructions
-        }));
         localStorage.removeItem('tempBookingForm');
         
-        // Process booking after a short delay to ensure currentUser is available
-        setTimeout(() => {
-          processBooking();
-        }, 1000);
+        // Navigate to booking page after successful authentication
+        navigate(`/services/grooming/${id}/booking`);
       } catch (error) {
         console.error('Error parsing stored form data:', error);
         localStorage.removeItem('tempBookingForm');
@@ -223,20 +307,58 @@ const GroomingDetail = () => {
     }
   };
 
+  // Add a new function to handle package selection
+  const handlePackageSelection = (packageId) => {
+    const selectedPackage = packages.find(pkg => pkg.id === packageId);
+    
+    if (selectedPackage) {
+      // Get the services included in this package
+      const packageServices = selectedPackage.services.map(service => service.name);
+      
+      setBookingDetails(prev => ({
+        ...prev,
+        selectedPackage: packageId,
+        // Replace any previously selected services with the package services
+        selectedServices: packageServices
+      }));
+    } else {
+      // If no package selected, clear the selected package but keep services
+      setBookingDetails(prev => ({
+        ...prev,
+        selectedPackage: null
+      }));
+    }
+  };
+
   // Add the processing booking function
   const processBooking = async () => {
     setSubmitting(true);
     try {
-      // Create a booking document in Firestore
+      // Ensure user is authenticated
+      if (!isAuthenticated()) {
+        console.log('Not authenticated in processBooking');
+        toast.error('Please sign in to book an appointment');
+        setShowAuthModal(true);
+        setSubmitting(false);
+        return;
+      }
+
+      // Ensure we have a valid user object
+      if (!currentUser || !currentUser.email) {
+        console.error('Current user is missing required fields:', currentUser);
+        toast.error('User information is incomplete. Please sign out and sign in again.');
+        setSubmitting(false);
+        return;
+      }
+
+      // Create the booking data object
       const bookingData = {
-        userId: currentUser?.id,
-        userEmail: currentUser?.email,
-        userName: currentUser?.fullName || currentUser?.displayName || currentUser?.name || 'Unknown User',
-        userPhone: currentUser?.phone || '',
+        userId: currentUser.id || currentUser.email, // Use email as fallback for userId
+        userName: currentUser.displayName || currentUser.name || '',
+        userEmail: currentUser.email,
+        userPhone: currentUser.phone || '',
         centerId: center.id,
         centerName: center.name,
-        centerEmail: center.email || '',
-        centerAddress: center.type === 'Grooming Center' ? center.address : `Mobile service based in ${center.baseLocation}`,
         date: bookingDetails.date,
         time: bookingDetails.time,
         petType: bookingDetails.petType,
@@ -245,37 +367,51 @@ const GroomingDetail = () => {
         petAge: bookingDetails.petAge,
         petWeight: bookingDetails.petWeight,
         selectedServices: bookingDetails.selectedServices,
-        serviceType: bookingDetails.selectedServices.join(', '),
-        specialInstructions: bookingDetails.specialInstructions || '',
+        selectedPackage: bookingDetails.selectedPackage || null,
+        specialInstructions: bookingDetails.specialInstructions,
         totalCost,
         status: 'pending',
-        createdAt: serverTimestamp(),
-        paymentStatus: 'pending'
+        createdAt: serverTimestamp()
       };
       
-      console.log('Attempting to create booking with data:', bookingData);
+      // Add to bookings collection
+      const bookingRef = await addDoc(collection(db, 'groomingBookings'), bookingData);
       
-      // Add booking to the grooming bookings collection
-      const bookingsRef = collection(db, 'groomingBookings');
-      const docRef = await addDoc(bookingsRef, bookingData);
+      // Send confirmation emails
+      await sendEmailNotifications(bookingData, bookingRef.id);
       
-      console.log('Booking created successfully with ID:', docRef.id);
+      // Show success message
+      toast.success('Booking submitted successfully!');
       
-      // Send email to the user and grooming center
-      await sendEmailNotifications(bookingData, docRef.id);
-      
-      // Set booking ID and show success dialog
-      setBookingId(docRef.id);
-      setShowSuccessDialog(true);
-      
-      // Clear any stored pending booking
-      localStorage.removeItem('tempBookingForm');
+      // Navigate to confirmation page or dashboard
+      navigate(`/booking-confirmation/${bookingRef.id}`, { 
+        state: { 
+          bookingDetails: bookingData,
+          totalCost 
+        } 
+      });
       
     } catch (error) {
       console.error('Error creating booking:', error);
-      toast.error('Failed to create booking. Please try again.');
+      toast.error('Failed to submit booking. Please try again.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // Navigate to booking page
+  const handleBookNow = () => {
+    if (!isAuthenticated()) {
+      // Store any current form data in localStorage
+      localStorage.setItem('tempBookingForm', JSON.stringify(bookingDetails));
+      // Show auth modal first - ensure this is working
+      setShowAuthModal(true);
+      
+      // Add a console log to check if this code path is being executed
+      console.log("User not authenticated, showing auth modal");
+    } else {
+      // Navigate to the dedicated booking page
+      navigate(`/services/grooming/${id}/booking`);
     }
   };
 
@@ -354,13 +490,19 @@ const GroomingDetail = () => {
       )}
 
       {/* Auth Modal */}
-      {showAuthModal && (
-        <AuthModal 
-          onClose={() => setShowAuthModal(false)} 
-          onSuccess={handleAuthSuccess}
-          message="Please sign in or register to book a grooming appointment"
-        />
-      )}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        initialMode="login"
+        onSuccess={() => {
+          console.log('Auth success in GroomingDetail, authenticated:', isAuthenticated());
+          setShowAuthModal(false);
+          if (isAuthenticated()) {
+            navigate(`/services/grooming/${id}/booking`);
+          }
+        }}
+        message="Please sign in to book a grooming appointment"
+      />
 
       {/* Breadcrumbs */}
       <div className="mb-6">
@@ -399,7 +541,7 @@ const GroomingDetail = () => {
 
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Left column: Center details */}
-        <div className="lg:w-2/3">
+        <div className="lg:w-full">
           {/* Center Header */}
           <div className="bg-white rounded-lg shadow-sm overflow-hidden mb-6">
             <div className="h-64 bg-gray-300 relative">
@@ -436,10 +578,27 @@ const GroomingDetail = () => {
               </div>
             </div>
             <div className="p-6">
-              <p className="text-gray-700 mb-4">{center.description}</p>
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <p className="text-gray-700 mb-4">{center.description}</p>
+                </div>
+                
+                {/* Book Now Button */}
+                <div className="ml-6">
+                  <button 
+                    onClick={handleBookNow}
+                    className="bg-primary hover:bg-primary-dark text-white font-bold py-3 px-6 rounded-md shadow-md transition-colors flex items-center"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                    </svg>
+                    Book Appointment
+                  </button>
+                </div>
+              </div>
               
               {/* Location */}
-              <div className="border-t pt-4">
+              <div className="border-t pt-4 mt-4">
                 <h2 className="text-lg font-medium text-gray-900 mb-2">Location</h2>
                 {center.type === 'Grooming Center' ? (
                   <div className="flex items-start">
@@ -586,322 +745,6 @@ const GroomingDetail = () => {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-        
-        {/* Right column: Booking form */}
-        <div className="lg:w-1/3">
-          <div className="bg-white rounded-lg shadow-sm overflow-hidden sticky top-8">
-            <div className="p-6 border-b">
-              <h2 className="text-xl font-medium text-gray-900">Book a Grooming Appointment</h2>
-            </div>
-            
-            <form onSubmit={handleSubmit} className="p-6">
-              {/* Date & Time */}
-              <div className="mb-4">
-                <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                <input
-                  type="date"
-                  id="date"
-                  name="date"
-                  min={new Date().toISOString().split('T')[0]}
-                  value={bookingDetails.date}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
-                  required
-                />
-              </div>
-              
-              <div className="mb-4">
-                <label htmlFor="time" className="block text-sm font-medium text-gray-700 mb-1">Time</label>
-                <input
-                  type="time"
-                  id="time"
-                  name="time"
-                  value={bookingDetails.time}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
-                  required
-                />
-                <p className="text-xs text-gray-500 mt-1">Please check center hours before selecting a time</p>
-              </div>
-              
-              {/* Pet Details */}
-              <div className="mb-4">
-                <label htmlFor="petType" className="block text-sm font-medium text-gray-700 mb-1">Pet Type</label>
-                <select
-                  id="petType"
-                  name="petType"
-                  value={bookingDetails.petType}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
-                  required
-                >
-                  <option value="">Select pet type</option>
-                  <option value="dog">Dog</option>
-                  <option value="cat">Cat</option>
-                  <option value="rabbit">Rabbit</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-              
-              <div className="mb-4">
-                <label htmlFor="petName" className="block text-sm font-medium text-gray-700 mb-1">Pet Name</label>
-                <input
-                  type="text"
-                  id="petName"
-                  name="petName"
-                  value={bookingDetails.petName}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
-                  required
-                />
-              </div>
-
-              <div className="mb-4">
-                <label htmlFor="petBreed" className="block text-sm font-medium text-gray-700 mb-1">Pet Breed</label>
-                <input
-                  type="text"
-                  id="petBreed"
-                  name="petBreed"
-                  value={bookingDetails.petBreed}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
-                  required
-                />
-              </div>
-
-              <div className="mb-4">
-                <label htmlFor="petAge" className="block text-sm font-medium text-gray-700 mb-1">Pet Age</label>
-                <input
-                  type="number"
-                  id="petAge"
-                  name="petAge"
-                  min="0"
-                  max="30"
-                  value={bookingDetails.petAge}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
-                  required
-                />
-              </div>
-
-              <div className="mb-4">
-                <label htmlFor="petWeight" className="block text-sm font-medium text-gray-700 mb-1">Pet Weight (kg)</label>
-                <input
-                  type="number"
-                  id="petWeight"
-                  name="petWeight"
-                  min="0"
-                  step="0.1"
-                  value={bookingDetails.petWeight}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
-                  required
-                />
-              </div>
-              
-              {/* Service Type - Replace dropdown with checkboxes */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Services</label>
-                <p className="text-xs text-gray-500 mb-2">Select one or more services</p>
-                
-                <div className="space-y-2">
-                  {center.services && center.services.length > 0 ? (
-                    center.services.map((service, index) => {
-                      const serviceName = typeof service === 'string' ? service : service.name;
-                      const servicePrice = typeof service === 'string' ? 'Price on request' : (service.price || 'Price on request');
-                      
-                      return (
-                        <div key={index} className="flex items-start">
-                          <input
-                            type="checkbox"
-                            id={`service-${index}`}
-                            name={`service-${index}`}
-                            value={serviceName}
-                            checked={bookingDetails.selectedServices.includes(serviceName)}
-                            onChange={handleServiceChange}
-                            className="h-4 w-4 mt-1 text-primary focus:ring-primary border-gray-300 rounded"
-                          />
-                          <label htmlFor={`service-${index}`} className="ml-2 block text-sm text-gray-700">
-                            {serviceName} {servicePrice !== 'Price on request' && `(₹${servicePrice})`}
-                          </label>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <>
-                      <div className="flex items-start">
-                        <input
-                          type="checkbox"
-                          id="service-basic"
-                          name="service-basic"
-                          value="Basic Grooming"
-                          checked={bookingDetails.selectedServices.includes('Basic Grooming')}
-                          onChange={handleServiceChange}
-                          className="h-4 w-4 mt-1 text-primary focus:ring-primary border-gray-300 rounded"
-                        />
-                        <label htmlFor="service-basic" className="ml-2 block text-sm text-gray-700">
-                          Basic Grooming
-                        </label>
-                      </div>
-                      <div className="flex items-start">
-                        <input
-                          type="checkbox"
-                          id="service-full"
-                          name="service-full"
-                          value="Full Grooming"
-                          checked={bookingDetails.selectedServices.includes('Full Grooming')}
-                          onChange={handleServiceChange}
-                          className="h-4 w-4 mt-1 text-primary focus:ring-primary border-gray-300 rounded"
-                        />
-                        <label htmlFor="service-full" className="ml-2 block text-sm text-gray-700">
-                          Full Grooming
-                        </label>
-                      </div>
-                      <div className="flex items-start">
-                        <input
-                          type="checkbox"
-                          id="service-bath"
-                          name="service-bath"
-                          value="Bath & Brush"
-                          checked={bookingDetails.selectedServices.includes('Bath & Brush')}
-                          onChange={handleServiceChange}
-                          className="h-4 w-4 mt-1 text-primary focus:ring-primary border-gray-300 rounded"
-                        />
-                        <label htmlFor="service-bath" className="ml-2 block text-sm text-gray-700">
-                          Bath & Brush
-                        </label>
-                      </div>
-                      <div className="flex items-start">
-                        <input
-                          type="checkbox"
-                          id="service-nail"
-                          name="service-nail"
-                          value="Nail Trimming"
-                          checked={bookingDetails.selectedServices.includes('Nail Trimming')}
-                          onChange={handleServiceChange}
-                          className="h-4 w-4 mt-1 text-primary focus:ring-primary border-gray-300 rounded"
-                        />
-                        <label htmlFor="service-nail" className="ml-2 block text-sm text-gray-700">
-                          Nail Trimming
-                        </label>
-                      </div>
-                      <div className="flex items-start">
-                        <input
-                          type="checkbox"
-                          id="service-special"
-                          name="service-special"
-                          value="Special Treatment"
-                          checked={bookingDetails.selectedServices.includes('Special Treatment')}
-                          onChange={handleServiceChange}
-                          className="h-4 w-4 mt-1 text-primary focus:ring-primary border-gray-300 rounded"
-                        />
-                        <label htmlFor="service-special" className="ml-2 block text-sm text-gray-700">
-                          Special Treatment
-                        </label>
-                      </div>
-                    </>
-                  )}
-                </div>
-                
-                {bookingDetails.selectedServices.length === 0 && (
-                  <p className="text-xs text-red-500 mt-1">Please select at least one service</p>
-                )}
-              </div>
-              
-              {/* Pricing Summary - Add this section after the service selection */}
-              {bookingDetails.selectedServices.length > 0 && (
-                <div className="mb-6 mt-4 bg-gray-50 p-4 rounded-md border border-gray-200">
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">Service Summary</h3>
-                  <div className="space-y-2 mb-3">
-                    {bookingDetails.selectedServices.map((service, index) => {
-                      const serviceObj = center.services?.find(s => 
-                        (typeof s === 'string' ? s : s.name) === service
-                      );
-                      const price = serviceObj && typeof serviceObj !== 'string' 
-                        ? Number(serviceObj.price) || 500
-                        : 500;
-                      
-                      return (
-                        <div key={index} className="flex justify-between text-sm">
-                          <span>{service}</span>
-                          <span>₹{price}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="border-t border-gray-200 pt-2 flex justify-between font-medium">
-                    <span>Total</span>
-                    <span>₹{totalCost}</span>
-                  </div>
-                </div>
-              )}
-              
-              {/* Special Instructions */}
-              <div className="mb-6">
-                <label htmlFor="specialInstructions" className="block text-sm font-medium text-gray-700 mb-1">Special Instructions</label>
-                <textarea
-                  id="specialInstructions"
-                  name="specialInstructions"
-                  value={bookingDetails.specialInstructions}
-                  onChange={handleInputChange}
-                  rows={3}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
-                  placeholder="Any special requirements or information about your pet..."
-                />
-              </div>
-              
-              {/* Summary */}
-              <div className="bg-gray-50 p-4 rounded-md mb-6">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-700">Total</span>
-                  <span className="text-xl font-semibold text-primary">₹{totalCost}</span>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">Payment will be collected at the center</p>
-              </div>
-              
-              {/* Submit Button */}
-              {isAuthenticated() ? (
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className={`w-full py-3 ${
-                    submitting ? 'bg-gray-400' : 'bg-primary hover:bg-primary-dark'
-                  } text-white font-semibold rounded-md transition-colors`}
-                >
-                  {submitting ? 'Processing...' : 'Book Appointment'}
-                </button>
-              ) : (
-                <div>
-                  <button 
-                    onClick={() => {
-                      // Store booking details in local storage for auth modal
-                      localStorage.setItem('tempBookingForm', JSON.stringify({
-                        centerId: id,
-                        centerName: center.name,
-                        date: bookingDetails.date,
-                        time: bookingDetails.time,
-                        petType: bookingDetails.petType,
-                        petName: bookingDetails.petName,
-                        petBreed: bookingDetails.petBreed,
-                        petAge: bookingDetails.petAge,
-                        petWeight: bookingDetails.petWeight,
-                        selectedServices: bookingDetails.selectedServices,
-                        specialInstructions: bookingDetails.specialInstructions,
-                        totalCost
-                      }));
-                      
-                      // Show auth modal
-                      setShowAuthModal(true);
-                    }}
-                    className="w-full py-3 bg-primary text-white font-semibold rounded-md hover:bg-primary-dark transition-colors"
-                  >
-                    Sign in to Book
-                  </button>
-                </div>
-              )}
-            </form>
           </div>
         </div>
       </div>

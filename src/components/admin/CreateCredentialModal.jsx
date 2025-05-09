@@ -79,7 +79,9 @@ const CreateCredentialModal = ({ center, onClose, onSuccess }) => {
   // Send email with credentials
   const sendCredentialEmail = async (adminData) => {
     try {
-      await sendEmail({
+      console.log('Attempting to send credentials email to:', adminData.email);
+      
+      const emailResult = await sendEmail({
         to: adminData.email,
         subject: 'Your Petzify Grooming Center Admin Credentials',
         templateId: 'grooming-admin-credentials',
@@ -92,10 +94,113 @@ const CreateCredentialModal = ({ center, onClose, onSuccess }) => {
           supportEmail: 'support@petzify.com'
         }
       });
+      
+      if (!emailResult.success) {
+        console.warn('Template email failed, trying fallback HTML email...');
+        // Try fallback HTML email if template fails
+        const fallbackHtml = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <title>Your Petzify Grooming Center Admin Credentials</title>
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+              .header { text-align: center; padding-bottom: 20px; }
+              .logo { max-width: 150px; }
+              .content { background-color: #f5f5f5; padding: 20px; border-radius: 5px; }
+              .credentials { background-color: #e9ecef; padding: 15px; margin: 15px 0; border-radius: 4px; }
+              .warning { color: #856404; background-color: #fff3cd; padding: 10px; border-radius: 4px; margin-top: 20px; }
+              .button { display: inline-block; background-color: #4f46e5; color: white; padding: 10px 20px; 
+                        text-decoration: none; border-radius: 4px; margin-top: 15px; }
+              .footer { text-align: center; font-size: 12px; color: #666; margin-top: 20px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <img src="https://firebasestorage.googleapis.com/v0/b/petzify-49ed4.firebasestorage.app/o/logo%2FPetzify%20Logo-05.png?alt=media" alt="Petzify Logo" class="logo">
+                <h2>Your Grooming Center Admin Credentials</h2>
+              </div>
+              <div class="content">
+                <p>Hello ${adminData.name},</p>
+                <p>Your admin account for managing <strong>${center.name}</strong> on Petzify has been created. Use the following credentials to log in:</p>
+                
+                <div class="credentials">
+                  <p><strong>Username:</strong> ${adminData.username}</p>
+                  <p><strong>Password:</strong> ${adminData.password}</p>
+                </div>
+                
+                <p>You can log in at: <a href="https://petzify.in/admin">${window.location.origin}/admin</a></p>
+                
+                <div class="warning">
+                  <p><strong>Important:</strong> Please change your password after your first login for security reasons.</p>
+                </div>
+                
+                <p>If you have any questions or need assistance, please contact our support team at support@petzify.com.</p>
+                
+                <a href="${window.location.origin}/admin" class="button">Log In Now</a>
+              </div>
+              <div class="footer">
+                <p>© ${new Date().getFullYear()} Petzify. All rights reserved.</p>
+                <p>This is an automated email. Please do not reply to this message.</p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `;
+        
+        const fallbackResult = await sendEmail({
+          to: adminData.email,
+          subject: 'Your Petzify Grooming Center Admin Credentials',
+          html: fallbackHtml
+        });
+        
+        if (!fallbackResult.success) {
+          throw new Error('Both template and fallback emails failed');
+        } else {
+          console.log('Fallback email sent successfully');
+        }
+      } else {
+        console.log('Credentials email sent successfully');
+      }
+      
+      // Show success message
+      toast.success('Admin credentials created and email sent successfully', {
+        autoClose: 5000,
+        hideProgressBar: false,
+      });
+      
     } catch (error) {
       console.error('Error sending credential email:', error);
-      toast.warning('Credentials created but email notification failed');
-      // Continue despite email failure
+      toast.warning(
+        'Admin account created but email delivery failed. Please provide these credentials manually:',
+        { autoClose: false }
+      );
+      
+      // Display credentials in the console for manual sharing
+      console.info('CREDENTIALS TO SHARE MANUALLY:');
+      console.info('--------------------------------');
+      console.info(`Center: ${center.name}`);
+      console.info(`Admin: ${adminData.name}`);
+      console.info(`Email: ${adminData.email}`);
+      console.info(`Username: ${adminData.username}`);
+      console.info(`Password: ${adminData.password}`);
+      console.info(`Login URL: ${window.location.origin}/admin`);
+      console.info('--------------------------------');
+      
+      // Show credentials to admin in a follow-up toast (for cases where email failed)
+      setTimeout(() => {
+        toast.info(
+          <div className="credential-toast">
+            <p>Username: <strong>{adminData.username}</strong></p>
+            <p>Password: <strong>{adminData.password}</strong></p>
+            <p className="text-xs mt-2">Please copy these credentials now!</p>
+          </div>,
+          { autoClose: false }
+        );
+      }, 1000);
     }
   };
 

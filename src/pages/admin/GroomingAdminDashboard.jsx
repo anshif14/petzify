@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { getFirestore, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import GroomingAdminDashboard from '../../components/admin/grooming/GroomingAdminDashboard';
+import GroomingProfileSettings from '../../components/admin/grooming/GroomingProfileSettings';
+import GroomingServiceManager from '../../components/admin/grooming/GroomingServiceManager';
+import GroomingScheduleManager from '../../components/admin/grooming/GroomingScheduleManager';
 import AdminSidebar from '../../components/admin/AdminSidebar';
 
 const GroomingAdminDashboardPage = () => {
@@ -134,6 +137,7 @@ const GroomingAdminDashboardPage = () => {
         canManagePetParenting={false}
         canManageOrders={false}
         canManageServices={false}
+        isGroomingAdmin={true}
       />
       
       <div className="flex-1 p-6">
@@ -181,13 +185,15 @@ const GroomingAdminDashboardPage = () => {
         )}
         
         {activeComponent === 'profile' && (
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-medium mb-4">Profile Settings</h2>
-            <p className="text-gray-600">
-              View and edit your grooming center profile information.
-              This feature is coming soon.
-            </p>
-          </div>
+          <GroomingProfileSettings adminData={adminData} />
+        )}
+
+        {activeComponent === 'services' && (
+          <GroomingServiceManager adminData={adminData} />
+        )}
+
+        {activeComponent === 'schedule' && (
+          <GroomingScheduleManager adminData={adminData} />
         )}
       </div>
     </div>

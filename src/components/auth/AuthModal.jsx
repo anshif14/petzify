@@ -11,6 +11,7 @@ const AuthModal = ({
   onClose, 
   initialMode = 'login', 
   redirectPath = '',
+  message = '',
   onSuccess = () => {}
 }) => {
   const [mode, setMode] = useState(initialMode); // 'login', 'signup', or 'forgotPassword'
@@ -123,23 +124,26 @@ const AuthModal = ({
         showSuccess('Account created successfully!', 'Welcome');
       }
       
-      // Invoke success callback
-      onSuccess();
-      
-      // Close the modal
-      onClose();
-      
-      // Redirect if path provided
-      if (redirectPath) {
-        window.location.href = redirectPath;
-      }
+      // Add a slight delay before callback to ensure state updates are complete
+      setTimeout(() => {
+        console.log('Executing onSuccess callback from AuthModal');
+        // Invoke success callback
+        onSuccess();
+        
+        // Close the modal
+        onClose();
+        
+        // Redirect if path provided
+        if (redirectPath) {
+          window.location.href = redirectPath;
+        }
+      }, 300);
     } catch (error) {
       console.error(`${mode === 'login' ? 'Login' : 'Registration'} error:`, error);
       showError(
         error.message || `Failed to ${mode === 'login' ? 'login' : 'register'}. Please try again.`,
         mode === 'login' ? 'Login Failed' : 'Registration Failed'
       );
-    } finally {
       setIsLoading(false);
     }
   };
@@ -386,6 +390,15 @@ const AuthModal = ({
             </svg>
           </button>
         </div>
+        
+        {/* Custom Message */}
+        {message && (
+          <div className="px-6 pt-4 -mb-2">
+            <div className="bg-blue-50 text-blue-700 p-3 rounded-md text-sm">
+              {message}
+            </div>
+          </div>
+        )}
         
         {/* Form */}
         {mode === 'forgotPassword' ? (

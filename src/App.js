@@ -40,6 +40,8 @@ import PetBoardingAdmin from './pages/admin/PetBoardingAdmin';
 import PetGrooming from './pages/PetGrooming';
 import GroomingDashboard from './pages/GroomingDashboard';
 import GroomingDetail from './pages/GroomingDetail';
+import GroomingBooking from './pages/GroomingBooking';
+import BookingConfirmation from './pages/BookingConfirmation';
 import GroomingAdmin from './pages/admin/GroomingAdmin';
 import GroomingAdminDashboard from './pages/admin/GroomingAdminDashboard';
 // TailTalks Community pages
@@ -154,6 +156,8 @@ function App() {
             <Route path="/services/grooming" element={<Layout><PetGrooming /></Layout>} />
             <Route path="/services/grooming/dashboard" element={<Layout><GroomingDashboard /></Layout>} />
             <Route path="/services/grooming/:id" element={<Layout><GroomingDetail /></Layout>} />
+            <Route path="/services/grooming/:id/booking" element={<Layout><GroomingBooking /></Layout>} />
+            <Route path="/booking-confirmation/:id" element={<Layout><BookingConfirmation /></Layout>} />
             <Route path="/rehome" element={<Layout><PetRehoming /></Layout>} />
             <Route path="/find-furry-soulmate" element={<Layout><FindFurrySoulmate /></Layout>} />
             <Route path="/pets/:petId" element={<Layout><PetDetails /></Layout>} />
