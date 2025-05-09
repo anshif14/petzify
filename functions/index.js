@@ -4,8 +4,14 @@ const { getFirestore } = require("firebase-admin/firestore");
 const nodemailer = require("nodemailer");
 const { onRequest } = require("firebase-functions/v2/https");
 const cors = require("cors")({ origin: true });
+
+// Initialize Firebase Admin first
 initializeApp();
 const db = getFirestore();
+
+// Import grooming functions after Firebase is initialized and pass db instance
+const groomingFunctions = require("./grooming_functions");
+groomingFunctions.initialize(db);
 
 // --- Email Config Fetcher ---
 const getEmailConfig = async () => {
@@ -735,7 +741,7 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
                                 top: 0;
                                 left: 0;
                                 height: 100%;
-                                width: 0%;
+                                width: 50%;
                                 background-color: #14cca4;
                             }
                             .next-steps {
@@ -1972,3 +1978,7 @@ exports.onOrderUpdated = onDocumentUpdated("orders/{orderId}", async (event) => 
         console.error("Error processing order update:", error);
     }
 });
+
+// Export grooming functions
+exports.onGroomingBookingCreated = groomingFunctions.onGroomingBookingCreated;
+exports.onGroomingBookingUpdated = groomingFunctions.onGroomingBookingUpdated;

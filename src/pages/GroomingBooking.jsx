@@ -282,54 +282,16 @@ const GroomingBooking = () => {
     await processBooking();
   };
 
-  // Email notification function
+  // Email notification function - simplified to rely on cloud functions
   const sendEmailNotifications = async (bookingData, bookingId) => {
     try {
-      // Email to customer
-      await sendEmail({
-        to: currentUser.email,
-        subject: 'Your Pet Grooming Booking Confirmation',
-        templateId: 'grooming-booking-confirmation',
-        dynamic_template_data: {
-          customerName: currentUser.fullName || currentUser.displayName || currentUser.name,
-          bookingId,
-          centerName: center.name,
-          centerAddress: center.type === 'Grooming Center' ? center.address : 'Mobile Service',
-          bookingDate: bookingData.date,
-          bookingTime: bookingData.time,
-          petName: bookingData.petName,
-          petType: bookingData.petType,
-          serviceType: bookingData.selectedServices.join(', '),
-          totalCost,
-          specialInstructions: bookingData.specialInstructions || 'None'
-        }
-      });
-      
-      // Email to grooming center
-      if (center.email) {
-        await sendEmail({
-          to: center.email,
-          subject: 'New Grooming Booking Request',
-          templateId: 'grooming-center-booking-notification',
-          dynamic_template_data: {
-            centerName: center.name,
-            customerName: currentUser.fullName || currentUser.displayName || currentUser.name,
-            customerEmail: currentUser.email,
-            customerPhone: currentUser.phone || 'Not provided',
-            bookingId,
-            bookingDate: bookingData.date,
-            bookingTime: bookingData.time,
-            petName: bookingData.petName,
-            petType: bookingData.petType,
-            serviceType: bookingData.selectedServices.join(', '),
-            totalCost,
-            specialInstructions: bookingData.specialInstructions || 'None'
-          }
-        });
-      }
+      console.log('Email notifications will be sent via Cloud Functions');
+      // Cloud functions will automatically handle sending emails when a new booking document is created
+      return true;
     } catch (error) {
-      console.error('Error sending email notifications:', error);
+      console.error('Error with email notification preparation:', error);
       // Continue with booking process even if email fails
+      return false;
     }
   };
 

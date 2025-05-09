@@ -201,7 +201,7 @@ const GroomingAdminDashboard = ({ adminData }) => {
         return booking;
       }));
       
-      toast.success(`Booking ${newStatus} successfully`);
+      toast.success(`Booking ${newStatus} successfully. Automatic email notifications have been sent to the customer.`);
       
       // Close detail modal if it's open
       if (showDetailModal) {
