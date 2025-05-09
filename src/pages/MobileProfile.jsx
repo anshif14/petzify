@@ -48,6 +48,13 @@ const MobileProfile = () => {
     }
   }, [currentUser]);
 
+  // Add effect to fetch data when tab changes
+  useEffect(() => {
+    if (currentUser) {
+      fetchUserData();
+    }
+  }, [activeTab]);
+
   const fetchUserData = async () => {
     try {
       setLoading(true);
@@ -226,6 +233,7 @@ const MobileProfile = () => {
   };
 
   const handleTabChange = (tab) => {
+    setLoading(true);
     setActiveTab(tab);
   };
 
@@ -300,7 +308,7 @@ const MobileProfile = () => {
       
       {/* Tab Navigation */}
       <div className="bg-white px-4 py-2 sticky top-0 z-10 shadow-sm">
-        <div className="flex overflow-x-auto scrollbar-hide">
+        <div className="flex overflow-x-auto hide-scrollbar w-full pb-1">
           <button
             onClick={() => handleTabChange('profile')}
             className={`flex-shrink-0 px-4 py-2 mr-2 rounded-full font-medium ${
