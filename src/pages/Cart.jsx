@@ -788,7 +788,7 @@ const Cart = () => {
       
       {/* Only show Footer on medium screens and up */}
       <div className="hidden md:block">
-        <Footer />
+
       </div>
       
       {/* Always show MobileBottomNav on mobile */}

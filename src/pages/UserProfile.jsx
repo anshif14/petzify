@@ -444,7 +444,7 @@ const UserProfile = () => {
         </div>
       </main>
       <div className="hidden md:block">
-        <Footer />
+
       </div>
       <MobileBottomNav />
       

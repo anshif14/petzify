@@ -325,7 +325,7 @@ const Services = () => {
           </div>
         )}
       </main>
-      <Footer />
+
       <MobileBottomNav />
     </>
   );

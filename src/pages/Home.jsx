@@ -312,7 +312,7 @@ const Home = () => {
         </div>
       </section>
 
-      <Footer />
+
       <MobileBottomNav />
     </div>
   );
