@@ -117,6 +117,35 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && (isDoctorUser(request.auth.uid) || isAdminUser());
     }
     
+    // TailTalks content hub - Official Petzify content managed by admins
+    match /tailtalks/posts/{postId} {
+      allow read: if true; // Anyone can view posts
+      allow write, delete: if isAdminUser(); // Only admins can create/edit/delete posts
+      
+      // Comments on posts
+      match /comments/{commentId} {
+        allow read: if true; // Anyone can read comments
+        allow create: if isAuthenticated(); // Authenticated users can create comments
+        allow update, delete: if isAuthenticated() && 
+          (request.auth.uid == resource.data.authorId || isAdminUser()); // Authors and admins can edit/delete
+      }
+      
+      // Questions on posts
+      match /questions/{questionId} {
+        allow read: if true; // Anyone can read questions
+        allow create: if isAuthenticated(); // Authenticated users can ask questions
+        allow update, delete: if isAdminUser() || 
+          (isAuthenticated() && request.auth.uid == resource.data.authorId); // Authors and admins can edit/delete
+      }
+    }
+    
+    // Registry for users interested in future community features
+    match /tailtalks/interested_users/{userId} {
+      allow read: if isAdminUser();
+      allow create, update: if isAuthenticated() && request.auth.uid == userId;
+      allow delete: if isAdminUser();
+    }
+    
     // Default deny other collections
     match /{document=**} {
       allow read, write: if false;

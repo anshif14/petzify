@@ -10,24 +10,37 @@ import PetParentingManager from './components/admin/PetParentingManager';
 import PetParentingDetails from './pages/admin/PetParentingDetails';
 import PetBoardingAdmin from './pages/admin/PetBoardingAdmin';
 import AdminRoute from './components/auth/AdminRoute';
+import TailTalks from './pages/TailTalks';
+import TailTalkPostDetail from './pages/TailTalkPostDetail';
+import { NotificationProvider } from './context/NotificationContext';
+import { UserProvider } from './context/UserContext';
+import { BrowserRouter as Router } from 'react-router-dom';
 
 const App = () => {
   return (
-    <Routes>
-      <Route path="/admin" element={<Layout><Dashboard /></Layout>}>
-        <Route path="users" element={<UsersAdmin />} />
-        <Route path="services" element={<ServicesAdmin />} />
-        <Route path="pet-parenting" element={<PetParentingManager />} />
-        <Route path="pet-parenting/:id" element={<PetParentingDetails />} />
-        <Route path="blog" element={<BlogAdmin />} />
-        <Route path="settings" element={<SettingsAdmin />} />
-        <Route path="pet-boarding" element={
-          <AdminRoute>
-            <PetBoardingAdmin />
-          </AdminRoute>
-        } />
-      </Route>
-    </Routes>
+    <Router>
+      <UserProvider>
+        <NotificationProvider>
+          <Routes>
+            <Route path="/admin" element={<Layout><Dashboard /></Layout>}>
+              <Route path="users" element={<UsersAdmin />} />
+              <Route path="services" element={<ServicesAdmin />} />
+              <Route path="pet-parenting" element={<PetParentingManager />} />
+              <Route path="pet-parenting/:id" element={<PetParentingDetails />} />
+              <Route path="blog" element={<BlogAdmin />} />
+              <Route path="settings" element={<SettingsAdmin />} />
+              <Route path="pet-boarding" element={
+                <AdminRoute>
+                  <PetBoardingAdmin />
+                </AdminRoute>
+              } />
+            </Route>
+            <Route path="/tailtalk" element={<TailTalks />} />
+            <Route path="/tailtalk/post/:postId" element={<TailTalkPostDetail />} />
+          </Routes>
+        </NotificationProvider>
+      </UserProvider>
+    </Router>
   );
 };
 

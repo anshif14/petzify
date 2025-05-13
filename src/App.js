@@ -50,6 +50,10 @@ import CommunityDetail from './pages/CommunityDetail';
 import CreateCommunity from './pages/CreateCommunity';
 import CreatePost from './pages/CreatePost';
 import PostDetail from './pages/PostDetail';
+import TailTalksPostDetail from './pages/TailTalksPostDetail';
+import TailTalksAdminPanel from './pages/admin/TailTalksAdminPanel';
+import TailTalksManagement from './pages/admin/TailTalksManagement';
+import TailTalksAdmin from './pages/admin/TailTalksAdmin';
 
 // Import context providers
 import { AlertProvider } from './context/AlertContext';
@@ -164,10 +168,16 @@ function App() {
             
             {/* TailTalks Community Routes */}
             <Route path="/tailtalk" element={<Layout><TailTalks /></Layout>} />
+            <Route path="/tailtalk/post/:postId" element={<Layout><TailTalksPostDetail /></Layout>} />
+            <Route path="/admin/tailtalk" element={<Layout><AdminRoute><TailTalksAdminPanel /></AdminRoute></Layout>} />
+            
+            {/* Legacy TailTalks Routes - Will be deprecated */}
             <Route path="/tailtalk/community/:communityId" element={<Layout><CommunityDetail /></Layout>} />
             <Route path="/tailtalk/create-community" element={<Layout><CreateCommunity /></Layout>} />
             <Route path="/tailtalk/community/:communityId/create-post" element={<Layout><CreatePost /></Layout>} />
             <Route path="/tailtalk/community/:communityId/post/:postId" element={<Layout><PostDetail /></Layout>} />
+            
+            <Route path="/admin/dashboard/tailtalk-management" element={<Layout><AdminRoute><TailTalksAdmin /></AdminRoute></Layout>} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>

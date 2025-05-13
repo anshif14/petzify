@@ -83,12 +83,12 @@ const Navbar = () => {
               </NavLink>
 
               {/*//TODO:Tail Talks*/}
-              {/*<NavLink */}
-              {/*  to="/tailtalk" */}
-              {/*  className={location.pathname.includes('/tailtalk') ? activeClass : inactiveClass}*/}
-              {/*>*/}
-              {/*  TailTalks*/}
-              {/*</NavLink>*/}
+              <NavLink
+                to="/tailtalk"
+                className={location.pathname.includes('/tailtalk') ? activeClass : inactiveClass}
+              >
+                TailTalks
+              </NavLink>
 
               {/*<NavLink to="/book-appointment" className={({isActive}) => isActive ? activeClass : inactiveClass}>*/}
               {/*  Book Vet*/}

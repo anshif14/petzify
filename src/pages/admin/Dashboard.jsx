@@ -280,6 +280,21 @@ const Dashboard = () => {
               </li>
               <li>
                 <Link
+                  to="/admin/dashboard/tailtalk-management"
+                  className={`flex items-center px-4 py-3 ${
+                    isActive('/admin/dashboard/tailtalk-management')
+                      ? 'bg-primary text-white'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                  Tail Talks Management
+                </Link>
+              </li>
+              <li>
+                <Link
                   to="/admin/logout"
                   className="flex items-center px-4 py-3 text-red-600 hover:bg-red-50"
                 >
@@ -339,6 +354,30 @@ const Dashboard = () => {
               </p>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Manage booking requests</span>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-primary" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </div>
+            </div>
+            
+            {/* Tail Talks Management card */}
+            <div 
+              onClick={() => navigate('/admin/dashboard/tailtalk-management')}
+              className="bg-white rounded-lg shadow hover:shadow-lg cursor-pointer transition-shadow p-6"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Tail Talks Management</h3>
+                <div className="rounded-full bg-indigo-100 p-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                </div>
+              </div>
+              <p className="text-gray-600 mb-4">
+                Manage Tail Talks posts, questions, and direct user inquiries.
+              </p>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Moderate community content</span>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-primary" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
