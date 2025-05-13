@@ -28,11 +28,24 @@ const DoctorBooking = () => {
     reason: '',
     notes: ''
   });
+  const [formErrors, setFormErrors] = useState({});
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState(null);
   const { showSuccess, showError, showInfo } = useAlert();
   const { currentUser, isAuthenticated } = useUser();
   const [showAuthModal, setShowAuthModal] = useState(false);
+
+  // Required fields for validation
+  const requiredFields = {
+    'patientName': 'Your Name',
+    'patientEmail': 'Email',
+    'patientPhone': 'Phone Number',
+    'petName': 'Pet\'s Name',
+    'petType': 'Pet Type',
+    'petBreed': 'Pet Breed',
+    'petAge': 'Pet Age',
+    'reason': 'Reason for Visit'
+  };
 
   // Pet types options
   const petTypes = ['Dog', 'Cat', 'Bird', 'Rabbit', 'Hamster', 'Guinea Pig', 'Reptile', 'Other'];
@@ -264,6 +277,29 @@ const DoctorBooking = () => {
       ...bookingForm,
       [name]: value
     });
+    
+    // Clear error for this field when user starts typing
+    if (formErrors[name]) {
+      setFormErrors({
+        ...formErrors,
+        [name]: null
+      });
+    }
+  };
+
+  const validateForm = () => {
+    const errors = {};
+    let isValid = true;
+    
+    Object.entries(requiredFields).forEach(([field, label]) => {
+      if (!bookingForm[field] || bookingForm[field].trim() === '') {
+        errors[field] = `${label} is required`;
+        isValid = false;
+      }
+    });
+    
+    setFormErrors(errors);
+    return isValid;
   };
 
   const handleBookingSubmit = async (e) => {
@@ -276,11 +312,13 @@ const DoctorBooking = () => {
       return;
     }
     
-    // Basic validation
-    if (!bookingForm.patientName || !bookingForm.patientEmail || !bookingForm.patientPhone) {
-      setMessage('Please fill in all required fields');
+    // Validate form
+    if (!validateForm()) {
+      const missingFields = Object.values(formErrors).filter(Boolean);
+      const errorMessage = `Please fill in all required fields`;
+      setMessage(errorMessage);
       setMessageType('error');
-      showError('Please fill in all required fields', 'Missing Information');
+      showError(errorMessage, 'Missing Information');
       return;
     }
     
@@ -311,6 +349,16 @@ const DoctorBooking = () => {
         showError('Sorry, this slot is no longer available. Please select another time.', 'Slot Unavailable');
         setLoading(false);
         fetchAvailableSlots(); // Refresh available slots
+        return;
+      }
+      
+      // Perform final validation check
+      if (!validateForm()) {
+        setLoading(false);
+        const errorMessage = 'Please fill in all required fields';
+        setMessage(errorMessage);
+        setMessageType('error');
+        showError(errorMessage, 'Missing Information');
         return;
       }
       
@@ -395,6 +443,7 @@ const DoctorBooking = () => {
       reason: '',
       notes: ''
     });
+    setFormErrors({});
     setMessage('');
     setMessageType(null);
     showInfo('Starting a new booking', 'New Booking');
@@ -552,16 +601,27 @@ const DoctorBooking = () => {
                               
                               {doctor.consultationFee && (
                                 <div className="mt-2 md:mt-0 text-right">
-                                  <span className="bg-primary-light text-white px-3 py-1 rounded-full text-sm font-medium">
+                                  <span className="bg-primary text-white px-3 py-1 rounded-full text-sm font-medium">
                                     Fee: ₹ {doctor.consultationFee}
                                   </span>
                                 </div>
                               )}
                             </div>
                             
-                            {doctor.about && (
-                              <p className="text-sm text-gray-600 mt-3">{doctor.about}</p>
-                            )}
+                            {/* Enhanced Professional Description */}
+                            <div className="mt-4 border-t pt-3">
+                              <h5 className="text-sm font-semibold text-gray-700 mb-2">Professional Profile</h5>
+                              {doctor.about ? (
+                                <p className="text-sm text-gray-600">{doctor.about}</p>
+                              ) : (
+                                <p className="text-sm text-gray-600">
+                                  Dr. {doctor.name} is a {doctor.specialization.toLowerCase()} with {doctor.experience ? `${doctor.experience} years of` : ''} experience in animal healthcare. 
+                                  {doctor.degrees && doctor.degrees.length > 0 ? ` Holding degrees in ${doctor.degrees.join(', ')},` : ''} 
+                                  {doctor.designations && doctor.designations.length > 0 ? ` and serving as ${doctor.designations.join(', ')},` : ''} 
+                                  they provide expert care for all your pet's needs.
+                                </p>
+                              )}
+                            </div>
                             
                             {/* Certificates */}
                             {doctor.certificates && doctor.certificates.length > 0 && (
@@ -683,7 +743,22 @@ const DoctorBooking = () => {
                           </div>
                         </div>
                       )}
-                      
+
+                      {/* Enhanced Professional Description */}
+                      <div className="mt-4 border-t border-gray-100 pt-3">
+                        <p className="text-sm font-medium text-gray-700 mb-2">Professional Profile:</p>
+                        {selectedDoctor.about ? (
+                          <p className="text-sm text-gray-600">{selectedDoctor.about}</p>
+                        ) : (
+                          <p className="text-sm text-gray-600">
+                            Dr. {selectedDoctor.name} is a {selectedDoctor.specialization.toLowerCase()} with {selectedDoctor.experience ? `${selectedDoctor.experience} years of` : ''} experience in animal healthcare. 
+                            {selectedDoctor.degrees && selectedDoctor.degrees.length > 0 ? ` Holding degrees in ${selectedDoctor.degrees.join(', ')},` : ''} 
+                            {selectedDoctor.designations && selectedDoctor.designations.length > 0 ? ` and serving as ${selectedDoctor.designations.join(', ')},` : ''} 
+                            they provide expert care for all your pet's needs.
+                          </p>
+                        )}
+                      </div>
+                        
                       <p className="text-gray-700 mb-1">
                         <span className="font-medium">Experience:</span> {selectedDoctor.experience} years
                       </p>
@@ -775,9 +850,12 @@ const DoctorBooking = () => {
                         name="patientName"
                         value={bookingForm.patientName}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                        className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${formErrors.patientName ? 'border-red-500' : ''}`}
                         required
                       />
+                      {formErrors.patientName && (
+                        <p className="mt-1 text-xs text-red-500">{formErrors.patientName}</p>
+                      )}
                     </div>
                     
                     <div>
@@ -787,9 +865,12 @@ const DoctorBooking = () => {
                         name="patientEmail"
                         value={bookingForm.patientEmail}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                        className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${formErrors.patientEmail ? 'border-red-500' : ''}`}
                         required
                       />
+                      {formErrors.patientEmail && (
+                        <p className="mt-1 text-xs text-red-500">{formErrors.patientEmail}</p>
+                      )}
                     </div>
                     
                     <div>
@@ -799,70 +880,93 @@ const DoctorBooking = () => {
                         name="patientPhone"
                         value={bookingForm.patientPhone}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                        className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${formErrors.patientPhone ? 'border-red-500' : ''}`}
                         required
                       />
+                      {formErrors.patientPhone && (
+                        <p className="mt-1 text-xs text-red-500">{formErrors.patientPhone}</p>
+                      )}
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Pet's Name</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Pet's Name *</label>
                       <input
                         type="text"
                         name="petName"
                         value={bookingForm.petName}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                        className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${formErrors.petName ? 'border-red-500' : ''}`}
+                        required
                       />
+                      {formErrors.petName && (
+                        <p className="mt-1 text-xs text-red-500">{formErrors.petName}</p>
+                      )}
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Pet Type</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Pet Type *</label>
                       <select
                         name="petType"
                         value={bookingForm.petType}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                        className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${formErrors.petType ? 'border-red-500' : ''}`}
+                        required
                       >
                         <option value="">Select Pet Type</option>
                         {petTypes.map(type => (
                           <option key={type} value={type}>{type}</option>
                         ))}
                       </select>
+                      {formErrors.petType && (
+                        <p className="mt-1 text-xs text-red-500">{formErrors.petType}</p>
+                      )}
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Pet Breed</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Pet Breed *</label>
                       <input
                         type="text"
                         name="petBreed"
                         value={bookingForm.petBreed}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                        className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${formErrors.petBreed ? 'border-red-500' : ''}`}
+                        required
                       />
+                      {formErrors.petBreed && (
+                        <p className="mt-1 text-xs text-red-500">{formErrors.petBreed}</p>
+                      )}
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Pet Age</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Pet Age *</label>
                       <input
                         type="text"
                         name="petAge"
                         value={bookingForm.petAge}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                        className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${formErrors.petAge ? 'border-red-500' : ''}`}
                         placeholder="e.g. 2 years"
+                        required
                       />
+                      {formErrors.petAge && (
+                        <p className="mt-1 text-xs text-red-500">{formErrors.petAge}</p>
+                      )}
                     </div>
                     
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Reason for Visit</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Reason for Visit *</label>
                       <input
                         type="text"
                         name="reason"
                         value={bookingForm.reason}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                        className={`w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${formErrors.reason ? 'border-red-500' : ''}`}
                         placeholder="e.g. Annual check-up, Vaccination, etc."
+                        required
                       />
+                      {formErrors.reason && (
+                        <p className="mt-1 text-xs text-red-500">{formErrors.reason}</p>
+                      )}
                     </div>
                     
                     <div className="md:col-span-2">

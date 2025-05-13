@@ -170,11 +170,13 @@ const Home = () => {
             
             <div className="bg-white p-10 rounded-lg shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
               <p className="text-xl text-gray-700 italic mb-4">
-                "Pets are humanizing. They remind us we have an obligation and responsibility to preserve and nurture and care for all life."
+                "In my years as a veterinarian, I've learned that the bond between humans and animals is not just emotional, but healing. Pets don't just make us happier, they make us healthier in body, mind, and spirit."
               </p>
               <div className="w-16 h-0.5 bg-primary my-4"></div>
-              <p className="text-right text-primary font-semibold">— James Cromwell</p>
+              <p className="text-right text-primary font-semibold">— Dr. Sarah Collins, Veterinarian</p>
             </div>
+            
+
           </div>
         </div>
       </section>

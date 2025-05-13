@@ -31,7 +31,13 @@ const GroomingBooking = () => {
     petWeight: '',
     selectedServices: [],
     selectedPackage: null,
-    specialInstructions: ''
+    specialInstructions: '',
+    // Add address fields for mobile grooming
+    address: '',
+    city: '',
+    state: '',
+    postalCode: '',
+    landmark: ''
   });
 
   // Add new state for services and packages
@@ -59,7 +65,13 @@ const GroomingBooking = () => {
             petAge: parsedForm.petAge || prevForm.petAge,
             petWeight: parsedForm.petWeight || prevForm.petWeight,
             selectedServices: parsedForm.selectedServices || prevForm.selectedServices,
-            specialInstructions: parsedForm.specialInstructions || prevForm.specialInstructions
+            specialInstructions: parsedForm.specialInstructions || prevForm.specialInstructions,
+            // Include address fields for mobile grooming
+            address: parsedForm.address || prevForm.address,
+            city: parsedForm.city || prevForm.city,
+            state: parsedForm.state || prevForm.state,
+            postalCode: parsedForm.postalCode || prevForm.postalCode,
+            landmark: parsedForm.landmark || prevForm.landmark
           }));
           localStorage.removeItem('tempBookingForm');
         } catch (error) {
@@ -270,6 +282,14 @@ const GroomingBooking = () => {
       return;
     }
     
+    // Validate address fields for mobile grooming centers
+    if (center.type === 'Mobile Grooming') {
+      if (!bookingDetails.address || !bookingDetails.city || !bookingDetails.state || !bookingDetails.postalCode) {
+        toast.error('Please fill in all required address fields for mobile grooming service');
+        return;
+      }
+    }
+    
     // Check if user is logged in
     if (!isAuthenticated()) {
       // Store form data temporarily and show auth modal
@@ -342,6 +362,22 @@ const GroomingBooking = () => {
         return;
       }
 
+      // Validate required fields again
+      if (bookingDetails.selectedServices.length === 0) {
+        toast.error('Please select at least one service');
+        setSubmitting(false);
+        return;
+      }
+
+      // Validate address fields for mobile grooming centers
+      if (center.type === 'Mobile Grooming') {
+        if (!bookingDetails.address || !bookingDetails.city || !bookingDetails.state || !bookingDetails.postalCode) {
+          toast.error('Please fill in all required address fields for mobile grooming service');
+          setSubmitting(false);
+          return;
+        }
+      }
+
       // Create the booking data object
       const bookingData = {
         userId: currentUser.id || currentUser.email, // Use email as fallback for userId
@@ -362,7 +398,15 @@ const GroomingBooking = () => {
         specialInstructions: bookingDetails.specialInstructions,
         totalCost,
         status: 'pending',
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        // Add address fields for mobile grooming
+        userAddress: center.type === 'Mobile Grooming' ? {
+          address: bookingDetails.address,
+          city: bookingDetails.city,
+          state: bookingDetails.state,
+          postalCode: bookingDetails.postalCode,
+          landmark: bookingDetails.landmark
+        } : null
       };
       
       // Add to bookings collection
@@ -570,6 +614,81 @@ const GroomingBooking = () => {
               </div>
             </div>
             
+            {/* Service Location */}
+            {center.type === 'Mobile Grooming' && (
+              <div className="mb-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Service Location</h3>
+                <p className="text-sm text-gray-600 mb-4">Please provide your address for mobile grooming service</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">Street Address *</label>
+                    <input
+                      type="text"
+                      id="address"
+                      name="address"
+                      value={bookingDetails.address}
+                      onChange={handleInputChange}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
+                      required={center.type === 'Mobile Grooming'}
+                      placeholder="Apartment, suite, unit, building, floor, etc."
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">City *</label>
+                    <input
+                      type="text"
+                      id="city"
+                      name="city"
+                      value={bookingDetails.city}
+                      onChange={handleInputChange}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
+                      required={center.type === 'Mobile Grooming'}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-1">State *</label>
+                    <input
+                      type="text"
+                      id="state"
+                      name="state"
+                      value={bookingDetails.state}
+                      onChange={handleInputChange}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
+                      required={center.type === 'Mobile Grooming'}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="postalCode" className="block text-sm font-medium text-gray-700 mb-1">Postal Code *</label>
+                    <input
+                      type="text"
+                      id="postalCode"
+                      name="postalCode"
+                      value={bookingDetails.postalCode}
+                      onChange={handleInputChange}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
+                      required={center.type === 'Mobile Grooming'}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="landmark" className="block text-sm font-medium text-gray-700 mb-1">Landmark (Optional)</label>
+                    <input
+                      type="text"
+                      id="landmark"
+                      name="landmark"
+                      value={bookingDetails.landmark}
+                      onChange={handleInputChange}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
+                      placeholder="Nearby landmark to help locate your address"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+            
             {/* Service Selection */}
             <div className="mb-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Select Services</h3>
@@ -760,6 +879,12 @@ const GroomingBooking = () => {
                         petWeight: bookingDetails.petWeight,
                         selectedServices: bookingDetails.selectedServices,
                         specialInstructions: bookingDetails.specialInstructions,
+                        // Include address fields for mobile grooming
+                        address: bookingDetails.address,
+                        city: bookingDetails.city,
+                        state: bookingDetails.state,
+                        postalCode: bookingDetails.postalCode,
+                        landmark: bookingDetails.landmark,
                         totalCost
                       }));
                       

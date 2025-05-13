@@ -885,16 +885,23 @@ const DoctorProfile = () => {
             <p className="text-xs text-gray-500 mt-1">Accept images and PDFs, max 5MB each</p>
           </div>
           
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">About</label>
-            <textarea
-              name="about"
-              value={profileData.about}
-              onChange={handleChange}
-              rows={4}
-              className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-              placeholder="Brief description about yourself and your practice"
-            ></textarea>
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h4 className="text-lg font-medium text-gray-900 mb-4">Professional Bio</h4>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">About You (Professional Description) *</label>
+              <textarea
+                name="about"
+                value={profileData.about}
+                onChange={handleChange}
+                rows={6}
+                className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Provide a professional description highlighting your expertise, approach to veterinary care, and specialties. This will be displayed to pet owners when they book appointments."
+              ></textarea>
+              <p className="mt-1 text-sm text-gray-500">
+                A detailed professional bio helps pet owners understand your expertise and approach. Include your philosophy of care, special interests in veterinary medicine, and what makes your approach unique.
+              </p>
+            </div>
           </div>
           
           <div>
