@@ -57,8 +57,11 @@ export const UserProvider = ({ children }) => {
               lastSeen: new Date().toISOString()
             }, { merge: true });
             
-            // Set the user in state
-            setCurrentUser(parsedUser);
+            // Set the user in state with admin status if present
+            setCurrentUser({
+              ...parsedUser,
+              isAdmin: userData.admin === true
+            });
             console.log('User authenticated from stored session');
           } else {
             // If user doesn't exist in database anymore, clear the localStorage
@@ -103,7 +106,8 @@ export const UserProvider = ({ children }) => {
           email: email,
           name: userData.name,
           phone: userData.phone,
-          lastLogin: new Date().toISOString()
+          lastLogin: new Date().toISOString(),
+          isAdmin: userData.admin === true
         };
         
         // Update user login time
@@ -150,7 +154,8 @@ export const UserProvider = ({ children }) => {
         phone: userData.phone,
         password: userData.password, // Store password (in real apps, this should be hashed)
         createdAt: timestamp,
-        lastLogin: timestamp
+        lastLogin: timestamp,
+        admin: false // Default to non-admin
       };
       
       // Save to Firestore
@@ -162,7 +167,8 @@ export const UserProvider = ({ children }) => {
         email: userData.email,
         name: userData.name,
         phone: userData.phone,
-        lastLogin: timestamp
+        lastLogin: timestamp,
+        isAdmin: false // Default to non-admin
       };
       
       // Update state and save to localStorage
@@ -181,6 +187,11 @@ export const UserProvider = ({ children }) => {
   const logout = () => {
     setCurrentUser(null);
     localStorage.removeItem('user');
+  };
+
+  // Add a function to check if user is an admin
+  const isAdmin = () => {
+    return !!currentUser?.isAdmin;
   };
 
   // Check if user is authenticated
@@ -204,7 +215,8 @@ export const UserProvider = ({ children }) => {
     register,
     logout,
     isAuthenticated,
-    authInitialized
+    authInitialized,
+    isAdmin
   };
 
   return (

@@ -4,14 +4,15 @@ import { FaArrowLeft, FaThumbsUp, FaRegThumbsUp, FaComment } from 'react-icons/f
 import { 
   getFirestore, doc, getDoc, collection, addDoc, query, 
   orderBy, onSnapshot, updateDoc, serverTimestamp,
-  where, getDocs, limit, runTransaction
+  where, getDocs, limit, runTransaction, increment
 } from 'firebase/firestore';
 import { app } from '../firebase/config';
 import { useUser } from '../context/UserContext';
 import MobileBottomNav from '../components/common/MobileBottomNav';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
-const TailTalksPostDetail = () => {
+// Export the component explicitly as a named function
+function TailTalksPostDetail() {
   const { postId } = useParams();
   const navigate = useNavigate();
   const { currentUser, isAuthenticated } = useUser();
@@ -98,11 +99,28 @@ const TailTalksPostDetail = () => {
     const commentsQuery = query(commentsRef, orderBy('createdAt', 'desc'));
     
     const unsubscribe = onSnapshot(commentsQuery, (snapshot) => {
-      const commentsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setComments(commentsData);
+      try {
+        const commentsData = snapshot.docs.map(doc => {
+          const data = doc.data();
+          console.log('Comment data:', data); // Debug log
+          
+          // Ensure we have all required fields with default values if needed
+          return {
+            id: doc.id,
+            authorName: data.authorName || 'Anonymous',
+            authorPhotoURL: data.authorPhotoURL || null,
+            text: data.text || '',
+            content: data.content || '', // For backward compatibility
+            createdAt: data.createdAt || new Date(),
+            authorId: data.authorId || '',
+          };
+        });
+        
+        console.log('Processed comments:', commentsData); // Debug log
+        setComments(commentsData);
+      } catch (error) {
+        console.error('Error processing comments:', error);
+      }
     }, (error) => {
       console.error('Error fetching comments:', error);
     });
@@ -225,30 +243,53 @@ const TailTalksPostDetail = () => {
     try {
       setCommentSubmitting(true);
       const db = getFirestore(app);
+      
+      console.log('Adding comment to post:', postId);
+      
       // Use correct subcollection path
       const commentsRef = collection(db, 'tailtalks', postId, 'comments');
       
-      // Add comment
-      await addDoc(commentsRef, {
-        content: newComment.trim(),
-        authorId: currentUser.uid,
-        authorName: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
-        authorPhotoURL: currentUser.photoURL || null,
+      // Add comment with field name that matches database schema
+      const commentData = {
+        text: newComment.trim(),
+        authorId: currentUser?.uid || 'anonymous',
+        authorName: currentUser?.displayName || currentUser?.email?.split('@')[0] || 'User',
+        authorPhotoURL: currentUser?.photoURL || null,
         createdAt: serverTimestamp()
-      });
+      };
+      
+      console.log('Comment data being submitted:', commentData);
+      
+      // Add to Firestore
+      const docRef = await addDoc(commentsRef, commentData);
+      console.log('Comment added with ID:', docRef.id);
       
       // Update comment count
       const postRef = doc(db, 'tailtalks', postId);
       await updateDoc(postRef, {
-        commentCount: (post.commentCount || 0) + 1
+        commentCount: increment(1)
       });
       
       // Update local state
-      setPost({
-        ...post,
-        commentCount: (post.commentCount || 0) + 1
-      });
+      setPost(prevPost => ({
+        ...prevPost,
+        commentCount: (prevPost.commentCount || 0) + 1
+      }));
       
+      // Add comment to local comments array for immediate display
+      setComments(prevComments => [
+        {
+          id: docRef.id,
+          text: newComment.trim(),
+          authorId: currentUser?.uid || 'anonymous',
+          authorName: currentUser?.displayName || currentUser?.email?.split('@')[0] || 'User',
+          authorPhotoURL: currentUser?.photoURL || null,
+          createdAt: new Date()
+        },
+        ...prevComments
+      ]);
+      
+      // Clear input
       setNewComment('');
       setShowCommentInput(false);
     } catch (error) {
@@ -542,7 +583,7 @@ const TailTalksPostDetail = () => {
             
             {/* Comments Section */}
             <div className="bg-white rounded-lg shadow-sm overflow-hidden mb-6">
-              <div className="p-4 border-b border-gray-100">
+              <div className="p-4 border-b border-gray-100 text-left">
                 <h2 className="font-bold text-lg">Comments ({comments.length || post.commentCount || 0})</h2>
               </div>
               
@@ -562,7 +603,7 @@ const TailTalksPostDetail = () => {
                     <div className="flex-grow">
                       <textarea
                         ref={commentInputRef}
-                        className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
+                        className="w-full border border-gray-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm shadow-sm bg-gray-50 text-left"
                         placeholder="Write a comment..."
                         rows={showCommentInput ? 3 : 1}
                         value={newComment}
@@ -574,7 +615,7 @@ const TailTalksPostDetail = () => {
                         <div className="flex justify-end mt-2 space-x-2">
                           <button
                             type="button"
-                            className="px-4 py-1.5 text-sm text-gray-600 border border-gray-200 rounded-lg"
+                            className="px-4 py-1.5 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors border border-gray-200 rounded-lg"
                             onClick={() => {
                               setShowCommentInput(false);
                               setNewComment('');
@@ -584,7 +625,7 @@ const TailTalksPostDetail = () => {
                           </button>
                           <button
                             type="submit"
-                            className="px-4 py-1.5 text-sm text-white bg-primary rounded-lg"
+                            className="px-4 py-1.5 text-sm text-white bg-primary hover:bg-primary-dark transition-colors rounded-lg"
                             disabled={!newComment.trim() || commentSubmitting}
                           >
                             {commentSubmitting ? (
@@ -604,8 +645,8 @@ const TailTalksPostDetail = () => {
               {comments.length > 0 ? (
                 <div className="divide-y divide-gray-100">
                   {comments.map(comment => (
-                    <div key={comment.id} className="p-4">
-                      <div className="flex">
+                    <div key={comment.id} className="py-3 px-2">
+                      <div className="flex items-start">
                         <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mr-3 overflow-hidden flex-shrink-0">
                           {comment.authorPhotoURL ? (
                             <img src={comment.authorPhotoURL} alt={comment.authorName} className="w-full h-full object-cover" />
@@ -615,25 +656,29 @@ const TailTalksPostDetail = () => {
                             </span>
                           )}
                         </div>
-                        <div>
-                          <div className="bg-gray-100 px-4 py-2 rounded-2xl">
-                            <p className="font-medium text-sm">{comment.authorName}</p>
-                            <p className="text-sm text-gray-700">{comment.content}</p>
+                        <div className="flex-grow max-w-[85%]">
+                          <div className="bg-gray-50 px-4 py-3 rounded-lg shadow-sm border border-gray-100 text-left">
+                            <div className="flex items-center mb-1.5">
+                              <p className="font-semibold text-sm text-primary-dark mr-2">{comment.authorName || 'Anonymous'}</p>
+                              <span className="text-xs text-gray-400">
+                                {comment.createdAt ? 
+                                  (typeof comment.createdAt.toDate === 'function' ?
+                                    new Date(comment.createdAt.toDate()).toLocaleDateString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    }) :
+                                    'Recently') : 
+                                  'Just now'
+                                }
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-700 break-words whitespace-pre-wrap text-left">{comment.text || comment.content || 'No content'}</p>
                           </div>
-                          <div className="mt-1 ml-2 flex items-center text-xs text-gray-500 space-x-2">
-                            <span>
-                              {comment.createdAt ? 
-                                new Date(comment.createdAt.toDate()).toLocaleDateString('en-US', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                }) : 
-                                'Just now'
-                              }
-                            </span>
-                            <button className="font-medium">Like</button>
-                            <button className="font-medium">Reply</button>
+                          <div className="mt-1.5 ml-2 flex items-center text-xs space-x-3">
+                            <button className="text-gray-500 hover:text-primary transition-colors">Like</button>
+                            <button className="text-gray-500 hover:text-primary transition-colors">Reply</button>
                           </div>
                         </div>
                       </div>
@@ -704,6 +749,7 @@ const TailTalksPostDetail = () => {
       <MobileBottomNav />
     </div>
   );
-};
+}
 
+// Make sure there's a clear default export
 export default TailTalksPostDetail; 

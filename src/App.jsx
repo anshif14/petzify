@@ -11,7 +11,7 @@ import PetParentingDetails from './pages/admin/PetParentingDetails';
 import PetBoardingAdmin from './pages/admin/PetBoardingAdmin';
 import AdminRoute from './components/auth/AdminRoute';
 import TailTalks from './pages/TailTalks';
-import TailTalkPostDetail from './pages/TailTalkPostDetail';
+import TailTalksPostDetail from './pages/TailTalksPostDetail';
 import { NotificationProvider } from './context/NotificationContext';
 import { UserProvider } from './context/UserContext';
 import { BrowserRouter as Router } from 'react-router-dom';
@@ -36,7 +36,7 @@ const App = () => {
               } />
             </Route>
             <Route path="/tailtalk" element={<TailTalks />} />
-            <Route path="/tailtalk/post/:postId" element={<TailTalkPostDetail />} />
+            <Route path="/tailtalk/post/:postId" element={<TailTalksPostDetail />} />
           </Routes>
         </NotificationProvider>
       </UserProvider>
