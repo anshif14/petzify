@@ -7,8 +7,10 @@ import {
 import { app } from '../../firebase/config';
 import { useUser } from '../../context/UserContext';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
-import { FaTrash, FaComment, FaFlag, FaCheck, FaEdit } from 'react-icons/fa';
+import { FaTrash, FaComment, FaFlag, FaCheck, FaEdit, FaPaperPlane, FaTimes, FaCheckCircle } from 'react-icons/fa';
 import { toast } from 'react-toastify';
+// Import Petzify logo for admin comments
+import petzifyLogo from '../../assets/images/Petzify Logo-05 (3).png';
 
 const TailTalksAdmin = () => {
   const navigate = useNavigate();
@@ -20,6 +22,7 @@ const TailTalksAdmin = () => {
   const [commentInputs, setCommentInputs] = useState({});
   const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+  const [showCommentDeleteConfirm, setShowCommentDeleteConfirm] = useState({ postId: null, commentId: null });
 
   useEffect(() => {
     // No admin validation
@@ -117,6 +120,117 @@ const TailTalksAdmin = () => {
       console.error('Date formatting error:', error);
       return 'Unknown date';
     }
+  };
+
+  const handleAddComment = async (postId) => {
+    if (!commentInputs[postId] || commentInputs[postId].trim() === '') {
+      toast.error('Comment cannot be empty');
+      return;
+    }
+
+    try {
+      setCommentSubmitting(true);
+      const db = getFirestore(app);
+      
+      // Add new comment
+      const commentData = {
+        text: commentInputs[postId],
+        authorId: currentUser?.id || 'admin',
+        authorName: 'Petzify', // Use admin name
+        authorPhotoURL: null, // We'll use the petzifyLogo directly in the UI
+        createdAt: serverTimestamp(),
+        isAdmin: true, // Mark as admin comment
+        isVerified: true // Add verification status
+      };
+      
+      const commentsRef = collection(db, 'tailtalks', postId, 'comments');
+      const commentDocRef = await addDoc(commentsRef, commentData);
+      
+      // Update post's comment count
+      const postRef = doc(db, 'tailtalks', postId);
+      await updateDoc(postRef, {
+        commentCount: increment(1),
+        lastActivity: serverTimestamp()
+      });
+      
+      // Update local state
+      const updatedPosts = posts.map(post => {
+        if (post.id === postId) {
+          // Add new comment to the post
+          const newComment = {
+            id: commentDocRef.id,
+            ...commentData,
+            createdAt: new Date() // Use current date for immediate display
+          };
+          
+          return {
+            ...post,
+            commentCount: (post.commentCount || 0) + 1,
+            comments: [newComment, ...(post.comments || [])]
+          };
+        }
+        return post;
+      });
+      
+      setPosts(updatedPosts);
+      
+      // Clear input
+      setCommentInputs(prev => ({
+        ...prev,
+        [postId]: ''
+      }));
+      
+      toast.success('Comment added successfully');
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      toast.error('Failed to add comment');
+    } finally {
+      setCommentSubmitting(false);
+    }
+  };
+
+  const handleDeleteComment = async (postId, commentId) => {
+    try {
+      setLoading(true);
+      const db = getFirestore(app);
+      
+      // Delete the comment document
+      await deleteDoc(doc(db, 'tailtalks', postId, 'comments', commentId));
+      
+      // Update post's comment count
+      const postRef = doc(db, 'tailtalks', postId);
+      await updateDoc(postRef, {
+        commentCount: increment(-1)
+      });
+      
+      // Update local state
+      const updatedPosts = posts.map(post => {
+        if (post.id === postId) {
+          return {
+            ...post,
+            commentCount: Math.max(0, (post.commentCount || 1) - 1),
+            comments: (post.comments || []).filter(comment => comment.id !== commentId)
+          };
+        }
+        return post;
+      });
+      
+      setPosts(updatedPosts);
+      setShowCommentDeleteConfirm({ postId: null, commentId: null });
+      toast.success('Comment deleted successfully');
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+      toast.error('Failed to delete comment');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCommentInputChange = (postId, value) => {
+    setCommentInputs(prev => ({
+      ...prev,
+      [postId]: value
+    }));
   };
 
   // Render post card with admin controls
@@ -218,37 +332,107 @@ const TailTalksAdmin = () => {
         </div>
 
         {/* Comments Section - Toggle Visibility */}
-        {isCommentVisible && post.comments && post.comments.length > 0 && (
+        {isCommentVisible && (
           <div className="bg-gray-50 p-3 border-t border-gray-100">
-            {post.comments.map(comment => (
-              <div key={comment.id} className="flex items-start mb-3">
-                <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center mr-2 overflow-hidden flex-shrink-0">
-                  {comment.authorPhotoURL ? (
-                    <img src={comment.authorPhotoURL} alt={comment.authorName} className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="font-bold text-gray-500 text-xs">
-                      {comment.authorName === 'Petzify Team' ? 'P' : comment.authorName ? comment.authorName.charAt(0).toUpperCase() : 'A'}
-                    </span>
-                  )}
+            {/* Admin Comment Form */}
+            <div className="mb-4 bg-white rounded-lg shadow-sm p-3">
+              <div className="flex items-center mb-2">
+                <div className="w-6 h-6 rounded-full overflow-hidden mr-2">
+                  <img src={petzifyLogo} alt="Petzify" className="w-full h-full object-contain" />
                 </div>
-                <div className="flex-grow max-w-[85%]">
-                  <div className="bg-white rounded-2xl rounded-tl-none px-3 py-2 shadow-sm">
-                    <div className="flex justify-between items-start">
-                      <p className="font-medium text-xs flex items-center">
-                        {comment.authorName || 'Anonymous'}
-                      </p>
-                      <span className="text-xs text-gray-500">{formatDate(comment.createdAt)}</span>
-                    </div>
-                    <p className="mt-1 text-sm text-left text-gray-800 break-words">{comment.text || comment.content || 'No text'}</p>
-                  </div>
+                <div className="flex items-center justify-center">
+                  Comment as <span className="mx-1 font-semibold">Petzify</span>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-        {isCommentVisible && (!post.comments || post.comments.length === 0) && (
-          <div className="bg-gray-50 p-3 border-t border-gray-100 text-center">
-            <p className="text-gray-500">No comments yet</p>
+              <div className="flex">
+                <textarea
+                  value={commentInputs[post.id] || ''}
+                  onChange={(e) => handleCommentInputChange(post.id, e.target.value)}
+                  placeholder="Write an official comment as Petzify..."
+                  className="flex-grow border rounded-l-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                  rows={2}
+                />
+                <button
+                  onClick={() => handleAddComment(post.id)}
+                  disabled={commentSubmitting}
+                  className="bg-primary text-white rounded-r-lg px-4 flex items-center justify-center hover:bg-primary-dark transition-colors"
+                >
+                  {commentSubmitting ? <LoadingSpinner size="sm" /> : <FaPaperPlane />}
+                </button>
+              </div>
+            </div>
+            
+            {/* Comments List */}
+            {post.comments && post.comments.length > 0 ? (
+              <div>
+                {post.comments.map(comment => (
+                  <div key={comment.id} className="flex items-start mb-3 relative group">
+                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center mr-2 overflow-hidden flex-shrink-0">
+                      {comment.isAdmin ? (
+                        // Petzify logo for admin comments
+                        <img src={petzifyLogo} alt="Petzify" className="w-full h-full object-contain p-0.5" />
+                      ) : comment.authorPhotoURL ? (
+                        <img src={comment.authorPhotoURL} alt={comment.authorName} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="font-bold text-gray-500 text-xs">
+                          {comment.authorName ? comment.authorName.charAt(0).toUpperCase() : 'A'}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex-grow max-w-[90%]">
+                      <div className={`rounded-2xl rounded-tl-none px-3 py-2 shadow-sm ${comment.isAdmin ? 'bg-blue-50' : 'bg-white'}`}>
+                        <div className="flex justify-between items-start">
+                          <p className="font-medium text-xs flex items-center">
+                            {comment.authorName || 'Anonymous'}
+                            {comment.isAdmin && (
+                              <span className="ml-1 text-xs bg-primary text-white rounded-full px-2 py-0.5 flex items-center">
+                                <FaCheckCircle className="mr-1" size={10} />
+                                Verified Admin
+                              </span>
+                            )}
+                          </p>
+                          <span className="text-xs text-gray-500">{formatDate(comment.createdAt)}</span>
+                        </div>
+                        <p className="mt-1 text-sm text-left text-gray-800 break-words">{comment.text || comment.content || 'No text'}</p>
+                      </div>
+                    </div>
+                    
+                    {/* Delete Comment Button */}
+                    <button
+                      className="p-1.5 bg-red-50 text-red-600 rounded-full absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => setShowCommentDeleteConfirm({ postId: post.id, commentId: comment.id })}
+                    >
+                      <FaTimes size={12} />
+                    </button>
+                    
+                    {/* Comment Delete Confirmation */}
+                    {showCommentDeleteConfirm.postId === post.id && showCommentDeleteConfirm.commentId === comment.id && (
+                      <div className="absolute right-0 top-0 bg-white shadow-md rounded-lg p-2 z-10">
+                        <p className="text-xs mb-1">Delete this comment?</p>
+                        <div className="flex space-x-2">
+                          <button
+                            className="text-xs bg-red-600 text-white px-2 py-1 rounded"
+                            onClick={() => handleDeleteComment(post.id, comment.id)}
+                          >
+                            Delete
+                          </button>
+                          <button
+                            className="text-xs bg-gray-200 px-2 py-1 rounded"
+                            onClick={() => setShowCommentDeleteConfirm({ postId: null, commentId: null })}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center">
+                <p className="text-gray-500">No comments yet</p>
+              </div>
+            )}
           </div>
         )}
       </div>

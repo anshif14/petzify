@@ -10,6 +10,8 @@ import { app } from '../firebase/config';
 import { useUser } from '../context/UserContext';
 import MobileBottomNav from '../components/common/MobileBottomNav';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+// Import Petzify logo for admin comments
+import petzifyLogo from '../assets/images/Petzify Logo-05 (3).png';
 
 // Export the component explicitly as a named function
 function TailTalksPostDetail() {
@@ -107,13 +109,13 @@ function TailTalksPostDetail() {
           // Ensure we have all required fields with default values if needed
           return {
             id: doc.id,
-            authorName: data.authorName || 'Anonymous',
+            authorName: data.authorName === 'Petzify Team' ? 'Petzify' : (data.authorName || 'Anonymous'),
             authorPhotoURL: data.authorPhotoURL || null,
             text: data.text || '',
             content: data.content || '', // For backward compatibility
             createdAt: data.createdAt || new Date(),
             authorId: data.authorId || '',
-            isVerified: data.isVerified || data.authorName === 'Petzify Team' || false
+            isVerified: data.isVerified || data.authorName === 'Petzify Team' || data.authorName === 'Petzify' || false
           };
         });
         
@@ -264,7 +266,7 @@ function TailTalksPostDetail() {
       const commentData = {
         text: newComment,
         authorId: currentUser.uid,
-        authorName: isAdmin ? 'Petzify Team' : currentUser.displayName || currentUser.email.split('@')[0] || 'Anonymous',
+        authorName: isAdmin ? 'Petzify' : currentUser.displayName || currentUser.email.split('@')[0] || 'Anonymous',
         authorPhotoURL: currentUser.photoURL,
         createdAt: serverTimestamp(),
         isVerified: isAdmin
@@ -323,6 +325,76 @@ function TailTalksPostDetail() {
       return false;
     }
     return true;
+  };
+  
+  // Add this function for rendering comments
+  const renderComments = () => {
+    if (comments.length === 0) {
+      return (
+        <div className="bg-gray-50 p-4 rounded-lg text-center">
+          <p className="text-gray-500">No comments yet. Be the first to comment!</p>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="space-y-4">
+        {comments.map(comment => (
+          <div key={comment.id} className="flex space-x-3">
+            <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden flex items-center justify-center">
+              {comment.isVerified || comment.authorName === 'Petzify' ? (
+                // Use Petzify logo for admin comments
+                <img src={petzifyLogo} alt="Petzify" className="w-full h-full object-contain p-0.5" />
+              ) : comment.authorPhotoURL ? (
+                <img src={comment.authorPhotoURL} alt={comment.authorName} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-gray-600 font-medium">
+                  {comment.authorName.charAt(0).toUpperCase()}
+                </span>
+              )}
+            </div>
+            <div className="flex-1">
+              <div className={`rounded-lg p-3 ${comment.isVerified ? 'bg-blue-50 border border-blue-100' : 'bg-gray-100'}`}>
+                <div className="flex items-center">
+                  <span className="font-medium text-sm">
+                    {comment.authorName}
+                  </span>
+                  {comment.isVerified && (
+                    <svg className="w-4 h-4 ml-1 text-primary" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                      <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
+                    </svg>
+                  )}
+                </div>
+                <p className="text-sm text-gray-700 mt-1">
+                  {comment.text || comment.content || 'No comment text'}
+                </p>
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                {formatDate(comment.createdAt)}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // Helper function to format dates
+  const formatDate = (timestamp) => {
+    if (!timestamp) return 'Just now';
+    
+    try {
+      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      console.error('Date formatting error:', error);
+      return 'Unknown date';
+    }
   };
   
   if (loading) {
@@ -538,7 +610,7 @@ function TailTalksPostDetail() {
                   </div>
                 </div>
                 <div className="space-x-4">
-                  <span>{comments.length || post.commentCount || 0} comments</span>
+                  <span>{renderComments().length} comments</span>
                   <span>{post.shareCount || 0} shares</span>
                 </div>
               </div>
@@ -599,7 +671,7 @@ function TailTalksPostDetail() {
             
             {/* Comments Section */}
             <div className="mt-8 border-t border-gray-200 pt-6">
-              <h3 className="text-xl font-bold mb-4">Comments ({comments.length})</h3>
+              <h3 className="text-xl font-bold mb-4">Comments ({renderComments().length})</h3>
               
               {/* Add Comment Form */}
               <div className="mb-6">
@@ -656,45 +728,7 @@ function TailTalksPostDetail() {
               </div>
               
               {/* Comments List */}
-              <div className="space-y-4">
-                {comments.length > 0 ? (
-                  comments.map(comment => (
-                    <div key={comment.id} className="flex items-start">
-                      <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center mr-3 overflow-hidden flex-shrink-0">
-                        {comment.authorPhotoURL ? (
-                          <img src={comment.authorPhotoURL} alt={comment.authorName} className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="font-bold text-gray-500 text-sm">
-                            {comment.authorName ? comment.authorName.charAt(0).toUpperCase() : 'A'}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex-grow max-w-[90%]">
-                        <div className={`${comment.isVerified ? 'bg-green-50 border border-green-100' : 'bg-gray-100'} rounded-2xl rounded-tl-none px-4 py-3 shadow-sm`}>
-                          <div className="flex items-center mb-1">
-                            <span className={`font-medium ${comment.isVerified ? 'text-green-700' : 'text-gray-800'} flex items-center`}>
-                              {comment.authorName || 'Anonymous'}
-                              {comment.isVerified && (
-                                <svg className="w-4 h-4 ml-1 text-green-600" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                                  <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
-                                </svg>
-                              )}
-                            </span>
-                            <span className="text-xs text-gray-500 ml-auto">
-                              {comment.createdAt ? new Date(comment.createdAt.seconds * 1000).toLocaleString() : 'Just now'}
-                            </span>
-                          </div>
-                          <p className="text-gray-800 whitespace-pre-wrap break-words">{comment.text || comment.content}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center bg-gray-50 rounded p-6">
-                    <p className="text-gray-600">No comments yet. Be the first to share your thoughts!</p>
-                  </div>
-                )}
-              </div>
+              {renderComments()}
             </div>
           </div>
           

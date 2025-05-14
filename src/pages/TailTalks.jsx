@@ -8,6 +8,8 @@ import MobileBottomNav from '../components/common/MobileBottomNav';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { useNotification, NotificationProvider } from '../context/NotificationContext';
 import { PullToRefresh } from 'react-js-pull-to-refresh';
+// Import Petzify logo for admin comments
+import petzifyLogo from '../assets/images/Petzify Logo-05 (3).png';
 
 const TailTalksInner = () => {
   const navigate = useNavigate();
@@ -1040,7 +1042,7 @@ const TailTalksInner = () => {
         id: tempId,
         text: commentText,
         content: commentText,
-        authorName: isAdmin ? 'Petzify Team' : currentUser?.displayName || getUserEmail()?.split('@')[0] || 'Anonymous',
+        authorName: isAdmin ? 'Petzify' : (currentUser?.displayName || getUserEmail()?.split('@')[0] || 'Anonymous'),
         authorPhotoURL: currentUser?.photoURL || null,
         createdAt: new Date(), // For optimistic UI update, use Date object
         isVerified: isAdmin
@@ -1103,7 +1105,7 @@ const TailTalksInner = () => {
         text: commentText,
         content: commentText,
         authorId: (currentUser && currentUser.uid) ? currentUser.uid : 'anonymous',
-        authorName: isAdmin ? 'Petzify Team' : (currentUser?.displayName || getUserEmail()?.split('@')[0] || 'Anonymous'),
+        authorName: isAdmin ? 'Petzify' : (currentUser?.displayName || getUserEmail()?.split('@')[0] || 'Anonymous'),
         authorPhotoURL: (currentUser && currentUser.photoURL) ? currentUser.photoURL : null,
         createdAt: serverTimestamp(),
         isVerified: isAdmin
@@ -1244,7 +1246,10 @@ const TailTalksInner = () => {
         <div className="p-4">
           <div className="flex items-center mb-3">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mr-3 overflow-hidden">
-              {post.authorPhotoURL ? (
+              {post.authorName === 'Petzify' || post.authorName === 'Petzify Team' ? (
+                // Petzify logo for admin posts
+                <img src={petzifyLogo} alt="Petzify" className="w-full h-full object-contain p-0.5" />
+              ) : post.authorPhotoURL ? (
                 <img src={post.authorPhotoURL} alt={post.authorName} className="w-full h-full object-cover" />
               ) : (
                 <span className="font-bold text-primary">
@@ -1254,8 +1259,8 @@ const TailTalksInner = () => {
             </div>
             <div className="flex flex-col items-start">
               <p className="font-medium text-sm">
-                {post.authorName}
-                {post.authorName === 'Petzify Team' && (
+                {post.authorName === 'Petzify Team' ? 'Petzify' : post.authorName}
+                {(post.authorName === 'Petzify' || post.authorName === 'Petzify Team') && (
                   <svg className="w-4 h-4 ml-1 inline text-primary" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
                     <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
                   </svg>
@@ -1448,7 +1453,9 @@ const TailTalksInner = () => {
                 {post.comments.slice(0, 3).map(comment => (
                   <div key={comment.id} className="flex items-start">
                     <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center mr-2 overflow-hidden flex-shrink-0">
-                      {comment.authorPhotoURL ? (
+                      {comment.isVerified || comment.authorName === 'Petzify' || comment.authorName === 'Petzify Team' ? (
+                        <img src={petzifyLogo} alt="Petzify" className="w-full h-full object-contain p-0.5" />
+                      ) : comment.authorPhotoURL ? (
                         <img src={comment.authorPhotoURL} alt={comment.authorName} className="w-full h-full object-cover" />
                       ) : (
                         <span className="font-bold text-gray-500 text-xs">
@@ -1457,12 +1464,12 @@ const TailTalksInner = () => {
                       )}
                     </div>
                     <div className="flex-grow max-w-[85%]">
-                      <div className={`${comment.isVerified ? 'bg-green-50 border border-green-100' : 'bg-primary/5'} rounded-2xl rounded-tl-none px-3 py-2 shadow-sm`}>
+                      <div className={`${comment.isVerified ? 'bg-blue-50 border border-blue-100' : 'bg-primary/5'} rounded-2xl rounded-tl-none px-3 py-2 shadow-sm`}>
                         <div className="flex justify-between items-start">
-                          <p className={`font-medium text-xs ${comment.isVerified ? 'text-green-700' : 'text-primary-dark'} flex items-center`}>
-                            {comment.authorName || 'Anonymous'}
+                          <p className={`font-medium text-xs ${comment.isVerified ? 'text-primary' : 'text-primary-dark'} flex items-center`}>
+                            {comment.authorName === 'Petzify Team' ? 'Petzify' : comment.authorName || 'Anonymous'}
                             {comment.isVerified && (
-                              <svg className="w-4 h-4 ml-1 text-green-600" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                              <svg className="w-4 h-4 ml-1 text-primary" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
                                 <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
                               </svg>
                             )}
