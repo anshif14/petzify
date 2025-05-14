@@ -16,7 +16,7 @@ import OrderManager from '../components/admin/OrderManager';
 import PetBoardingAdmin from './admin/PetBoardingAdmin';
 import BoardingAdminDashboard from '../components/admin/boarding/BoardingAdminDashboard';
 import ReviewsAdminManager from '../components/admin/ReviewsAdminManager';
-import TailTalksAdmin from './admin/TailTalksAdmin';
+import TailTalksAdmin from './admin/TailTalksAdmin.jsx';
 import { auth, db } from '../firebase/index';
 import { useNavigate } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
