@@ -113,11 +113,22 @@ function TailTalksPostDetail() {
             content: data.content || '', // For backward compatibility
             createdAt: data.createdAt || new Date(),
             authorId: data.authorId || '',
+            isVerified: data.isVerified || data.authorName === 'Petzify Team' || false
           };
         });
         
-        console.log('Processed comments:', commentsData); // Debug log
-        setComments(commentsData);
+        // Sort comments: verified/admin comments first, then by recent date
+        const sortedComments = commentsData.sort((a, b) => {
+          // First sort by verification status (verified/admin comments first)
+          if (a.isVerified && !b.isVerified) return -1;
+          if (!a.isVerified && b.isVerified) return 1;
+          
+          // Then sort by date (most recent first)
+          return b.createdAt - a.createdAt;
+        });
+        
+        console.log('Processed comments:', sortedComments); // Debug log
+        setComments(sortedComments);
       } catch (error) {
         console.error('Error processing comments:', error);
       }
@@ -234,69 +245,74 @@ function TailTalksPostDetail() {
   const handleAddComment = async (e) => {
     e.preventDefault();
     
-    if (!requireAuth('add a comment')) {
+    if (!requireAuth('comment on this post')) {
       return;
     }
     
-    if (!newComment.trim()) return;
+    if (!newComment.trim()) {
+      return;
+    }
+    
+    setCommentSubmitting(true);
     
     try {
-      setCommentSubmitting(true);
       const db = getFirestore(app);
       
-      console.log('Adding comment to post:', postId);
+      // Check if the current user is an admin
+      const isAdmin = await checkIfUserIsAdmin();
       
-      // Use correct subcollection path
-      const commentsRef = collection(db, 'tailtalks', postId, 'comments');
-      
-      // Add comment with field name that matches database schema
       const commentData = {
-        text: newComment.trim(),
-        authorId: currentUser?.uid || 'anonymous',
-        authorName: currentUser?.displayName || currentUser?.email?.split('@')[0] || 'User',
-        authorPhotoURL: currentUser?.photoURL || null,
-        createdAt: serverTimestamp()
+        text: newComment,
+        authorId: currentUser.uid,
+        authorName: isAdmin ? 'Petzify Team' : currentUser.displayName || currentUser.email.split('@')[0] || 'Anonymous',
+        authorPhotoURL: currentUser.photoURL,
+        createdAt: serverTimestamp(),
+        isVerified: isAdmin
       };
       
-      console.log('Comment data being submitted:', commentData);
+      const commentsRef = collection(db, 'tailtalks', postId, 'comments');
+      await addDoc(commentsRef, commentData);
       
-      // Add to Firestore
-      const docRef = await addDoc(commentsRef, commentData);
-      console.log('Comment added with ID:', docRef.id);
-      
-      // Update comment count
+      // Also update comment count on the post
       const postRef = doc(db, 'tailtalks', postId);
       await updateDoc(postRef, {
         commentCount: increment(1)
       });
       
-      // Update local state
-      setPost(prevPost => ({
-        ...prevPost,
-        commentCount: (prevPost.commentCount || 0) + 1
-      }));
-      
-      // Add comment to local comments array for immediate display
-      setComments(prevComments => [
-        {
-          id: docRef.id,
-          text: newComment.trim(),
-          authorId: currentUser?.uid || 'anonymous',
-          authorName: currentUser?.displayName || currentUser?.email?.split('@')[0] || 'User',
-          authorPhotoURL: currentUser?.photoURL || null,
-          createdAt: new Date()
-        },
-        ...prevComments
-      ]);
-      
-      // Clear input
       setNewComment('');
       setShowCommentInput(false);
+      
+      // Focus on the input element if it's rendered
+      setTimeout(() => {
+        if (commentInputRef.current) {
+          commentInputRef.current.focus();
+        }
+      }, 100);
+      
     } catch (error) {
       console.error('Error adding comment:', error);
-      alert('Sorry, we couldn\'t add your comment. Please try again.');
     } finally {
       setCommentSubmitting(false);
+    }
+  };
+  
+  // Add a function to check if the current user is an admin
+  const checkIfUserIsAdmin = async () => {
+    if (!currentUser || !currentUser.uid) return false;
+    
+    try {
+      const db = getFirestore(app);
+      const userRef = doc(db, 'users', currentUser.uid);
+      const userSnap = await getDoc(userRef);
+      
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        return userData.role === 'admin';
+      }
+      return false;
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+      return false;
     }
   };
   
@@ -582,114 +598,103 @@ function TailTalksPostDetail() {
             </div>
             
             {/* Comments Section */}
-            <div className="bg-white rounded-lg shadow-sm overflow-hidden mb-6">
-              <div className="p-4 border-b border-gray-100 text-left">
-                <h2 className="font-bold text-lg">Comments ({comments.length || post.commentCount || 0})</h2>
-              </div>
+            <div className="mt-8 border-t border-gray-200 pt-6">
+              <h3 className="text-xl font-bold mb-4">Comments ({comments.length})</h3>
               
-              {/* Comment Input */}
-              <div className="p-4 border-b border-gray-100">
+              {/* Add Comment Form */}
+              <div className="mb-6">
                 <form onSubmit={handleAddComment} className="flex flex-col">
-                  <div className="flex">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mr-3 overflow-hidden flex-shrink-0">
+                  <div className="flex items-start mb-2">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mr-3 overflow-hidden">
                       {currentUser?.photoURL ? (
                         <img src={currentUser.photoURL} alt={currentUser.displayName} className="w-full h-full object-cover" />
                       ) : (
                         <span className="font-bold text-primary">
-                          {currentUser?.displayName ? currentUser.displayName.charAt(0).toUpperCase() : 'U'}
+                          {currentUser?.displayName ? currentUser.displayName.charAt(0).toUpperCase() : 'P'}
                         </span>
                       )}
                     </div>
-                    <div className="flex-grow">
+                    <div className="flex-grow border border-gray-300 rounded-lg overflow-hidden">
                       <textarea
                         ref={commentInputRef}
-                        className="w-full border border-gray-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm shadow-sm bg-gray-50 text-left"
-                        placeholder="Write a comment..."
-                        rows={showCommentInput ? 3 : 1}
+                        className="w-full p-3 outline-none resize-none min-h-[80px]"
+                        placeholder={isAuthenticated() ? "Add a comment..." : "Sign in to comment"}
                         value={newComment}
                         onChange={(e) => setNewComment(e.target.value)}
-                        onFocus={() => setShowCommentInput(true)}
+                        disabled={!isAuthenticated() || commentSubmitting}
                       ></textarea>
-                      
-                      {showCommentInput && (
-                        <div className="flex justify-end mt-2 space-x-2">
-                          <button
-                            type="button"
-                            className="px-4 py-1.5 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors border border-gray-200 rounded-lg"
-                            onClick={() => {
-                              setShowCommentInput(false);
-                              setNewComment('');
-                            }}
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="submit"
-                            className="px-4 py-1.5 text-sm text-white bg-primary hover:bg-primary-dark transition-colors rounded-lg"
-                            disabled={!newComment.trim() || commentSubmitting}
-                          >
-                            {commentSubmitting ? (
-                              <LoadingSpinner size="small" color="white" />
-                            ) : (
-                              'Post Comment'
-                            )}
-                          </button>
-                        </div>
-                      )}
                     </div>
+                  </div>
+                  
+                  <div className="flex justify-end mt-2">
+                    {!isAuthenticated() ? (
+                      <button
+                        type="button"
+                        className="px-4 py-2 bg-primary text-white rounded-lg"
+                        onClick={() => navigate('/login', { state: { from: `/tailtalk/post/${postId}` } })}
+                      >
+                        Sign in to comment
+                      </button>
+                    ) : (
+                      <button
+                        type="submit"
+                        className="px-4 py-2 bg-primary text-white rounded-lg flex items-center"
+                        disabled={!newComment.trim() || commentSubmitting}
+                      >
+                        {commentSubmitting ? (
+                          <>
+                            <LoadingSpinner size="small" />
+                            <span className="ml-2">Posting...</span>
+                          </>
+                        ) : (
+                          'Post Comment'
+                        )}
+                      </button>
+                    )}
                   </div>
                 </form>
               </div>
               
               {/* Comments List */}
-              {comments.length > 0 ? (
-                <div className="divide-y divide-gray-100">
-                  {comments.map(comment => (
-                    <div key={comment.id} className="py-3 px-2">
-                      <div className="flex items-start">
-                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mr-3 overflow-hidden flex-shrink-0">
-                          {comment.authorPhotoURL ? (
-                            <img src={comment.authorPhotoURL} alt={comment.authorName} className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="font-bold text-primary">
-                              {comment.authorName ? comment.authorName.charAt(0).toUpperCase() : 'U'}
+              <div className="space-y-4">
+                {comments.length > 0 ? (
+                  comments.map(comment => (
+                    <div key={comment.id} className="flex items-start">
+                      <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center mr-3 overflow-hidden flex-shrink-0">
+                        {comment.authorPhotoURL ? (
+                          <img src={comment.authorPhotoURL} alt={comment.authorName} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="font-bold text-gray-500 text-sm">
+                            {comment.authorName ? comment.authorName.charAt(0).toUpperCase() : 'A'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex-grow max-w-[90%]">
+                        <div className={`${comment.isVerified ? 'bg-green-50 border border-green-100' : 'bg-gray-100'} rounded-2xl rounded-tl-none px-4 py-3 shadow-sm`}>
+                          <div className="flex items-center mb-1">
+                            <span className={`font-medium ${comment.isVerified ? 'text-green-700' : 'text-gray-800'} flex items-center`}>
+                              {comment.authorName || 'Anonymous'}
+                              {comment.isVerified && (
+                                <svg className="w-4 h-4 ml-1 text-green-600" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                  <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
+                                </svg>
+                              )}
                             </span>
-                          )}
-                        </div>
-                        <div className="flex-grow max-w-[85%]">
-                          <div className="bg-gray-50 px-4 py-3 rounded-lg shadow-sm border border-gray-100 text-left">
-                            <div className="flex items-center mb-1.5">
-                              <p className="font-semibold text-sm text-primary-dark mr-2">{comment.authorName || 'Anonymous'}</p>
-                              <span className="text-xs text-gray-400">
-                                {comment.createdAt ? 
-                                  (typeof comment.createdAt.toDate === 'function' ?
-                                    new Date(comment.createdAt.toDate()).toLocaleDateString('en-US', {
-                                      month: 'short',
-                                      day: 'numeric',
-                                      hour: '2-digit',
-                                      minute: '2-digit'
-                                    }) :
-                                    'Recently') : 
-                                  'Just now'
-                                }
-                              </span>
-                            </div>
-                            <p className="text-sm text-gray-700 break-words whitespace-pre-wrap text-left">{comment.text || comment.content || 'No content'}</p>
+                            <span className="text-xs text-gray-500 ml-auto">
+                              {comment.createdAt ? new Date(comment.createdAt.seconds * 1000).toLocaleString() : 'Just now'}
+                            </span>
                           </div>
-                          <div className="mt-1.5 ml-2 flex items-center text-xs space-x-3">
-                            <button className="text-gray-500 hover:text-primary transition-colors">Like</button>
-                            <button className="text-gray-500 hover:text-primary transition-colors">Reply</button>
-                          </div>
+                          <p className="text-gray-800 whitespace-pre-wrap break-words">{comment.text || comment.content}</p>
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="py-8 text-center text-gray-500">
-                  <p>No comments yet. Be the first to share your thoughts!</p>
-                </div>
-              )}
+                  ))
+                ) : (
+                  <div className="text-center bg-gray-50 rounded p-6">
+                    <p className="text-gray-600">No comments yet. Be the first to share your thoughts!</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           

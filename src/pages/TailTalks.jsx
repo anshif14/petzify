@@ -36,12 +36,25 @@ const TailTalksInner = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [parsedTags, setParsedTags] = useState([]);
+  const [isPostAsQuestion, setIsPostAsQuestion] = useState(false); // Renamed from isQuestion to clarify purpose
 
   // Create observer ref for infinite scrolling
   const observerTarget = useRef(null);
 
   // Add this function near the top of the component
   const getUserEmail = () => {
+    if (currentUser && currentUser.email) {
+      return currentUser.email;
+    }
+    return null;
+  };
+
+  // Add a function to safely get the user ID
+  const getUserId = () => {
+    if (currentUser && currentUser.uid) {
+      return currentUser.uid;
+    }
+    // Fall back to email if uid is not available
     if (currentUser && currentUser.email) {
       return currentUser.email;
     }
@@ -117,11 +130,23 @@ const TailTalksInner = () => {
           text: data.text || data.content || '', // Check for both field names
           authorName: data.authorName || 'Anonymous',
           authorPhotoURL: data.authorPhotoURL || null,
-          createdAt: data.createdAt?.toDate() || new Date()
+          createdAt: data.createdAt?.toDate() || new Date(),
+          isVerified: data.isVerified || false, // Make sure we capture the verification status
+          authorId: data.authorId || ''
         });
       });
 
       console.log('Fetched comments for post', postId, ':', commentsData);
+
+      // Sort comments: verified/admin comments first, then by recent date
+      const sortedComments = commentsData.sort((a, b) => {
+        // First sort by verification status (verified/admin comments first)
+        if (a.isVerified && !b.isVerified) return -1;
+        if (!a.isVerified && b.isVerified) return 1;
+        
+        // Then sort by date (most recent first)
+        return b.createdAt - a.createdAt;
+      });
 
       // Update the post with fetched comments
       setPosts(prevPosts =>
@@ -129,7 +154,7 @@ const TailTalksInner = () => {
           if (post.id === postId) {
             return {
               ...post,
-              comments: commentsData
+              comments: sortedComments
             };
           }
           return post;
@@ -234,11 +259,27 @@ const TailTalksInner = () => {
         throw new Error('You must be logged in to create a post');
       }
 
+      // Get user ID safely - crucial fix
+      const userId = getUserId();
+      if (!userId) {
+        throw new Error('Unable to determine user ID or email. Please try again or contact support.');
+      }
+
+      // Check if we're using email as ID
+      const isUsingEmail = currentUser.email && userId === currentUser.email;
+
+      // Add question to tags if this is a question
+      if (isPostAsQuestion && !tags.includes('question')) {
+        tags.push('question');
+      }
+
       // Prepare the post data with safe checks for all user fields
       const postData = {
         title: postTitle.trim(),
         content: postContent.trim(),
-        authorId: (currentUser && currentUser.uid) ? currentUser.uid : 'anonymous',
+        authorId: userId, // Use the safely retrieved user ID or email
+        authorEmail: currentUser.email || 'anonymous@example.com',
+        isAuthorIdEmail: isUsingEmail, // Flag to indicate if we're using email as ID
         authorName: (currentUser && currentUser.displayName) ? currentUser.displayName :
                     (currentUser && currentUser.email) ? currentUser.email.split('@')[0] : 'Anonymous',
         authorPhotoURL: (currentUser && currentUser.photoURL) ? currentUser.photoURL : null,
@@ -247,7 +288,8 @@ const TailTalksInner = () => {
         likeCount: 0,
         commentCount: 0,
         shareCount: 0,
-        tags: tags.length > 0 ? tags : ['TailTalks']
+        tags: tags.length > 0 ? tags : ['TailTalks'],
+        isQuestion: isPostAsQuestion
       };
 
       console.log('Creating post with data:', postData);
@@ -293,6 +335,28 @@ const TailTalksInner = () => {
         const docRef = await addDoc(postsRef, postData);
         console.log('Post added with ID:', docRef.id);
 
+        // If this is a question, add it to direct_questions as well
+        if (isPostAsQuestion) {
+          const directQuestionsRef = collection(db, 'direct_questions');
+          await addDoc(directQuestionsRef, {
+            content: postContent.trim(),
+            title: postTitle.trim(),
+            authorId: userId, // Use the safely retrieved user ID or email
+            authorEmail: currentUser.email || 'anonymous@example.com',
+            isAuthorIdEmail: isUsingEmail, // Flag to indicate if we're using email as ID
+            authorName: currentUser.displayName || currentUser.email.split('@')[0] || 'Anonymous',
+            authorPhotoURL: currentUser.photoURL || null,
+            createdAt: serverTimestamp(),
+            status: 'pending',
+            postId: docRef.id, // Reference to the original post
+            imageUrl: postData.imageUrl || null
+          });
+          
+          showNotification('success', 'Your question has been submitted and will be reviewed by our team!');
+        } else {
+          showNotification('success', 'Post created successfully!');
+        }
+
         // Reset form
         setPostTitle('');
         setPostContent('');
@@ -301,12 +365,10 @@ const TailTalksInner = () => {
         setSelectedVideo(null);
         setMediaPreview(null);
         setParsedTags([]);
+        setIsPostAsQuestion(false);
 
         // Close modal
         setAskModalOpen(false);
-
-        // Show success message
-        showNotification('success', 'Post created successfully!');
 
         // Refresh the feed
         setLastVisible(null);
@@ -819,7 +881,8 @@ const TailTalksInner = () => {
           commentCount: data.commentCount || 0,
           shareCount: data.shareCount || 0,
           createdAt: data.createdAt, // preserve the Firestore timestamp
-          likes: likes // Include the full likes map
+          likes: likes, // Include the full likes map
+          isQuestion: data.isQuestion || false
         });
       });
 
@@ -969,14 +1032,18 @@ const TailTalksInner = () => {
       // Generate a consistent temp ID
       const tempId = `temp-${Date.now()}`;
 
+      // Check if the current user is an admin
+      const isAdmin = currentUser && currentUser.uid && await isAdminUser(currentUser.uid);
+      
       // Optimistic UI update
       const newComment = {
         id: tempId,
         text: commentText,
         content: commentText,
-        authorName: currentUser?.displayName || getUserEmail()?.split('@')[0] || 'Anonymous',
+        authorName: isAdmin ? 'Petzify Team' : currentUser?.displayName || getUserEmail()?.split('@')[0] || 'Anonymous',
         authorPhotoURL: currentUser?.photoURL || null,
-        createdAt: new Date() // For optimistic UI update, use Date object
+        createdAt: new Date(), // For optimistic UI update, use Date object
+        isVerified: isAdmin
       };
 
       // Find the post and add the comment
@@ -984,7 +1051,19 @@ const TailTalksInner = () => {
         if (post.id === postId) {
           // Initialize comments array if it doesn't exist
           const existingComments = post.comments || [];
-          const updatedComments = [newComment, ...existingComments];
+          
+          // Insert admin comments at the top, otherwise prepend to the array
+          let updatedComments;
+          if (isAdmin) {
+            // Admin comments go at the top
+            updatedComments = [newComment, ...existingComments];
+          } else {
+            // User comments go after admin comments
+            const adminComments = existingComments.filter(comment => comment.isVerified);
+            const userComments = existingComments.filter(comment => !comment.isVerified);
+            updatedComments = [...adminComments, newComment, ...userComments];
+          }
+          
           return {
             ...post,
             comments: updatedComments,
@@ -1024,10 +1103,10 @@ const TailTalksInner = () => {
         text: commentText,
         content: commentText,
         authorId: (currentUser && currentUser.uid) ? currentUser.uid : 'anonymous',
-        authorName: (currentUser && currentUser.displayName) ? currentUser.displayName :
-                    (currentUser && currentUser.email) ? currentUser.email.split('@')[0] : 'Anonymous',
+        authorName: isAdmin ? 'Petzify Team' : (currentUser?.displayName || getUserEmail()?.split('@')[0] || 'Anonymous'),
         authorPhotoURL: (currentUser && currentUser.photoURL) ? currentUser.photoURL : null,
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        isVerified: isAdmin
       };
 
       const commentsRef = collection(db, 'tailtalks', postId, 'comments');
@@ -1051,6 +1130,30 @@ const TailTalksInner = () => {
       } catch (updateError) {
         console.error('Error updating comment count:', updateError);
         // Even if this fails, the comment was added, so don't throw
+      }
+
+      // If an admin is replying to a question post, update its status
+      const postData = postSnap.data();
+      if (isAdmin && postData && postData.isQuestion) {
+        try {
+          // Find the corresponding direct question
+          const directQuestionsRef = collection(db, 'direct_questions');
+          const q = query(directQuestionsRef, where('postId', '==', postId));
+          const querySnapshot = await getDocs(q);
+          
+          if (!querySnapshot.empty) {
+            // Update the status of the direct question
+            const questionDoc = querySnapshot.docs[0];
+            await updateDoc(doc(db, 'direct_questions', questionDoc.id), {
+              status: 'answered',
+              answeredBy: currentUser.uid,
+              answeredAt: serverTimestamp()
+            });
+          }
+        } catch (error) {
+          console.error('Error updating question status:', error);
+          // Don't throw, as the comment was still added successfully
+        }
       }
 
       showNotification('success', 'Comment added successfully!');
@@ -1110,6 +1213,24 @@ const TailTalksInner = () => {
     }
   };
 
+  // Helper function to check if a user is an admin
+  const isAdminUser = async (uid) => {
+    try {
+      const db = getFirestore(app);
+      const userRef = doc(db, 'users', uid);
+      const userDoc = await getDoc(userRef);
+      
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        return userData.role === 'admin';
+      }
+      return false;
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+      return false;
+    }
+  };
+
   // Function to render a post card
   const renderPostCard = (post) => {
     const isCommentVisible = commentsVisible[post.id] || false;
@@ -1146,7 +1267,14 @@ const TailTalksInner = () => {
 
           {/* Post Content */}
           <div onClick={() => handlePostClick(post.id)} className="cursor-pointer">
-            <h3 className="font-bold mb-2 text-left">{post.title}</h3>
+            <div className="flex justify-between items-start mb-2">
+              <h3 className="font-bold text-left">{post.title}</h3>
+              {post.isQuestion && (
+                <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                  Question
+                </span>
+              )}
+            </div>
 
             {post.content && (
               <p className="text-gray-700 mb-3 text-left">
@@ -1329,9 +1457,16 @@ const TailTalksInner = () => {
                       )}
                     </div>
                     <div className="flex-grow max-w-[85%]">
-                      <div className="bg-primary/5 rounded-2xl rounded-tl-none px-3 py-2 shadow-sm">
+                      <div className={`${comment.isVerified ? 'bg-green-50 border border-green-100' : 'bg-primary/5'} rounded-2xl rounded-tl-none px-3 py-2 shadow-sm`}>
                         <div className="flex justify-between items-start">
-                          <p className="font-medium text-xs text-primary-dark">{comment.authorName || 'Anonymous'}</p>
+                          <p className={`font-medium text-xs ${comment.isVerified ? 'text-green-700' : 'text-primary-dark'} flex items-center`}>
+                            {comment.authorName || 'Anonymous'}
+                            {comment.isVerified && (
+                              <svg className="w-4 h-4 ml-1 text-green-600" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
+                              </svg>
+                            )}
+                          </p>
                           <span className="text-xs text-gray-500">{formatDate(comment.createdAt)}</span>
                         </div>
                         <p className="mt-1 text-sm text-left text-gray-800 break-words whitespace-pre-wrap">{comment.text || comment.content || 'No text'}</p>
@@ -1368,7 +1503,9 @@ const TailTalksInner = () => {
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-lg w-full max-w-lg overflow-hidden">
           <div className="p-4 border-b flex justify-between items-center">
-            <h3 className="text-lg font-semibold text-primary">Create Post</h3>
+            <h3 className="text-lg font-semibold text-primary">
+              {isPostAsQuestion ? "Ask a Question" : "Create Post"}
+            </h3>
             <button
               className="text-gray-500"
               onClick={() => setAskModalOpen(false)}
@@ -1566,13 +1703,28 @@ const TailTalksInner = () => {
             </svg>
           </button>
           <button
-            className="bg-primary text-white px-3 py-1 rounded-full text-sm font-medium flex items-center"
-            onClick={() => setAskModalOpen(true)}
+            className="bg-primary text-white px-3 py-1 rounded-full text-sm font-medium flex items-center mr-2"
+            onClick={() => {
+              setIsPostAsQuestion(true); // Set as question before opening modal
+              setAskModalOpen(true);
+            }}
           >
             <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
-            Ask Petzify
+            Ask Question
+          </button>
+          <button
+            className="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm font-medium flex items-center"
+            onClick={() => {
+              setIsPostAsQuestion(false); // Set as regular post before opening modal
+              setAskModalOpen(true);
+            }}
+          >
+            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+            </svg>
+            Post
           </button>
         </div>
       </div>
@@ -1583,6 +1735,17 @@ const TailTalksInner = () => {
           {/* Sidebar - now on left side with sticky positioning */}
           <div className="md:w-1/4 mb-4 md:mb-0">
             <div className="md:sticky md:top-20 space-y-4">
+              {/* My Posts section */}
+              <div className="bg-white rounded-lg shadow-sm p-4">
+                <h3 className="text-lg font-medium text-primary mb-3">My Posts</h3>
+                <button
+                  onClick={() => navigate('/tailtalk/myposts')}
+                  className="w-full bg-primary text-white rounded-lg py-2 text-sm font-medium transition duration-200 hover:bg-primary-dark"
+                >
+                  View My Posts
+                </button>
+              </div>
+              
               {/* Coming Soon: Pet Community section */}
               <div className="bg-white rounded-lg shadow-sm p-4">
                 <div className="text-center">

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   getFirestore, collection, query, orderBy, limit, getDocs, doc, getDoc,
-  updateDoc, deleteDoc, serverTimestamp, where
+  updateDoc, deleteDoc, serverTimestamp, where, addDoc, increment
 } from 'firebase/firestore';
 import { app } from '../../firebase/config';
 import { useUser } from '../../context/UserContext';
@@ -179,6 +179,70 @@ const TailTalksManagement = () => {
     } catch (error) {
       console.error('Error updating direct question status:', error);
       toast.error('Failed to update question status.');
+    }
+  };
+
+  // New function to handle replying to a post directly from admin panel
+  const handleReplyToPost = async (postId, questionId) => {
+    try {
+      // Prompt for response text
+      const responseText = prompt('Enter your response to this question:');
+      if (!responseText || !responseText.trim()) {
+        return;
+      }
+
+      if (!currentUser) {
+        toast.error('You must be logged in to reply');
+        return;
+      }
+
+      setLoading(true);
+      const db = getFirestore(app);
+      
+      // First verify that the post exists
+      const postRef = doc(db, 'tailtalks', postId);
+      const postDoc = await getDoc(postRef);
+      
+      if (!postDoc.exists()) {
+        toast.error('Post not found');
+        return;
+      }
+      
+      // Add comment to post
+      const commentsRef = collection(db, 'tailtalks', postId, 'comments');
+      await addDoc(commentsRef, {
+        text: responseText.trim(),
+        content: responseText.trim(),
+        authorId: currentUser.uid,
+        authorName: 'Petzify Team',
+        authorPhotoURL: currentUser.photoURL || null,
+        createdAt: serverTimestamp(),
+        isVerified: true
+      });
+      
+      // Update comment count on post
+      await updateDoc(postRef, {
+        commentCount: increment(1)
+      });
+      
+      // Update the direct question's status
+      const questionRef = doc(db, 'direct_questions', questionId);
+      await updateDoc(questionRef, {
+        status: 'answered',
+        answeredBy: currentUser.uid,
+        answeredAt: serverTimestamp(),
+        answer: responseText.trim()
+      });
+      
+      // Refresh direct questions
+      await fetchDirectQuestions();
+      
+      toast.success('Reply posted successfully');
+    } catch (error) {
+      console.error('Error replying to post:', error);
+      toast.error('Failed to post reply');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -369,7 +433,10 @@ const TailTalksManagement = () => {
             {directQuestions.map((question) => (
               <tr key={question.id}>
                 <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
-                  {question.content}
+                  <div>
+                    <p className="font-semibold mb-1">{question.title || 'No Title'}</p>
+                    <p>{question.content}</p>
+                  </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {question.authorName || 'Unknown'}
@@ -403,7 +470,25 @@ const TailTalksManagement = () => {
                       >
                         <FaTimes />
                       </button>
+                      {question.postId && (
+                        <button
+                          onClick={() => handleReplyToPost(question.postId, question.id)}
+                          className="text-blue-600 hover:text-blue-900"
+                          title="Reply to Post"
+                        >
+                          <FaReply />
+                        </button>
+                      )}
                     </>
+                  )}
+                  {question.postId && (
+                    <button
+                      onClick={() => window.open(`/tailtalk/post/${question.postId}`, '_blank')}
+                      className="text-indigo-600 hover:text-indigo-900"
+                      title="View Post"
+                    >
+                      View Post
+                    </button>
                   )}
                   {question.imageUrl && (
                     <button
@@ -413,6 +498,12 @@ const TailTalksManagement = () => {
                     >
                       Image
                     </button>
+                  )}
+                  {question.status === 'answered' && question.answer && (
+                    <div className="mt-2 text-xs text-gray-600 bg-gray-100 p-2 rounded">
+                      <p className="font-semibold">Response:</p>
+                      <p>{question.answer}</p>
+                    </div>
                   )}
                 </td>
               </tr>

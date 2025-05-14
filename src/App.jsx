@@ -12,6 +12,9 @@ import PetBoardingAdmin from './pages/admin/PetBoardingAdmin';
 import AdminRoute from './components/auth/AdminRoute';
 import TailTalks from './pages/TailTalks';
 import TailTalksPostDetail from './pages/TailTalksPostDetail';
+import MyPosts from './pages/MyPosts';
+import RouteTest from './pages/RouteTest';
+import DebugRoute from './pages/DebugRoute';
 import { NotificationProvider } from './context/NotificationContext';
 import { UserProvider } from './context/UserContext';
 import { BrowserRouter as Router } from 'react-router-dom';
@@ -37,6 +40,9 @@ const App = () => {
             </Route>
             <Route path="/tailtalk" element={<TailTalks />} />
             <Route path="/tailtalk/post/:postId" element={<TailTalksPostDetail />} />
+            <Route path="/tailtalk/myposts" element={<MyPosts />} />
+            <Route path="/route-test" element={<RouteTest />} />
+            <Route path="/debug" element={<DebugRoute />} />
           </Routes>
         </NotificationProvider>
       </UserProvider>

@@ -3,6 +3,9 @@ import NotificationToast from '../components/common/NotificationToast';
 
 const NotificationContext = createContext();
 
+// Counter to ensure unique IDs even when created at the same millisecond
+let idCounter = 0;
+
 export const useNotification = () => {
   return useContext(NotificationContext);
 };
@@ -11,7 +14,11 @@ export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   
   const showNotification = (message, type = 'success', duration = 3000) => {
-    const id = Date.now();
+    // Create a truly unique ID by combining timestamp with an incrementing counter
+    const timestamp = Date.now();
+    idCounter += 1;
+    const id = `${timestamp}-${idCounter}`;
+    
     setNotifications(prev => [...prev, { id, message, type, duration }]);
     
     // Automatically remove notification after duration

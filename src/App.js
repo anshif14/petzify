@@ -55,6 +55,7 @@ import TailTalksPostDetail from './pages/TailTalksPostDetail';
 import TailTalksAdminPanel from './pages/admin/TailTalksAdminPanel';
 import TailTalksManagement from './pages/admin/TailTalksManagement';
 import TailTalksAdmin from './pages/admin/TailTalksAdmin';
+import MyPosts from './pages/MyPosts';
 
 // Import context providers
 import { AlertProvider } from './context/AlertContext';
@@ -171,6 +172,7 @@ function App() {
             {/* TailTalks Community Routes */}
             <Route path="/tailtalk" element={<Layout><TailTalks /></Layout>} />
             <Route path="/tailtalk/post/:postId" element={<Layout><TailTalksPostDetail /></Layout>} />
+            <Route path="/tailtalk/myposts" element={<Layout><MyPosts /></Layout>} />
             <Route path="/admin/tailtalk" element={<Layout><AdminRoute><TailTalksAdminPanel /></AdminRoute></Layout>} />
             
             {/* Legacy TailTalks Routes - Will be deprecated */}
