@@ -40,6 +40,14 @@ const TailTalksInner = () => {
   // Create observer ref for infinite scrolling
   const observerTarget = useRef(null);
 
+  // Add this function near the top of the component
+  const getUserEmail = () => {
+    if (currentUser && currentUser.email) {
+      return currentUser.email;
+    }
+    return null;
+  };
+
   // Function to toggle comments visibility for a post
   const toggleComments = (postId) => {
     // Check if we're showing comments
@@ -359,12 +367,17 @@ const TailTalksInner = () => {
     if (!date) return 'Just now';
 
     try {
+      // Handle Firestore timestamps
+      if (date && typeof date.toDate === 'function') {
+        date = date.toDate();
+      }
+      
       // Handle both Date objects and timestamps
       const dateObj = date instanceof Date ? date : new Date(date);
 
       // Check if date is valid
       if (isNaN(dateObj.getTime())) {
-        return 'Recently';
+        return 'Unknown time';
       }
 
       const now = new Date();
@@ -383,11 +396,12 @@ const TailTalksInner = () => {
       } else if (diffDays < 7) {
         return `${diffDays}d ago`;
       } else {
-        return dateObj.toLocaleDateString();
+        // Return formatted date and time for older posts
+        return dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
       }
     } catch (error) {
       console.error('Date formatting error:', error);
-      return 'Recently';
+      return 'Unknown time';
     }
   };
 
@@ -404,31 +418,53 @@ const TailTalksInner = () => {
         return;
       }
 
-      // Ensure likedPosts is initialized
-      const currentLikedStatus = likedPosts?.[postId] || false;
+      // Get user email 
+      const userEmail = currentUser.email;
+      
+      if (!userEmail) {
+        console.error('User email not available');
+        return;
+      }
+
+      // Find the post to check if already liked
+      const post = posts.find(p => p.id === postId);
+      if (!post) {
+        console.error('Post not found');
+        return;
+      }
+
+      // Check if user already liked by looking at the post's likes map
+      const wasLiked = post.likes && post.likes[userEmail] === true;
+      console.log(`User ${userEmail} has ${wasLiked ? 'already liked' : 'not liked'} post ${postId}`);
 
       // Update UI optimistically
-      const updatedPosts = posts.map(post => {
-        if (post.id === postId) {
+      const updatedPosts = posts.map(p => {
+        if (p.id === postId) {
+          // Create updated likes object
+          const updatedLikes = {...(p.likes || {})};
+          
+          if (wasLiked) {
+            // Remove the user email from likes
+            delete updatedLikes[userEmail];
+          } else {
+            // Add the user email to likes
+            updatedLikes[userEmail] = true;
+          }
+          
           return {
-            ...post,
-            likeCount: currentLikedStatus ? Math.max(0, post.likeCount - 1) : post.likeCount + 1
+            ...p,
+            likes: updatedLikes,
+            likeCount: wasLiked ? Math.max(0, p.likeCount - 1) : (p.likeCount || 0) + 1
           };
         }
-        return post;
+        return p;
       });
 
       setPosts(updatedPosts);
 
-      // Update liked posts state
-      setLikedPosts(prev => ({
-        ...prev,
-        [postId]: !currentLikedStatus
-      }));
-
       // For dummy posts, just update the UI and return
       if (postId.startsWith('dummy')) {
-        showNotification('success', 'Post liked!');
+        showNotification('success', wasLiked ? 'Post unliked' : 'Post liked!');
         return;
       }
 
@@ -436,6 +472,7 @@ const TailTalksInner = () => {
       const db = getFirestore(app);
       const postRef = doc(db, 'tailtalks', postId);
 
+      // Simple transaction to add/remove user email to likes
       await runTransaction(db, async (transaction) => {
         const postDoc = await transaction.get(postRef);
 
@@ -443,59 +480,38 @@ const TailTalksInner = () => {
           throw new Error("Post does not exist!");
         }
 
-        const newLikeCount = currentLikedStatus
-          ? Math.max(0, postDoc.data().likeCount - 1)
-          : (postDoc.data().likeCount || 0) + 1;
-
-        transaction.update(postRef, { likeCount: newLikeCount });
-
-        // Update user likes collection
-        if (currentUser?.uid) {
-          const userLikesRef = doc(db, 'user_likes', currentUser.uid);
-          const userLikesDoc = await transaction.get(userLikesRef);
-
-          if (userLikesDoc.exists()) {
-            const userData = userLikesDoc.data();
-            const likedPostsData = userData.likedPosts || {};
-
-            if (currentLikedStatus) {
-              delete likedPostsData[postId];
-            } else {
-              likedPostsData[postId] = true;
-            }
-
-            transaction.update(userLikesRef, { likedPosts: likedPostsData });
-          } else {
-            transaction.set(userLikesRef, {
-              userId: currentUser.uid,
-              likedPosts: { [postId]: !currentLikedStatus }
-            });
-          }
+        // Get current post data
+        const postData = postDoc.data();
+        
+        // Get or initialize likes object
+        let likes = postData.likes || {};
+        
+        if (wasLiked) {
+          // Remove user email from likes
+          delete likes[userEmail];
+        } else {
+          // Add user email to likes
+          likes[userEmail] = true;
         }
+        
+        // Calculate new count
+        const newLikeCount = Object.keys(likes).length;
+
+        // Update post with likes object and count
+        transaction.update(postRef, { 
+          likes: likes,
+          likeCount: newLikeCount 
+        });
       });
+
+      console.log(wasLiked ? 'Successfully unliked post' : 'Successfully liked post');
 
     } catch (error) {
       console.error('Error updating like status:', error);
-
-      // Revert optimistic UI update
-      const currentLikedStatus = likedPosts?.[postId] || false;
-      const revertedPosts = posts.map(post => {
-        if (post.id === postId) {
-          return {
-            ...post,
-            likeCount: currentLikedStatus ? post.likeCount + 1 : Math.max(0, post.likeCount - 1)
-          };
-        }
-        return post;
-      });
-
-      setPosts(revertedPosts);
-      setLikedPosts(prev => ({
-        ...prev,
-        [postId]: currentLikedStatus
-      }));
-
       showNotification('error', 'Failed to update like. Please try again.');
+      
+      // Revert UI changes on error
+      fetchPosts(true);
     }
   };
 
@@ -633,6 +649,28 @@ const TailTalksInner = () => {
 
   // Function to generate dummy posts when no real data is available
   const generateDummyPosts = () => {
+    // Get current user email
+    const userEmail = currentUser?.email || '';
+    
+    // Function to generate likes object with random emails
+    const generateLikesObject = (count, includeCurrentUser = false) => {
+      const likes = {};
+      
+      // Add current user if requested and available
+      if (includeCurrentUser && userEmail) {
+        likes[userEmail] = true;
+      }
+      
+      // Generate random emails for remaining likes
+      const remainingCount = count - (includeCurrentUser && userEmail ? 1 : 0);
+      for (let i = 0; i < remainingCount; i++) {
+        const randomEmail = `user${Math.floor(Math.random() * 1000)}@example.com`;
+        likes[randomEmail] = true;
+      }
+      
+      return likes;
+    };
+    
     return [
       {
         id: 'dummy1',
@@ -641,6 +679,7 @@ const TailTalksInner = () => {
         authorName: 'Petzify Team',
         type: 'text',
         tags: ['PetCommunity', 'TailTalks'],
+        likes: generateLikesObject(42, true), // Include current user in likes
         likeCount: 42,
         commentCount: 7,
         shareCount: 12,
@@ -662,6 +701,7 @@ const TailTalksInner = () => {
         imageUrl: 'https://images.unsplash.com/photo-1546421845-6471bdcf3edf?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fGdvbGRlbiUyMHJldHJpZXZlciUyMGJlYWNofGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60',
         type: 'image',
         tags: ['GoldenRetriever', 'BeachDay', 'DogCare'],
+        likes: generateLikesObject(24),
         likeCount: 24,
         commentCount: 5,
         shareCount: 3,
@@ -682,6 +722,7 @@ const TailTalksInner = () => {
         authorName: 'CatWhisperer',
         type: 'text',
         tags: ['CatCare', 'PetNutrition', 'FelineHealth'],
+        likes: generateLikesObject(15),
         likeCount: 15,
         commentCount: 8,
         shareCount: 2,
@@ -712,7 +753,7 @@ const TailTalksInner = () => {
 
       // Build query based on filters and pagination
       let q;
-      const pageSize = 10; // Reduced from 20 for better UX
+      const pageSize = 10; // Set to exactly 10 posts per page for consistent lazy loading
 
       if (activeTag === 'all') {
         q = lastVisible && !isInitialLoad
@@ -759,6 +800,10 @@ const TailTalksInner = () => {
       const postsData = [];
       querySnapshot.forEach((doc) => {
         const data = doc.data();
+        
+        // Get the likes object from the post data
+        const likes = data.likes || {};
+        
         postsData.push({
           id: doc.id,
           title: data.title || 'Untitled Post',
@@ -770,10 +815,11 @@ const TailTalksInner = () => {
           thumbnailUrl: data.thumbnailUrl || null,
           type: data.type || 'text',
           tags: data.tags || [],
-          likeCount: data.likeCount || 0,
+          likeCount: data.likeCount || Object.keys(likes).length || 0,
           commentCount: data.commentCount || 0,
           shareCount: data.shareCount || 0,
-          createdAt: data.createdAt || serverTimestamp()
+          createdAt: data.createdAt, // preserve the Firestore timestamp
+          likes: likes // Include the full likes map
         });
       });
 
@@ -831,23 +877,44 @@ const TailTalksInner = () => {
 
   // Check user's liked posts when authenticated
   useEffect(() => {
-    if (isAuthenticated() && currentUser?.uid) {
+    if (isAuthenticated() && getUserEmail()) {
       const checkLikedPosts = async () => {
         try {
+          const userEmail = getUserEmail();
+          console.log("Checking liked posts for user:", userEmail);
           const db = getFirestore(app);
-          const userLikesRef = doc(db, 'user_likes', currentUser.uid);
+          const userLikesRef = doc(db, 'user_likes', userEmail);
           const docSnap = await getDoc(userLikesRef);
 
           if (docSnap.exists()) {
             const userData = docSnap.data();
-            setLikedPosts(userData.likedPosts || {});
+            console.log("User liked posts:", userData.likedPosts);
+            
+            // Ensure likedPosts is an object with proper boolean values
+            const likedPostsData = {};
+            
+            // Convert all values to true for consistent checking
+            if (userData.likedPosts) {
+              Object.keys(userData.likedPosts).forEach(postId => {
+                likedPostsData[postId] = true;
+              });
+            }
+            
+            setLikedPosts(likedPostsData);
+          } else {
+            console.log("No liked posts found for user");
+            setLikedPosts({});
           }
         } catch (error) {
           console.error('Error fetching liked posts:', error);
+          setLikedPosts({});
         }
       };
 
       checkLikedPosts();
+    } else {
+      // Reset liked posts if not authenticated
+      setLikedPosts({});
     }
   }, [currentUser, isAuthenticated]);
 
@@ -907,9 +974,9 @@ const TailTalksInner = () => {
         id: tempId,
         text: commentText,
         content: commentText,
-        authorName: currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Anonymous',
+        authorName: currentUser?.displayName || getUserEmail()?.split('@')[0] || 'Anonymous',
         authorPhotoURL: currentUser?.photoURL || null,
-        createdAt: new Date()
+        createdAt: new Date() // For optimistic UI update, use Date object
       };
 
       // Find the post and add the comment
@@ -1046,7 +1113,9 @@ const TailTalksInner = () => {
   // Function to render a post card
   const renderPostCard = (post) => {
     const isCommentVisible = commentsVisible[post.id] || false;
-    const isPostLiked = likedPosts?.[post.id] || false;
+    
+    // Check directly if the user's email is in the post's likes map
+    const isPostLiked = currentUser?.email && post.likes && post.likes[currentUser.email] === true;
 
     return (
       <div key={post.id} className="bg-white rounded-lg shadow-sm overflow-hidden mb-4">
@@ -1062,7 +1131,7 @@ const TailTalksInner = () => {
                 </span>
               )}
             </div>
-            <div>
+            <div className="flex flex-col items-start">
               <p className="font-medium text-sm">
                 {post.authorName}
                 {post.authorName === 'Petzify Team' && (
@@ -1071,7 +1140,7 @@ const TailTalksInner = () => {
                   </svg>
                 )}
               </p>
-              <p className="text-xs text-gray-500">{formatDate(post.createdAt)}</p>
+              <p className="text-xs text-gray-500 text-left">{formatDate(post.createdAt)}</p>
             </div>
           </div>
 
@@ -1511,70 +1580,85 @@ const TailTalksInner = () => {
       {/* Main Content - Redesigned with sidebar on the left */}
       <div className="max-w-6xl mx-auto px-4 py-4">
         <div className="flex flex-col md:flex-row md:space-x-4">
-          {/* Sidebar - now on left side */}
+          {/* Sidebar - now on left side with sticky positioning */}
           <div className="md:w-1/4 mb-4 md:mb-0">
-            <div className="bg-white rounded-lg shadow-sm p-4 sticky top-16">
-              <h2 className="font-medium text-gray-900 mb-3">Categories</h2>
-              <div className="space-y-2">
-                <button
-                  onClick={() => setActiveTag('all')}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm ${
-                    activeTag === 'all'
-                      ? 'bg-primary text-white'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  All Posts
-                </button>
-                <button
-                  onClick={() => setActiveTag('question')}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm ${
-                    activeTag === 'question'
-                      ? 'bg-primary text-white'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  Questions
-                </button>
-                <button
-                  onClick={() => setActiveTag('discussion')}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm ${
-                    activeTag === 'discussion'
-                      ? 'bg-primary text-white'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  Discussions
-                </button>
-                <button
-                  onClick={() => setActiveTag('tip')}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm ${
-                    activeTag === 'tip'
-                      ? 'bg-primary text-white'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  Tips & Advice
-                </button>
-              </div>
-            </div>
-
-            {/* New Community Coming Soon Section */}
-            <div className="bg-white rounded-lg shadow-sm p-4 mt-4">
-              <div className="border-2 border-dashed border-primary/30 rounded-lg p-4 text-center">
-                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
+            <div className="md:sticky md:top-20 space-y-4">
+              {/* Coming Soon: Pet Community section */}
+              <div className="bg-white rounded-lg shadow-sm p-4">
+                <div className="text-center">
+                  <h3 className="text-xl font-medium text-primary mb-2">Coming Soon: Pet Community</h3>
+                  <p className="text-gray-600 mb-4">
+                    Soon, all pet parents will be able to share their own stories, ask questions, and interact with other pet lovers.
+                  </p>
+                  <button
+                    onClick={() => showNotification('success', 'Thanks for your interest! We\'ll notify you when Community launches.')}
+                    className="w-full bg-primary text-white py-2 px-4 rounded-full text-sm hover:bg-primary-dark transition-colors"
+                  >
+                    <span className="flex items-center justify-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
+                      </svg>
+                      I'm Interested!
+                    </span>
+                  </button>
                 </div>
-                <h3 className="font-medium text-gray-900 mb-2">Community Coming Soon!</h3>
-                <p className="text-sm text-gray-600 mb-3">Join groups, connect with pet owners, and participate in local events.</p>
-                <button
-                  onClick={() => showNotification('success', 'Thanks for your interest! We\'ll notify you when Community launches.')}
-                  className="w-full bg-primary text-white py-2 px-4 rounded-md text-sm hover:bg-primary-dark transition-colors"
-                >
-                  Show Interest
-                </button>
+              </div>
+              
+              {/* Suggested For You section */}
+              <div className="bg-white rounded-lg shadow-sm p-4">
+                <h3 className="font-medium text-gray-700 mb-3">Suggested For You</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center">
+                      <img src="https://images.unsplash.com/photo-1559839734-2b71ea197ec2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=256&q=80" alt="Dr. Amanda" className="w-8 h-8 rounded-full mr-2 object-cover" />
+                      <div>
+                        <p className="font-medium text-gray-800">Dr. Amanda</p>
+                        <p className="text-xs text-gray-500">Veterinarian</p>
+                      </div>
+                    </div>
+                    <button 
+                      className="text-primary text-sm border border-primary rounded-md px-3 py-1 hover:bg-primary hover:text-white transition-colors"
+                      onClick={() => showNotification('info', 'Following feature coming soon!')}
+                    >
+                      Follow
+                    </button>
+                  </div>
+                  
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center">
+                      <img src="https://images.unsplash.com/photo-1601758124510-52d02ddb7cbd?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTV8fGRvZyUyMHRyYWluZXJ8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=256&q=80" alt="PetTrainers" className="w-8 h-8 rounded-full mr-2 object-cover" />
+                      <div>
+                        <p className="font-medium text-gray-800">PetTrainers</p>
+                        <p className="text-xs text-gray-500">Training Tips</p>
+                      </div>
+                    </div>
+                    <button 
+                      className="text-primary text-sm border border-primary rounded-md px-3 py-1 hover:bg-primary hover:text-white transition-colors"
+                      onClick={() => showNotification('info', 'Following feature coming soon!')}
+                    >
+                      Follow
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Trending Topics section */}
+              <div className="bg-white rounded-lg shadow-sm p-4">
+                <h3 className="font-medium text-gray-700 mb-3">Trending Topics</h3>
+                <div className="space-y-3">
+                  <div className="cursor-pointer" onClick={() => setActiveTag('adoption')}>
+                    <p className="font-medium text-primary">#PetAdoption</p>
+                    <p className="text-xs text-gray-500">243 posts this week</p>
+                  </div>
+                  <div className="cursor-pointer" onClick={() => setActiveTag('training')}>
+                    <p className="font-medium text-primary">#DogTraining</p>
+                    <p className="text-xs text-gray-500">153 posts this week</p>
+                  </div>
+                  <div className="cursor-pointer" onClick={() => setActiveTag('catcare')}>
+                    <p className="font-medium text-primary">#CatCare</p>
+                    <p className="text-xs text-gray-500">97 posts this week</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

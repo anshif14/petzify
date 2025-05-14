@@ -44,6 +44,7 @@ import GroomingBooking from './pages/GroomingBooking';
 import BookingConfirmation from './pages/BookingConfirmation';
 import GroomingAdmin from './pages/admin/GroomingAdmin';
 import GroomingAdminDashboard from './pages/admin/GroomingAdminDashboard';
+import MyPets from './pages/MyPets';
 // TailTalks Community pages
 import TailTalks from './pages/TailTalks';
 import CommunityDetail from './pages/CommunityDetail';
@@ -111,6 +112,7 @@ function App() {
             <Route path="/book-appointment" element={<Layout><DoctorBooking /></Layout>} />
             <Route path="/my-orders" element={<Layout><UserOrders /></Layout>} />
             <Route path="/my-bookings" element={<Layout><UserBookings /></Layout>} />
+            <Route path="/my-pets" element={<Layout><MyPets /></Layout>} />
             <Route path="/profile" element={<Layout>
               <div className="md:block hidden"><UserProfile /></div>
               <div className="md:hidden block"><MobileProfile /></div>

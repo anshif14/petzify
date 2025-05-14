@@ -98,6 +98,14 @@ const UserAccountButton = () => {
                   My Orders
                 </Link>
                 <Link
+                  to="/my-pets"
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  role="menuitem"
+                  onClick={() => setShowDropdown(false)}
+                >
+                  My Pets
+                </Link>
+                <Link
                   to="/profile"
                   className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                   role="menuitem"
