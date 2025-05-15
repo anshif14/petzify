@@ -16,7 +16,7 @@ import OrderManager from '../components/admin/OrderManager';
 import PetBoardingAdmin from './admin/PetBoardingAdmin';
 import BoardingAdminDashboard from '../components/admin/boarding/BoardingAdminDashboard';
 import ReviewsAdminManager from '../components/admin/ReviewsAdminManager';
-import TailTalksAdmin from './admin/TailTalksAdmin.jsx';
+import TailTalksAdmin from './admin/TailTalksAdmin';
 import { auth, db } from '../firebase/index';
 import { useNavigate } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
@@ -288,7 +288,11 @@ const AdminDashboard = () => {
             {activeComponent === 'pet-boarding' && <PetBoardingAdmin />}
             {activeComponent === 'reviews' && adminData?.role === 'superadmin' && <ReviewsAdminManager />}
             {activeComponent === 'services' && canManageServices && <ServicesAdmin />}
-            {activeComponent === 'tail-talks' && <TailTalksAdmin />}
+            {activeComponent === 'tail-talks' && (
+              <div className="p-0">
+                <TailTalksAdmin />
+              </div>
+            )}
           </div>
         </div>
       </div>

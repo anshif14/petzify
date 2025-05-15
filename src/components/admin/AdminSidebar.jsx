@@ -445,7 +445,10 @@ const AdminSidebar = ({
           {/* Tail Talks Admin */}
           <li>
             <button
-              onClick={() => setActiveComponent('tail-talks')}
+              onClick={() => {
+                setActiveComponent('tail-talks');
+                // Don't navigate away from dashboard, let the component handle display
+              }}
               className={`flex items-center w-full px-6 py-3 text-left transition-colors ${
                 activeComponent === 'tail-talks'
                   ? 'bg-primary text-white'

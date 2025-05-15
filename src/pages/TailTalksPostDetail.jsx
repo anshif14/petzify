@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FaArrowLeft, FaThumbsUp, FaRegThumbsUp, FaComment } from 'react-icons/fa';
+import { FaArrowLeft, FaThumbsUp, FaRegThumbsUp, FaComment, FaFlag } from 'react-icons/fa';
 import { 
   getFirestore, doc, getDoc, collection, addDoc, query, 
   orderBy, onSnapshot, updateDoc, serverTimestamp,
@@ -31,6 +31,10 @@ function TailTalksPostDetail() {
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [isPostLiked, setIsPostLiked] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [showFlagModal, setShowFlagModal] = useState(false);
+  const [flagReason, setFlagReason] = useState('');
+  const [flagSubmitting, setFlagSubmitting] = useState(false);
+  const [flaggingCommentId, setFlaggingCommentId] = useState(null);
   
   // Fetch post data
   useEffect(() => {
@@ -327,50 +331,185 @@ function TailTalksPostDetail() {
     return true;
   };
   
-  // Add this function for rendering comments
+  // Handle flagging a post
+  const handleFlagPost = async () => {
+    if (!requireAuth('flag this post')) {
+      return;
+    }
+    
+    setFlaggingCommentId(null);
+    setFlagReason('');
+    setShowFlagModal(true);
+  };
+
+  // Handle flagging a comment
+  const handleFlagComment = (commentId) => {
+    if (!requireAuth('flag this comment')) {
+      return;
+    }
+    
+    setFlaggingCommentId(commentId);
+    setFlagReason('');
+    setShowFlagModal(true);
+  };
+
+  // Submit flag
+  const submitFlag = async () => {
+    if (!flagReason.trim()) {
+      return;
+    }
+
+    try {
+      setFlagSubmitting(true);
+      const db = getFirestore(app);
+      
+      // Get user email safely - this is the userId in this app
+      const userEmail = currentUser.email;
+      if (!userEmail) {
+        throw new Error('Unable to identify user. Please try again or contact support.');
+      }
+      
+      if (flaggingCommentId) {
+        // Flag a comment
+        const commentRef = doc(db, 'tailtalks', postId, 'comments', flaggingCommentId);
+        await updateDoc(commentRef, {
+          isFlagged: true,
+          flagReason: flagReason,
+          flaggedBy: userEmail, // Use email instead of uid
+          flaggedAt: serverTimestamp()
+        });
+        
+        // Update local state
+        setComments(comments.map(comment => 
+          comment.id === flaggingCommentId 
+            ? {...comment, isFlagged: true, flagReason: flagReason} 
+            : comment
+        ));
+      } else {
+        // Flag the post
+        const postRef = doc(db, 'tailtalks', postId);
+        await updateDoc(postRef, {
+          isFlagged: true,
+          flagReason: flagReason,
+          flaggedBy: userEmail, // Use email instead of uid
+          flaggedAt: serverTimestamp()
+        });
+        
+        // Update local state
+        setPost({...post, isFlagged: true, flagReason: flagReason});
+      }
+      
+      setShowFlagModal(false);
+      alert('Content has been flagged for review. Thank you for helping keep our community safe.');
+    } catch (error) {
+      console.error('Error flagging content:', error);
+      alert('Failed to flag content. Please try again later.');
+    } finally {
+      setFlagSubmitting(false);
+    }
+  };
+  
+  // Add flag modal to render
+  const renderFlagModal = () => {
+    if (!showFlagModal) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg p-5 w-full max-w-md">
+          <h3 className="text-lg font-bold mb-3">
+            {flaggingCommentId ? 'Report Comment' : 'Report Post'}
+          </h3>
+          <p className="text-gray-600 mb-3">
+            Please tell us why you're reporting this {flaggingCommentId ? 'comment' : 'post'}
+          </p>
+          
+          <select 
+            className="w-full p-2 border border-gray-300 rounded mb-4"
+            value={flagReason}
+            onChange={(e) => setFlagReason(e.target.value)}
+          >
+            <option value="">Select a reason</option>
+            <option value="spam">Spam</option>
+            <option value="inappropriate">Inappropriate content</option>
+            <option value="harassment">Harassment or bullying</option>
+            <option value="false_information">False information</option>
+            <option value="violence">Violence or dangerous content</option>
+            <option value="hate_speech">Hate speech</option>
+            <option value="other">Other</option>
+          </select>
+          
+          {flagReason === 'other' && (
+            <textarea
+              className="w-full p-2 border border-gray-300 rounded mb-4"
+              placeholder="Please explain why you're reporting this content"
+              rows="3"
+              value={flagReason === 'other' ? flagReason : ''}
+              onChange={(e) => setFlagReason(e.target.value)}
+            />
+          )}
+          
+          <div className="flex justify-end">
+            <button
+              className="px-4 py-2 text-gray-600 rounded-lg mr-2"
+              onClick={() => setShowFlagModal(false)}
+              disabled={flagSubmitting}
+            >
+              Cancel
+            </button>
+            <button
+              className="px-4 py-2 bg-red-500 text-white rounded-lg flex items-center"
+              onClick={submitFlag}
+              disabled={!flagReason || flagSubmitting}
+            >
+              {flagSubmitting ? 'Submitting...' : 'Report'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+  
+  // Add a function to render comments
   const renderComments = () => {
     if (comments.length === 0) {
       return (
-        <div className="bg-gray-50 p-4 rounded-lg text-center">
+        <div className="text-center py-4">
           <p className="text-gray-500">No comments yet. Be the first to comment!</p>
         </div>
       );
     }
-    
+
     return (
       <div className="space-y-4">
         {comments.map(comment => (
-          <div key={comment.id} className="flex space-x-3">
-            <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden flex items-center justify-center">
-              {comment.isVerified || comment.authorName === 'Petzify' ? (
-                // Use Petzify logo for admin comments
-                <img src={petzifyLogo} alt="Petzify" className="w-full h-full object-contain p-0.5" />
-              ) : comment.authorPhotoURL ? (
+          <div key={comment.id} className="flex items-start">
+            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center mr-3 overflow-hidden flex-shrink-0">
+              {comment.authorPhotoURL ? (
                 <img src={comment.authorPhotoURL} alt={comment.authorName} className="w-full h-full object-cover" />
               ) : (
-                <span className="text-gray-600 font-medium">
-                  {comment.authorName.charAt(0).toUpperCase()}
+                <span className="font-bold text-gray-500">
+                  {comment.authorName?.charAt(0)?.toUpperCase() || 'A'}
                 </span>
               )}
             </div>
-            <div className="flex-1">
-              <div className={`rounded-lg p-3 ${comment.isVerified ? 'bg-blue-50 border border-blue-100' : 'bg-gray-100'}`}>
-                <div className="flex items-center">
-                  <span className="font-medium text-sm">
-                    {comment.authorName}
-                  </span>
-                  {comment.isVerified && (
-                    <svg className="w-4 h-4 ml-1 text-primary" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                      <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
-                    </svg>
-                  )}
+            <div className="flex-grow">
+              <div className="bg-white rounded-2xl px-4 py-3 shadow-sm">
+                <div className="flex justify-between items-start">
+                  <p className="font-medium text-left">{comment.authorName || 'Anonymous'}</p>
+                  <span className="text-xs text-gray-500">{formatDate(comment.createdAt)}</span>
                 </div>
-                <p className="text-sm text-gray-700 mt-1">
-                  {comment.text || comment.content || 'No comment text'}
-                </p>
+                <p className="mt-1 text-sm text-left">{comment.text || "No text"}</p>
               </div>
-              <div className="text-xs text-gray-500 mt-1">
-                {formatDate(comment.createdAt)}
+              <div className="flex items-center mt-1 px-2 text-xs text-gray-500">
+                <button className="mr-4 hover:text-primary">Like</button>
+                <button className="mr-4 hover:text-primary">Reply</button>
+                <button 
+                  className="hover:text-red-500 flex items-center"
+                  onClick={() => handleFlagComment(comment.id)}
+                >
+                  <FaFlag className="mr-1" size={10} />
+                  Report
+                </button>
               </div>
             </div>
           </div>
@@ -406,7 +545,7 @@ function TailTalksPostDetail() {
   }
   
   return (
-    <div className="pb-16 bg-gray-100 min-h-screen">
+    <div className="pb-20 pt-4 md:pt-8 bg-gray-50 min-h-screen">
       {/* Header/Back Button */}
       <div className="bg-white px-4 py-3 flex items-center shadow-sm sticky top-0 z-10">
         <button
@@ -477,6 +616,9 @@ function TailTalksPostDetail() {
           </div>
         </div>
       )}
+      
+      {/* Render flag modal */}
+      {renderFlagModal()}
       
       {loading ? (
         <div className="flex justify-center items-center py-16">
@@ -644,27 +786,10 @@ function TailTalksPostDetail() {
                 
                 <button 
                   className="flex-1 flex items-center justify-center py-2 text-gray-600 hover:bg-gray-50 rounded-md"
-                  onClick={() => {
-                    if (navigator.share) {
-                      navigator.share({
-                        title: post.title,
-                        text: post.content,
-                        url: window.location.href
-                      }).catch(error => {
-                        console.error('Error sharing:', error);
-                        navigator.clipboard.writeText(window.location.href);
-                        alert('Link copied to clipboard');
-                      });
-                    } else {
-                      navigator.clipboard.writeText(window.location.href);
-                      alert('Link copied to clipboard');
-                    }
-                  }}
+                  onClick={handleFlagPost}
                 >
-                  <svg className="w-5 h-5 mr-1.5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z"></path>
-                  </svg>
-                  <span>Share</span>
+                  <FaFlag className="mr-2" />
+                  <span>Report</span>
                 </button>
               </div>
             </div>

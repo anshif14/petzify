@@ -6,7 +6,7 @@ import logoText from '../../assets/images/logo_white_text.png';
 
 const Footer = () => {
   return (
-    <footer className="bg-gradient-to-r from-primary-dark to-primary text-white py-12 relative overflow-hidden">
+    <footer className="bg-gradient-to-r from-primary-dark to-primary text-white pt-12 pb-24 md:pb-12 relative overflow-hidden">
       {/* Background decorations */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute w-96 h-96 rounded-full bg-white opacity-5 -top-40 -left-40"></div>

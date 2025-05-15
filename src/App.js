@@ -9,6 +9,7 @@ import 'react-toastify/dist/ReactToastify.css';
 // Import components
 import Navbar from './components/common/Navbar';
 import Footer from './components/common/Footer';
+import MobileBottomNav from './components/common/MobileBottomNav';
 import AdminRoute from './components/auth/AdminRoute';
 import AppDownloadComing from './components/common/AppDownloadComing';
 
@@ -68,10 +69,15 @@ const Layout = ({ children }) => {
   return (
     <div className="App min-h-screen bg-secondary-light text-primary-dark flex flex-col">
       {!isAdminPage && <Navbar />}
-      <main className={`flex-grow ${!isAdminPage ? 'pt-24 md:pt-28' : ''}`}>
+      <main className={`flex-grow ${!isAdminPage ? 'pt-24 md:pt-28 pb-16 md:pb-0' : ''}`}>
         {children}
       </main>
-      {!isAdminPage && <Footer />}
+      {!isAdminPage && (
+        <>
+          <Footer />
+          <MobileBottomNav />
+        </>
+      )}
     </div>
   );
 };

@@ -1,6 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getFirestore, collection, query, orderBy, limit, getDocs, doc, getDoc, setDoc, serverTimestamp, addDoc, where, runTransaction, startAfter, increment, updateDoc } from 'firebase/firestore';
+import { 
+  getFirestore, collection, query, orderBy, limit, getDocs, doc, 
+  getDoc, setDoc, updateDoc, addDoc, serverTimestamp, deleteDoc, 
+  increment, where, onSnapshot, runTransaction, startAfter
+} from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { app } from '../firebase/config';
 import { useUser } from '../context/UserContext';
@@ -10,6 +14,8 @@ import { useNotification, NotificationProvider } from '../context/NotificationCo
 import { PullToRefresh } from 'react-js-pull-to-refresh';
 // Import Petzify logo for admin comments
 import petzifyLogo from '../assets/images/Petzify Logo-05 (3).png';
+import { FaThumbsUp, FaFlag } from 'react-icons/fa';
+import '../styles/richtexteditor.css';
 
 const TailTalksInner = () => {
   const navigate = useNavigate();
@@ -39,6 +45,11 @@ const TailTalksInner = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [parsedTags, setParsedTags] = useState([]);
   const [isPostAsQuestion, setIsPostAsQuestion] = useState(false); // Renamed from isQuestion to clarify purpose
+  const [showFlagModal, setShowFlagModal] = useState(false);
+  const [flagReason, setFlagReason] = useState('');
+  const [flagSubmitting, setFlagSubmitting] = useState(false);
+  const [flaggingPostId, setFlaggingPostId] = useState(null);
+  const [flaggingCommentId, setFlaggingCommentId] = useState(null);
 
   // Create observer ref for infinite scrolling
   const observerTarget = useRef(null);
@@ -1241,7 +1252,7 @@ const TailTalksInner = () => {
     const isPostLiked = currentUser?.email && post.likes && post.likes[currentUser.email] === true;
 
     return (
-      <div key={post.id} className="bg-white rounded-lg shadow-sm overflow-hidden mb-4">
+      <div key={post.id} className="bg-white rounded-lg shadow-sm overflow-hidden mb-4" onClick={() => handlePostClick(post.id)}>
         {/* Post Header */}
         <div className="p-4">
           <div className="flex items-center mb-3">
@@ -1271,83 +1282,81 @@ const TailTalksInner = () => {
           </div>
 
           {/* Post Content */}
-          <div onClick={() => handlePostClick(post.id)} className="cursor-pointer">
-            <div className="flex justify-between items-start mb-2">
-              <h3 className="font-bold text-left">{post.title}</h3>
-              {post.isQuestion && (
-                <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
-                  Question
-                </span>
-              )}
-            </div>
-
-            {post.content && (
-              <p className="text-gray-700 mb-3 text-left">
-                {post.content.split(/(\s+)/).map((word, index) =>
-                  word.startsWith('#') ? (
-                    <span key={index} className="font-bold text-primary">{word} </span>
-                  ) : (
-                    <span key={index}>{word}</span>
-                  )
-                )}
-              </p>
-            )}
-
-            {/* Post Media */}
-            {post.type === 'image' && post.imageUrl && (
-              <div className="rounded-lg overflow-hidden mb-3">
-                <img
-                  src={post.imageUrl}
-                  alt={post.title}
-                  className="w-full object-cover max-h-80"
-                />
-              </div>
-            )}
-
-            {post.type === 'video' && post.videoUrl && (
-              <div className="rounded-lg overflow-hidden mb-3">
-                {post.videoUrl.includes('youtube.com') || post.videoUrl.includes('youtu.be') ? (
-                  <div className="relative" style={{ paddingBottom: '56.25%', height: 0 }}>
-                    <iframe
-                      src={post.videoUrl.replace('watch?v=', 'embed/')}
-                      title={post.title}
-                      className="absolute top-0 left-0 w-full h-full"
-                      frameBorder="0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    ></iframe>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <video
-                      src={post.videoUrl}
-                      className="w-full rounded"
-                      controls
-                      poster={post.thumbnailUrl}
-                    ></video>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Tags */}
-            {post.tags && post.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1 mb-3">
-                {post.tags.map(tag => (
-                  <span
-                    key={tag}
-                    className="text-xs bg-gray-100 text-primary px-2 py-1 rounded-full"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setActiveTag(tag);
-                    }}
-                  >
-                    #{tag}
-                  </span>
-                ))}
-              </div>
+          <div className="flex justify-between items-start mb-2">
+            <h3 className="font-bold text-left">{post.title}</h3>
+            {post.isQuestion && (
+              <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                Question
+              </span>
             )}
           </div>
+
+          {post.content && (
+            <p className="text-gray-700 mb-3 text-left">
+              {post.content.split(/(\s+)/).map((word, index) =>
+                word.startsWith('#') ? (
+                  <span key={index} className="font-bold text-primary">{word} </span>
+                ) : (
+                  <span key={index}>{word}</span>
+                )
+              )}
+            </p>
+          )}
+
+          {/* Post Media */}
+          {post.type === 'image' && post.imageUrl && (
+            <div className="rounded-lg overflow-hidden mb-3">
+              <img
+                src={post.imageUrl}
+                alt={post.title}
+                className="w-full object-cover max-h-80"
+              />
+            </div>
+          )}
+
+          {post.type === 'video' && post.videoUrl && (
+            <div className="rounded-lg overflow-hidden mb-3">
+              {post.videoUrl.includes('youtube.com') || post.videoUrl.includes('youtu.be') ? (
+                <div className="relative" style={{ paddingBottom: '56.25%', height: 0 }}>
+                  <iframe
+                    src={post.videoUrl.replace('watch?v=', 'embed/')}
+                    title={post.title}
+                    className="absolute top-0 left-0 w-full h-full"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  ></iframe>
+                </div>
+              ) : (
+                <div className="relative">
+                  <video
+                    src={post.videoUrl}
+                    className="w-full rounded"
+                    controls
+                    poster={post.thumbnailUrl}
+                  ></video>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Tags */}
+          {post.tags && post.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-3">
+              {post.tags.map(tag => (
+                <span
+                  key={tag}
+                  className="text-xs bg-gray-100 text-primary px-2 py-1 rounded-full"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveTag(tag);
+                  }}
+                >
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          )}
 
           {/* Post Stats */}
           <div className="flex justify-between items-center text-xs text-gray-500 py-2 border-t border-gray-100">
@@ -1367,9 +1376,7 @@ const TailTalksInner = () => {
                 handleLikePost(post.id);
               }}
             >
-              <svg className="w-5 h-5 mr-1" fill={isPostLiked ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"></path>
-              </svg>
+              <FaThumbsUp className="w-5 h-5 mr-1" fill={isPostLiked ? "currentColor" : "none"} stroke="currentColor" />
               <span>{isPostLiked ? 'Liked' : 'Like'}</span>
             </button>
             <button
@@ -1388,13 +1395,11 @@ const TailTalksInner = () => {
               className="flex-1 flex items-center justify-center py-1 text-gray-600 hover:bg-gray-50 rounded-md"
               onClick={(e) => {
                 e.stopPropagation();
-                handleSharePost(post.id, e);
+                handleFlagPost(post.id, e);
               }}
             >
-              <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path>
-              </svg>
-              <span>Share</span>
+              <FaFlag className="w-5 h-5 mr-1" />
+              <span>Report</span>
             </button>
           </div>
         </div>
@@ -1477,6 +1482,15 @@ const TailTalksInner = () => {
                           <span className="text-xs text-gray-500">{formatDate(comment.createdAt)}</span>
                         </div>
                         <p className="mt-1 text-sm text-left text-gray-800 break-words whitespace-pre-wrap">{comment.text || comment.content || 'No text'}</p>
+                      </div>
+                      <div className="flex items-center mt-1 px-2 text-xs text-gray-500">
+                        <button 
+                          className="hover:text-red-500 flex items-center"
+                          onClick={(e) => handleFlagComment(post.id, comment.id, e)}
+                        >
+                          <FaFlag className="mr-1" size={10} />
+                          Report
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1680,6 +1694,160 @@ const TailTalksInner = () => {
               </button>
             </div>
           </form>
+        </div>
+      </div>
+    );
+  };
+
+  // Handle flagging a post
+  const handleFlagPost = (postId, e) => {
+    e.stopPropagation();
+    if (!requireAuth('flag this post')) {
+      return;
+    }
+    
+    setFlaggingPostId(postId);
+    setFlaggingCommentId(null);
+    setFlagReason('');
+    setShowFlagModal(true);
+  };
+
+  // Handle flagging a comment
+  const handleFlagComment = (postId, commentId, e) => {
+    e.stopPropagation();
+    if (!requireAuth('flag this comment')) {
+      return;
+    }
+    
+    setFlaggingPostId(postId);
+    setFlaggingCommentId(commentId);
+    setFlagReason('');
+    setShowFlagModal(true);
+  };
+
+  // Submit flag
+  const submitFlag = async () => {
+    if (!flagReason.trim()) {
+      return;
+    }
+
+    try {
+      setFlagSubmitting(true);
+      const db = getFirestore(app);
+      
+      // Get user email safely
+      const userEmail = getUserEmail();
+      if (!userEmail) {
+        throw new Error('Unable to identify user. Please try again or contact support.');
+      }
+      
+      if (flaggingCommentId) {
+        // Flag a comment
+        const commentRef = doc(db, 'tailtalks', flaggingPostId, 'comments', flaggingCommentId);
+        await updateDoc(commentRef, {
+          isFlagged: true,
+          flagReason: flagReason,
+          flaggedBy: userEmail, // Use email instead of uid
+          flaggedAt: serverTimestamp()
+        });
+        
+        // Update local state
+        setPosts(posts.map(post => {
+          if (post.id === flaggingPostId) {
+            return {
+              ...post,
+              comments: post.comments?.map(comment => 
+                comment.id === flaggingCommentId 
+                  ? {...comment, isFlagged: true, flagReason: flagReason} 
+                  : comment
+              )
+            };
+          }
+          return post;
+        }));
+      } else {
+        // Flag the post
+        const postRef = doc(db, 'tailtalks', flaggingPostId);
+        await updateDoc(postRef, {
+          isFlagged: true,
+          flagReason: flagReason,
+          flaggedBy: userEmail, // Use email instead of uid
+          flaggedAt: serverTimestamp()
+        });
+        
+        // Update local state
+        setPosts(posts.map(post => 
+          post.id === flaggingPostId 
+            ? {...post, isFlagged: true, flagReason: flagReason} 
+            : post
+        ));
+      }
+      
+      setShowFlagModal(false);
+      showNotification('success', 'Content has been flagged for review. Thank you for helping keep our community safe.');
+    } catch (error) {
+      console.error('Error flagging content:', error);
+      showNotification('error', 'Failed to flag content. Please try again later.');
+    } finally {
+      setFlagSubmitting(false);
+    }
+  };
+
+  // Add flag modal to render
+  const renderFlagModal = () => {
+    if (!showFlagModal) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-white rounded-lg p-5 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+          <h3 className="text-lg font-bold mb-3">
+            {flaggingCommentId ? 'Report Comment' : 'Report Post'}
+          </h3>
+          <p className="text-gray-600 mb-3">
+            Please tell us why you're reporting this {flaggingCommentId ? 'comment' : 'post'}
+          </p>
+          
+          <select 
+            className="w-full p-2 border border-gray-300 rounded mb-4"
+            value={flagReason}
+            onChange={(e) => setFlagReason(e.target.value)}
+          >
+            <option value="">Select a reason</option>
+            <option value="spam">Spam</option>
+            <option value="inappropriate">Inappropriate content</option>
+            <option value="harassment">Harassment or bullying</option>
+            <option value="false_information">False information</option>
+            <option value="violence">Violence or dangerous content</option>
+            <option value="hate_speech">Hate speech</option>
+            <option value="other">Other</option>
+          </select>
+          
+          {flagReason === 'other' && (
+            <textarea
+              className="w-full p-2 border border-gray-300 rounded mb-4"
+              placeholder="Please explain why you're reporting this content"
+              rows="3"
+              value={flagReason === 'other' ? flagReason : ''}
+              onChange={(e) => setFlagReason(e.target.value)}
+            />
+          )}
+          
+          <div className="flex justify-end">
+            <button
+              className="px-4 py-2 text-gray-600 rounded-lg mr-2"
+              onClick={() => setShowFlagModal(false)}
+              disabled={flagSubmitting}
+            >
+              Cancel
+            </button>
+            <button
+              className="px-4 py-2 bg-red-500 text-white rounded-lg flex items-center"
+              onClick={submitFlag}
+              disabled={!flagReason || flagSubmitting}
+            >
+              {flagSubmitting ? 'Submitting...' : 'Report'}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -1914,6 +2082,9 @@ const TailTalksInner = () => {
 
       {/* Render the Ask Modal */}
       {renderAskModal()}
+      
+      {/* Flag Modal */}
+      {renderFlagModal()}
     </div>
   );
 };

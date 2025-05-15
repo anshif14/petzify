@@ -31,7 +31,7 @@ const MobileBottomNav = () => {
   const inactiveClass = "text-gray-400";
 
   return (
-    <div className="fixed bottom-0 w-full bg-white border-t border-gray-200 px-2 py-2 flex justify-between items-center z-10 md:hidden">
+    <div className="fixed bottom-0 w-full bg-white border-t border-gray-200 px-2 py-2 flex justify-between items-center z-50 md:hidden pointer-events-auto">
       <NavLink 
         to="/" 
         className={({ isActive }) => `flex flex-col items-center py-1 px-3 ${isActive ? activeClass : inactiveClass}`}
