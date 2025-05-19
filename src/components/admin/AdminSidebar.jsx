@@ -26,6 +26,7 @@ const AdminSidebar = ({
   const [pendingBoardingCount, setPendingBoardingCount] = useState(0);
   const [pendingGroomingCount, setPendingGroomingCount] = useState(0);
   const [userManagementOpen, setUserManagementOpen] = useState(false);
+  const [serviceManagementOpen, setServiceManagementOpen] = useState(false);
 
   useEffect(() => {
     const fetchCounts = async () => {
@@ -216,7 +217,7 @@ const AdminSidebar = ({
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                 </svg>
-                User Management
+                Admin Users
               </button>
             </li>
           )}
@@ -236,7 +237,7 @@ const AdminSidebar = ({
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                     </svg>
-                    <span>User & Pet Management</span>
+                    <span>Customer & Pet Management</span>
                   </div>
                   <svg
                     className={`w-4 h-4 transition-transform ${userManagementOpen ? 'transform rotate-180' : ''}`}
@@ -361,50 +362,113 @@ const AdminSidebar = ({
 
           {canManageServices && (
             <li>
-              <button
-                onClick={() => setActiveComponent('pet-boarding')}
-                className={`flex items-center w-full px-6 py-3 text-left transition-colors ${
-                  activeComponent === 'pet-boarding'
-                    ? 'bg-primary text-white'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-                Pet Boarding
-                {pendingBoardingCount > 0 && (
-                  <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
-                    {pendingBoardingCount}
-                  </span>
+              <div className="relative">
+                <button
+                  onClick={() => setServiceManagementOpen(!serviceManagementOpen)}
+                  className={`flex items-center justify-between w-full px-6 py-3 text-left transition-colors ${
+                    ['services', 'pet-boarding', 'tail-talks', 'pet-parenting'].includes(activeComponent)
+                      ? 'bg-primary text-white'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <div className="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    <span>Service Management</span>
+                    {(pendingBoardingCount > 0 || pendingGroomingCount > 0 || pendingPetCount > 0) && (
+                      <span className="ml-2 bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
+                        {pendingBoardingCount + pendingGroomingCount + pendingPetCount}
+                      </span>
+                    )}
+                  </div>
+                  <svg
+                    className={`w-4 h-4 transition-transform ${serviceManagementOpen ? 'transform rotate-180' : ''}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                {serviceManagementOpen && (
+                  <ul className="pl-8 pb-1">
+                    <li className="mt-1">
+                      <button
+                        onClick={() => setActiveComponent('services')}
+                        className={`flex items-center w-full py-2 px-3 text-left rounded-md transition-colors ${
+                          activeComponent === 'services'
+                            ? 'bg-primary bg-opacity-20 text-primary font-medium'
+                            : 'text-gray-700 hover:bg-gray-100'
+                        }`}
+                      >
+                        Service Management
+                        {(pendingBoardingCount > 0 || pendingGroomingCount > 0) && (
+                          <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
+                            {pendingBoardingCount + pendingGroomingCount}
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                    
+                    <li className="mt-1">
+                      <button
+                        onClick={() => setActiveComponent('pet-boarding')}
+                        className={`flex items-center w-full py-2 px-3 text-left rounded-md transition-colors ${
+                          activeComponent === 'pet-boarding'
+                            ? 'bg-primary bg-opacity-20 text-primary font-medium'
+                            : 'text-gray-700 hover:bg-gray-100'
+                        }`}
+                      >
+                        Pet Boarding
+                        {pendingBoardingCount > 0 && (
+                          <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
+                            {pendingBoardingCount}
+                          </span>
+                        )}
+                      </button>
+                    </li>
+
+                    <li className="mt-1">
+                      <button
+                        onClick={() => setActiveComponent('tail-talks')}
+                        className={`flex items-center w-full py-2 px-3 text-left rounded-md transition-colors ${
+                          activeComponent === 'tail-talks'
+                            ? 'bg-primary bg-opacity-20 text-primary font-medium'
+                            : 'text-gray-700 hover:bg-gray-100'
+                        }`}
+                      >
+                        Tail Talks Admin
+                      </button>
+                    </li>
+                    
+                    {canManagePetParenting && (
+                      <li className="mt-1">
+                        <button
+                          onClick={() => setActiveComponent('pet-parenting')}
+                          className={`flex items-center w-full py-2 px-3 text-left rounded-md transition-colors ${
+                            activeComponent === 'pet-parenting'
+                              ? 'bg-primary bg-opacity-20 text-primary font-medium'
+                              : 'text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <span>Pet Parenting Requests</span>
+                            {pendingPetCount > 0 && (
+                              <span className="ml-2 bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
+                                {pendingPetCount} pending
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      </li>
+                    )}
+                  </ul>
                 )}
-              </button>
+              </div>
             </li>
           )}
-
-          {canManageServices && (
-            <li>
-              <button
-                onClick={() => setActiveComponent('services')}
-                className={`flex items-center w-full px-6 py-3 text-left transition-colors ${
-                  activeComponent === 'services'
-                    ? 'bg-primary text-white'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-                Service Management
-                {(pendingBoardingCount > 0 || pendingGroomingCount > 0) && (
-                  <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
-                    {pendingBoardingCount + pendingGroomingCount}
-                  </span>
-                )}
-              </button>
-            </li>
-          )}
-
 
           {canManageOrders && (
             <li>
@@ -483,29 +547,6 @@ const AdminSidebar = ({
             </li>
           )}
 
-          {canManagePetParenting && (
-            <li>
-              <button
-                onClick={() => setActiveComponent('pet-parenting')}
-                className={`flex items-center w-full px-6 py-3 text-left transition-colors ${
-                  activeComponent === 'pet-parenting'
-                    ? 'bg-primary text-white'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-                Pet Parenting
-                {pendingPetCount > 0 && (
-                  <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
-                    {pendingPetCount}
-                  </span>
-                )}
-              </button>
-            </li>
-          )}
-
           {canManageReviews && (
             <li>
               <button
@@ -520,44 +561,6 @@ const AdminSidebar = ({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.783-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
                 </svg>
                 Reviews Management
-              </button>
-            </li>
-          )}
-
-          {/* Tail Talks Admin */}
-          <li>
-            <button
-              onClick={() => {
-                setActiveComponent('tail-talks');
-                // Don't navigate away from dashboard, let the component handle display
-              }}
-              className={`flex items-center w-full px-6 py-3 text-left transition-colors ${
-                activeComponent === 'tail-talks'
-                  ? 'bg-primary text-white'
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-              Tail Talks Admin
-            </button>
-          </li>
-
-          {isGroomingAdmin && (
-            <li>
-              <button
-                onClick={() => setActiveComponent('services')}
-                className={`flex items-center w-full px-6 py-3 text-left transition-colors ${
-                  activeComponent === 'services'
-                    ? 'bg-primary text-white'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                </svg>
-                Services & Packages
               </button>
             </li>
           )}
