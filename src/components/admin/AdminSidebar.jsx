@@ -15,7 +15,9 @@ const AdminSidebar = ({
   canManageOrders,
   canManageServices = true,
   canManageReviews = true,
-  isGroomingAdmin = false
+  isGroomingAdmin = false,
+  canManageCustomers = true,
+  canManageDoctors = true
 }) => {
   const navigate = useNavigate();
   const [pendingPetCount, setPendingPetCount] = useState(0);
@@ -23,6 +25,7 @@ const AdminSidebar = ({
   const [pendingOrderCount, setPendingOrderCount] = useState(0);
   const [pendingBoardingCount, setPendingBoardingCount] = useState(0);
   const [pendingGroomingCount, setPendingGroomingCount] = useState(0);
+  const [userManagementOpen, setUserManagementOpen] = useState(false);
 
   useEffect(() => {
     const fetchCounts = async () => {
@@ -215,6 +218,85 @@ const AdminSidebar = ({
                 </svg>
                 User Management
               </button>
+            </li>
+          )}
+          
+          {(canManageCustomers || canManageDoctors || canManagePetParenting) && (
+            <li>
+              <div className="relative">
+                <button
+                  onClick={() => setUserManagementOpen(!userManagementOpen)}
+                  className={`flex items-center justify-between w-full px-6 py-3 text-left transition-colors ${
+                    ['customer-management', 'doctor-management', 'pet-details'].includes(activeComponent)
+                      ? 'bg-primary text-white'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <div className="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    <span>User & Pet Management</span>
+                  </div>
+                  <svg
+                    className={`w-4 h-4 transition-transform ${userManagementOpen ? 'transform rotate-180' : ''}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                {userManagementOpen && (
+                  <ul className="pl-8 pb-1">
+                    {canManageCustomers && (
+                      <li className="mt-1">
+                        <button
+                          onClick={() => setActiveComponent('customer-management')}
+                          className={`flex items-center w-full py-2 px-3 text-left rounded-md transition-colors ${
+                            activeComponent === 'customer-management'
+                              ? 'bg-primary bg-opacity-20 text-primary font-medium'
+                              : 'text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          Customer Management
+                        </button>
+                      </li>
+                    )}
+                    
+                    {canManageDoctors && (
+                      <li className="mt-1">
+                        <button
+                          onClick={() => setActiveComponent('doctor-management')}
+                          className={`flex items-center w-full py-2 px-3 text-left rounded-md transition-colors ${
+                            activeComponent === 'doctor-management'
+                              ? 'bg-primary bg-opacity-20 text-primary font-medium'
+                              : 'text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          Doctor Management
+                        </button>
+                      </li>
+                    )}
+                    
+                    {canManagePetParenting && (
+                      <li className="mt-1">
+                        <button
+                          onClick={() => setActiveComponent('pet-details')}
+                          className={`flex items-center w-full py-2 px-3 text-left rounded-md transition-colors ${
+                            activeComponent === 'pet-details'
+                              ? 'bg-primary bg-opacity-20 text-primary font-medium'
+                              : 'text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          Pet Details
+                        </button>
+                      </li>
+                    )}
+                  </ul>
+                )}
+              </div>
             </li>
           )}
 

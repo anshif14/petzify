@@ -21,6 +21,9 @@ import { auth, db } from '../firebase/index';
 import { useNavigate } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import ServicesAdmin from './admin/ServicesAdmin';
+import CustomerManagement from '../components/admin/CustomerManagement';
+import DoctorManagement from '../components/admin/DoctorManagement';
+import PetDetails from '../components/admin/PetDetails';
 
 const AdminDashboard = () => {
   const [activeComponent, setActiveComponent] = useState('dashboard');
@@ -288,6 +291,9 @@ const AdminDashboard = () => {
             {activeComponent === 'pet-boarding' && <PetBoardingAdmin />}
             {activeComponent === 'reviews' && adminData?.role === 'superadmin' && <ReviewsAdminManager />}
             {activeComponent === 'services' && canManageServices && <ServicesAdmin />}
+            {activeComponent === 'customer-management' && <CustomerManagement />}
+            {activeComponent === 'doctor-management' && <DoctorManagement />}
+            {activeComponent === 'pet-details' && <PetDetails />}
             {activeComponent === 'tail-talks' && (
               <div className="p-0">
                 <TailTalksAdmin />
