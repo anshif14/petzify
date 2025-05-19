@@ -167,6 +167,24 @@ const MobileProfile = () => {
         }
         
         console.log("Final bookings list:", bookingsList);
+        
+        // Sort bookings by date in descending order (most recent first)
+        bookingsList.sort((a, b) => {
+          const dateA = a.appointmentDate || a.date || a.createdAt;
+          const dateB = b.appointmentDate || b.date || b.createdAt;
+          
+          // Handle different date formats
+          const timeA = dateA && typeof dateA === 'object' && dateA.toDate ? 
+                        dateA.toDate().getTime() : 
+                        dateA ? new Date(dateA).getTime() : 0;
+          
+          const timeB = dateB && typeof dateB === 'object' && dateB.toDate ? 
+                        dateB.toDate().getTime() : 
+                        dateB ? new Date(dateB).getTime() : 0;
+          
+          return timeB - timeA; // Descending order (newest first)
+        });
+        
         setBookings(bookingsList);
       }
       
@@ -191,7 +209,7 @@ const MobileProfile = () => {
       if (activeTab === 'pets') {
         const petsQuery = query(
           collection(db, 'pets'),
-          where('ownerEmail', '==', currentUser.email)
+          where('userId', '==', currentUser.email)
         );
         const petsSnapshot = await getDocs(petsQuery);
         const petsList = [];
@@ -239,6 +257,21 @@ const MobileProfile = () => {
 
   const handleAuthSuccess = () => {
     setShowAuthModal(false);
+  };
+
+  // Handle adding first pet
+  const handleAddFirstPet = () => {
+    navigate('/my-pets');
+  };
+
+  // Handle editing pet details
+  const handleEditPet = (petId) => {
+    navigate(`/my-pets?edit=${petId}`);
+  };
+
+  // Handle viewing pet medical records
+  const handleViewRecords = (petId) => {
+    navigate(`/my-pets?view=${petId}`);
   };
 
   // Handle viewing order details
@@ -569,7 +602,10 @@ const MobileProfile = () => {
               <div className="bg-white rounded-lg shadow-sm p-4">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-lg font-semibold">My Pets</h2>
-                  <button className="text-primary text-sm font-medium flex items-center">
+                  <button 
+                    onClick={handleAddFirstPet}
+                    className="text-primary text-sm font-medium flex items-center"
+                  >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
                     </svg>
@@ -580,12 +616,20 @@ const MobileProfile = () => {
                 {pets.length === 0 ? (
                   <div className="text-center py-8">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905 0 .905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905a3.61 3.61 0 01-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
                     </svg>
                     <p className="mt-2 text-gray-500">You haven't added any pets yet</p>
-                    <button className="mt-4 px-4 py-2 bg-primary text-white rounded-lg">
-                      Add Your First Pet
-                    </button>
+                    <div className="mt-4 flex flex-col space-y-2">
+                      <button 
+                        onClick={handleAddFirstPet}
+                        className="px-4 py-2 bg-primary text-white rounded-lg"
+                      >
+                        Add Your First Pet
+                      </button>
+                      <Link to="/my-pets" className="inline-flex items-center justify-center px-4 py-2 text-primary border border-primary rounded-lg">
+                        Go to Advanced Pet Manager
+                      </Link>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -593,8 +637,8 @@ const MobileProfile = () => {
                       <div key={pet.id} className="border border-gray-200 rounded-lg p-4">
                         <div className="flex">
                           <div className="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden mr-3">
-                            {pet.image ? (
-                              <img src={pet.image} alt={pet.name} className="w-full h-full object-cover" />
+                            {pet.imageUrl ? (
+                              <img src={pet.imageUrl} alt={pet.name} className="w-full h-full object-cover" />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center bg-gray-300">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -617,10 +661,16 @@ const MobileProfile = () => {
                         </div>
                         
                         <div className="mt-3 flex space-x-2">
-                          <button className="flex-1 text-primary text-sm font-medium py-1 border border-primary rounded-lg">
+                          <button 
+                            onClick={() => handleEditPet(pet.id)}
+                            className="flex-1 text-primary text-sm font-medium py-1 border border-primary rounded-lg"
+                          >
                             Edit Details
                           </button>
-                          <button className="flex-1 text-primary-dark text-sm font-medium py-1 border border-primary-dark rounded-lg">
+                          <button 
+                            onClick={() => handleViewRecords(pet.id)}
+                            className="flex-1 text-primary-dark text-sm font-medium py-1 border border-primary-dark rounded-lg"
+                          >
                             View Records
                           </button>
                         </div>
@@ -628,6 +678,22 @@ const MobileProfile = () => {
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+            
+            {/* Add a link to the enhanced My Pets page at the bottom of the pets tab */}
+            {activeTab === 'pets' && pets.length > 0 && (
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg text-center">
+                <p className="text-sm text-gray-600 mb-2">Need more pet management options?</p>
+                <Link
+                  to="/my-pets"
+                  className="inline-flex items-center justify-center w-full px-4 py-2 bg-white text-primary border border-primary rounded-lg"
+                >
+                  <span>Go to Advanced Pet Manager</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-1" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                  </svg>
+                </Link>
               </div>
             )}
             

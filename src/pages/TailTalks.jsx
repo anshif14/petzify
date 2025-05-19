@@ -14,7 +14,7 @@ import { useNotification, NotificationProvider } from '../context/NotificationCo
 import { PullToRefresh } from 'react-js-pull-to-refresh';
 // Import Petzify logo for admin comments
 import petzifyLogo from '../assets/images/Petzify Logo-05 (3).png';
-import { FaThumbsUp, FaFlag } from 'react-icons/fa';
+import { FaThumbsUp, FaFlag, FaTimes, FaBars } from 'react-icons/fa';
 import '../styles/richtexteditor.css';
 
 const TailTalksInner = () => {
@@ -44,12 +44,14 @@ const TailTalksInner = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [parsedTags, setParsedTags] = useState([]);
-  const [isPostAsQuestion, setIsPostAsQuestion] = useState(false); // Renamed from isQuestion to clarify purpose
+  const [isPostAsQuestion, setIsPostAsQuestion] = useState(false);
   const [showFlagModal, setShowFlagModal] = useState(false);
   const [flagReason, setFlagReason] = useState('');
   const [flagSubmitting, setFlagSubmitting] = useState(false);
   const [flaggingPostId, setFlaggingPostId] = useState(null);
   const [flaggingCommentId, setFlaggingCommentId] = useState(null);
+  // Add new state for mobile sidebar
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
   // Create observer ref for infinite scrolling
   const observerTarget = useRef(null);
@@ -1254,11 +1256,10 @@ const TailTalksInner = () => {
     return (
       <div key={post.id} className="bg-white rounded-lg shadow-sm overflow-hidden mb-4" onClick={() => handlePostClick(post.id)}>
         {/* Post Header */}
-        <div className="p-4">
-          <div className="flex items-center mb-3">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mr-3 overflow-hidden">
+        <div className="p-3">
+          <div className="flex items-center mb-2">
+            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center mr-2 overflow-hidden">
               {post.authorName === 'Petzify' || post.authorName === 'Petzify Team' ? (
-                // Petzify logo for admin posts
                 <img src={petzifyLogo} alt="Petzify" className="w-full h-full object-contain p-0.5" />
               ) : post.authorPhotoURL ? (
                 <img src={post.authorPhotoURL} alt={post.authorName} className="w-full h-full object-cover" />
@@ -1272,7 +1273,7 @@ const TailTalksInner = () => {
               <p className="font-medium text-sm">
                 {post.authorName === 'Petzify Team' ? 'Petzify' : post.authorName}
                 {(post.authorName === 'Petzify' || post.authorName === 'Petzify Team') && (
-                  <svg className="w-4 h-4 ml-1 inline text-primary" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                  <svg className="w-3.5 h-3.5 ml-1 inline text-primary" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
                     <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
                   </svg>
                 )}
@@ -1283,16 +1284,16 @@ const TailTalksInner = () => {
 
           {/* Post Content */}
           <div className="flex justify-between items-start mb-2">
-            <h3 className="font-bold text-left">{post.title}</h3>
+            <h3 className="font-bold text-left text-sm md:text-base">{post.title}</h3>
             {post.isQuestion && (
-              <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
-                Question
+              <span className="text-xs bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded-full ml-1">
+                Q
               </span>
             )}
           </div>
 
           {post.content && (
-            <p className="text-gray-700 mb-3 text-left">
+            <p className="text-gray-700 mb-2 text-left text-sm">
               {post.content.split(/(\s+)/).map((word, index) =>
                 word.startsWith('#') ? (
                   <span key={index} className="font-bold text-primary">{word} </span>
@@ -1303,19 +1304,20 @@ const TailTalksInner = () => {
             </p>
           )}
 
-          {/* Post Media */}
+          {/* Post Media - optimize for mobile */}
           {post.type === 'image' && post.imageUrl && (
-            <div className="rounded-lg overflow-hidden mb-3">
+            <div className="rounded-lg overflow-hidden mb-2">
               <img
                 src={post.imageUrl}
                 alt={post.title}
-                className="w-full object-cover max-h-80"
+                className="w-full object-cover max-h-60"
+                loading="lazy"
               />
             </div>
           )}
 
           {post.type === 'video' && post.videoUrl && (
-            <div className="rounded-lg overflow-hidden mb-3">
+            <div className="rounded-lg overflow-hidden mb-2">
               {post.videoUrl.includes('youtube.com') || post.videoUrl.includes('youtu.be') ? (
                 <div className="relative" style={{ paddingBottom: '56.25%', height: 0 }}>
                   <iframe
@@ -1324,6 +1326,7 @@ const TailTalksInner = () => {
                     className="absolute top-0 left-0 w-full h-full"
                     frameBorder="0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    loading="lazy"
                     allowFullScreen
                   ></iframe>
                 </div>
@@ -1333,6 +1336,7 @@ const TailTalksInner = () => {
                     src={post.videoUrl}
                     className="w-full rounded"
                     controls
+                    preload="none"
                     poster={post.thumbnailUrl}
                   ></video>
                 </div>
@@ -1340,13 +1344,13 @@ const TailTalksInner = () => {
             </div>
           )}
 
-          {/* Tags */}
+          {/* Tags - Show fewer tags on mobile */}
           {post.tags && post.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1 mb-3">
-              {post.tags.map(tag => (
+            <div className="flex flex-wrap gap-1 mb-2">
+              {post.tags.slice(0, 2).map(tag => (
                 <span
                   key={tag}
-                  className="text-xs bg-gray-100 text-primary px-2 py-1 rounded-full"
+                  className="text-xs bg-gray-100 text-primary px-2 py-0.5 rounded-full"
                   onClick={(e) => {
                     e.stopPropagation();
                     setActiveTag(tag);
@@ -1355,20 +1359,20 @@ const TailTalksInner = () => {
                   #{tag}
                 </span>
               ))}
+              {post.tags.length > 2 && (
+                <span className="text-xs text-gray-500">+{post.tags.length - 2} more</span>
+              )}
             </div>
           )}
 
-          {/* Post Stats */}
-          <div className="flex justify-between items-center text-xs text-gray-500 py-2 border-t border-gray-100">
+          {/* Post Stats - Simplified for mobile */}
+          <div className="flex justify-between items-center text-xs text-gray-500 py-1 border-t border-gray-100">
             <span>{post.likeCount || 0} likes</span>
-            <div className="flex space-x-3">
-              <span>{post.commentCount || 0} comments</span>
-              <span>{post.shareCount || 0} shares</span>
-            </div>
+            <span>{post.commentCount || 0} comments</span>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex border-t border-gray-100 pt-2">
+          {/* Action Buttons - more compact for mobile */}
+          <div className="flex border-t border-gray-100 pt-1">
             <button
               className={`flex-1 flex items-center justify-center py-1 ${isPostLiked ? 'text-primary' : 'text-gray-600'} hover:bg-gray-50 rounded-md`}
               onClick={(e) => {
@@ -1376,8 +1380,8 @@ const TailTalksInner = () => {
                 handleLikePost(post.id);
               }}
             >
-              <FaThumbsUp className="w-5 h-5 mr-1" fill={isPostLiked ? "currentColor" : "none"} stroke="currentColor" />
-              <span>{isPostLiked ? 'Liked' : 'Like'}</span>
+              <FaThumbsUp className="w-4 h-4 mr-1" fill={isPostLiked ? "currentColor" : "none"} stroke="currentColor" />
+              <span className="text-xs">Like</span>
             </button>
             <button
               className={`flex-1 flex items-center justify-center py-1 ${isCommentVisible ? 'text-primary' : 'text-gray-600'} hover:bg-gray-50 rounded-md`}
@@ -1386,10 +1390,10 @@ const TailTalksInner = () => {
                 toggleComments(post.id);
               }}
             >
-              <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
               </svg>
-              <span>{isCommentVisible ? 'Hide Comments' : 'Comment'}</span>
+              <span className="text-xs">Comment</span>
             </button>
             <button
               className="flex-1 flex items-center justify-center py-1 text-gray-600 hover:bg-gray-50 rounded-md"
@@ -1398,24 +1402,22 @@ const TailTalksInner = () => {
                 handleFlagPost(post.id, e);
               }}
             >
-              <FaFlag className="w-5 h-5 mr-1" />
-              <span>Report</span>
+              <FaFlag className="w-4 h-4 mr-1" />
+              <span className="text-xs">Report</span>
             </button>
           </div>
         </div>
 
-        {/* Comments Section - Toggle Visibility */}
+        {/* Comments Section - Simplified for mobile */}
         {isCommentVisible && (
-          <div className="bg-gray-50 p-3 border-t border-gray-100">
-            <h4 className="font-medium mb-3 text-sm text-left">Comments</h4>
-
+          <div className="bg-gray-50 p-2 border-t border-gray-100">
             {/* Comment Input */}
             {isAuthenticated() && currentUser && (
               <form
-                className="flex mb-3"
+                className="flex mb-2"
                 onSubmit={(e) => handleAddComment(post.id, e)}
               >
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center mr-2 overflow-hidden flex-shrink-0">
+                <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center mr-2 overflow-hidden flex-shrink-0">
                   {currentUser.photoURL ? (
                     <img src={currentUser.photoURL} alt={currentUser.displayName} className="w-full h-full object-cover" />
                   ) : (
@@ -1427,8 +1429,8 @@ const TailTalksInner = () => {
                 <div className="flex-grow flex">
                   <input
                     type="text"
-                    className="w-full border border-gray-200 rounded-l-full px-3 py-1.5 text-sm bg-white"
-                    placeholder="Write a comment..."
+                    className="w-full border border-gray-200 rounded-l-full px-2 py-1 text-sm bg-white"
+                    placeholder="Comment..."
                     value={commentInputs[post.id] || ''}
                     onChange={(e) => {
                       e.stopPropagation();
@@ -1441,7 +1443,7 @@ const TailTalksInner = () => {
                   />
                   <button
                     type="submit"
-                    className="bg-primary text-white rounded-r-full px-3 flex items-center justify-center"
+                    className="bg-primary text-white rounded-r-full px-2 flex items-center justify-center"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
@@ -1452,12 +1454,12 @@ const TailTalksInner = () => {
               </form>
             )}
 
-            {/* Check if comments exist and have items */}
+            {/* Show only 2 comments on mobile initially */}
             {post.comments && post.comments.length > 0 ? (
-              <div className="space-y-3">
-                {post.comments.slice(0, 3).map(comment => (
+              <div className="space-y-2">
+                {post.comments.slice(0, 2).map(comment => (
                   <div key={comment.id} className="flex items-start">
-                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center mr-2 overflow-hidden flex-shrink-0">
+                    <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center mr-1.5 overflow-hidden flex-shrink-0">
                       {comment.isVerified || comment.authorName === 'Petzify' || comment.authorName === 'Petzify Team' ? (
                         <img src={petzifyLogo} alt="Petzify" className="w-full h-full object-contain p-0.5" />
                       ) : comment.authorPhotoURL ? (
@@ -1469,35 +1471,25 @@ const TailTalksInner = () => {
                       )}
                     </div>
                     <div className="flex-grow max-w-[85%]">
-                      <div className={`${comment.isVerified ? 'bg-blue-50 border border-blue-100' : 'bg-primary/5'} rounded-2xl rounded-tl-none px-3 py-2 shadow-sm`}>
-                        <div className="flex justify-between items-start">
-                          <p className={`font-medium text-xs ${comment.isVerified ? 'text-primary' : 'text-primary-dark'} flex items-center`}>
-                            {comment.authorName === 'Petzify Team' ? 'Petzify' : comment.authorName || 'Anonymous'}
-                            {comment.isVerified && (
-                              <svg className="w-4 h-4 ml-1 text-primary" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                                <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
-                              </svg>
-                            )}
-                          </p>
-                          <span className="text-xs text-gray-500">{formatDate(comment.createdAt)}</span>
-                        </div>
-                        <p className="mt-1 text-sm text-left text-gray-800 break-words whitespace-pre-wrap">{comment.text || comment.content || 'No text'}</p>
-                      </div>
-                      <div className="flex items-center mt-1 px-2 text-xs text-gray-500">
-                        <button 
-                          className="hover:text-red-500 flex items-center"
-                          onClick={(e) => handleFlagComment(post.id, comment.id, e)}
-                        >
-                          <FaFlag className="mr-1" size={10} />
-                          Report
-                        </button>
+                      <div className={`${comment.isVerified ? 'bg-blue-50 border border-blue-100' : 'bg-primary/5'} rounded-2xl rounded-tl-none px-2 py-1.5 shadow-sm`}>
+                        <p className={`font-medium text-xs ${comment.isVerified ? 'text-primary' : 'text-primary-dark'}`}>
+                          {comment.authorName === 'Petzify Team' ? 'Petzify' : comment.authorName || 'Anonymous'}
+                          {comment.isVerified && (
+                            <svg className="w-3 h-3 ml-1 inline text-primary" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                              <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812a3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
+                            </svg>
+                          )}
+                        </p>
+                        <p className="text-gray-700 text-xs mt-0.5">{comment.text || comment.content}</p>
                       </div>
                     </div>
                   </div>
                 ))}
-                {post.comments.length > 3 && (
-                  <button
-                    className="text-primary font-medium text-sm mt-2"
+                
+                {/* Show button to view all comments if there are more than 2 */}
+                {post.comments.length > 2 && (
+                  <button 
+                    className="w-full text-xs text-primary py-1"
                     onClick={(e) => {
                       e.stopPropagation();
                       navigate(`/tailtalk/post/${post.id}`);
@@ -1508,7 +1500,7 @@ const TailTalksInner = () => {
                 )}
               </div>
             ) : (
-              <p className="text-sm text-gray-500 text-center py-3">No comments yet. Be the first to comment!</p>
+              <p className="text-xs text-gray-500 text-center py-1">No comments yet</p>
             )}
           </div>
         )}
@@ -1853,62 +1845,155 @@ const TailTalksInner = () => {
     );
   };
 
-  // In the render method, remove the showFeaturePrompt toast element
+  // Modify the main return component
   return (
-    <div className="pb-16 bg-gray-100 min-h-screen">
-      {/* Fixed Header - Updated with refresh button */}
-      <div className="bg-white px-4 py-3 flex justify-between items-center shadow-sm sticky top-0 z-10">
-        <h1 className="text-xl font-bold text-primary">Tail Talks</h1>
-        <div className="flex space-x-2">
-          <button
-            className="text-gray-600"
-            onClick={() => showComingSoon('Search')}
+    <div className="pb-16 bg-gray-50 min-h-screen">
+      {/* Mobile Header - Fixed position */}
+      <div className="sticky top-0 z-20 bg-white shadow-sm mb-2 px-4 py-3 flex justify-between items-center md:hidden">
+        <div className="flex items-center">
+          <h1 className="text-lg font-semibold text-primary">TailTalks</h1>
+        </div>
+        <div className="flex items-center space-x-3">
+          <button 
+            onClick={() => setAskModalOpen(true)}
+            className="bg-primary text-white rounded-full w-8 h-8 flex items-center justify-center shadow-sm"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
           </button>
-          <button
-            className="text-gray-600"
-            onClick={handleManualRefresh}
-            disabled={refreshing}
+          <button 
+            onClick={() => setShowMobileSidebar(!showMobileSidebar)}
+            className="text-gray-600 p-1.5 rounded-md"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${refreshing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-          </button>
-          <button
-            className="bg-primary text-white px-3 py-1 rounded-full text-sm font-medium flex items-center mr-2"
-            onClick={() => {
-              setIsPostAsQuestion(true); // Set as question before opening modal
-              setAskModalOpen(true);
-            }}
-          >
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-            Ask Question
-          </button>
-          <button
-            className="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm font-medium flex items-center"
-            onClick={() => {
-              setIsPostAsQuestion(false); // Set as regular post before opening modal
-              setAskModalOpen(true);
-            }}
-          >
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-            </svg>
-            Post
+            {showMobileSidebar ? <FaTimes size={18} /> : <FaBars size={18} />}
           </button>
         </div>
       </div>
 
-      {/* Main Content - Redesigned with sidebar on the left */}
-      <div className="max-w-6xl mx-auto px-4 py-4">
+      {/* Mobile Sidebar - Slide in from right when active */}
+      {showMobileSidebar && (
+        <div className="fixed inset-0 z-30 md:hidden">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black bg-opacity-30"
+            onClick={() => setShowMobileSidebar(false)}
+          ></div>
+          
+          {/* Sidebar content */}
+          <div className="absolute right-0 top-0 h-full w-3/4 bg-white shadow-xl p-4 overflow-y-auto transform transition-transform ease-in-out duration-300">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Menu</h3>
+              <button 
+                onClick={() => setShowMobileSidebar(false)}
+                className="p-1 rounded-md text-gray-500"
+              >
+                <FaTimes size={18} />
+              </button>
+            </div>
+            
+            {/* Mobile sidebar content - simplified version of desktop sidebar */}
+            <div className="space-y-4">
+              {/* My Posts section */}
+              <div className="border-b pb-4">
+                <h4 className="text-sm font-medium text-primary mb-2">My Posts</h4>
+                <button
+                  onClick={() => {
+                    navigate('/tailtalk/myposts');
+                    setShowMobileSidebar(false);
+                  }}
+                  className="w-full bg-primary text-white rounded-lg py-2 text-sm font-medium transition duration-200 hover:bg-primary-dark"
+                >
+                  View My Posts
+                </button>
+              </div>
+              
+              {/* My Pets section - Added section */}
+              <div className="border-b pb-4">
+                <h4 className="text-sm font-medium text-primary mb-2">My Pets</h4>
+                <button
+                  onClick={() => {
+                    navigate('/profile?tab=pets');
+                    setShowMobileSidebar(false);
+                  }}
+                  className="w-full bg-primary text-white rounded-lg py-2 text-sm font-medium transition duration-200 hover:bg-primary-dark"
+                >
+                  Manage My Pets
+                </button>
+                
+                {/* Future features placeholders */}
+                <div className="mt-3 space-y-2.5">
+                  <div className="flex items-center text-gray-500 text-xs gap-2">
+                    <span className="inline-block px-1.5 py-0.5 bg-gray-200 rounded text-gray-500 text-[10px]">Coming soon</span>
+                    <span>Diet Tracking</span>
+                  </div>
+                  <div className="flex items-center text-gray-500 text-xs gap-2">
+                    <span className="inline-block px-1.5 py-0.5 bg-gray-200 rounded text-gray-500 text-[10px]">Coming soon</span>
+                    <span>Exercise Logs</span>
+                  </div>
+                  <div className="flex items-center text-gray-500 text-xs gap-2">
+                    <span className="inline-block px-1.5 py-0.5 bg-gray-200 rounded text-gray-500 text-[10px]">Coming soon</span>
+                    <span>Mental Stimulation Activities</span>
+                  </div>
+                  <div className="flex items-center text-gray-500 text-xs gap-2">
+                    <span className="inline-block px-1.5 py-0.5 bg-gray-200 rounded text-gray-500 text-[10px]">Coming soon</span>
+                    <span>Vet Visit Reminders</span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Filter by tags */}
+              <div className="border-b pb-4">
+                <h4 className="text-sm font-medium mb-2">Filter by Tag</h4>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => {
+                      setActiveTag('all');
+                      setShowMobileSidebar(false);
+                    }}
+                    className={`px-2 py-1 text-xs rounded-full ${activeTag === 'all' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700'}`}
+                  >
+                    All Posts
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveTag('adoption');
+                      setShowMobileSidebar(false);
+                    }}
+                    className={`px-2 py-1 text-xs rounded-full ${activeTag === 'adoption' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700'}`}
+                  >
+                    #PetAdoption
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveTag('training');
+                      setShowMobileSidebar(false);
+                    }}
+                    className={`px-2 py-1 text-xs rounded-full ${activeTag === 'training' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700'}`}
+                  >
+                    #DogTraining
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveTag('catcare');
+                      setShowMobileSidebar(false);
+                    }}
+                    className={`px-2 py-1 text-xs rounded-full ${activeTag === 'catcare' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700'}`}
+                  >
+                    #CatCare
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content - Redesigned for mobile */}
+      <div className="max-w-6xl mx-auto px-2 md:px-4 pb-4">
         <div className="flex flex-col md:flex-row md:space-x-4">
-          {/* Sidebar - now on left side with sticky positioning */}
-          <div className="md:w-1/4 mb-4 md:mb-0">
+          {/* Sidebar - hidden on mobile, shown on desktop */}
+          <div className="hidden md:block md:w-1/4 mb-4 md:mb-0">
             <div className="md:sticky md:top-20 space-y-4">
               {/* My Posts section */}
               <div className="bg-white rounded-lg shadow-sm p-4">
@@ -1919,6 +2004,45 @@ const TailTalksInner = () => {
                 >
                   View My Posts
                 </button>
+              </div>
+              
+              {/* My Pets section - Added for desktop */}
+              <div className="bg-white rounded-lg shadow-sm p-4">
+                <h3 className="text-lg font-medium text-primary mb-3">My Pets</h3>
+                <button
+                  onClick={() => navigate('/profile?tab=pets')}
+                  className="w-full bg-primary text-white rounded-lg py-2 text-sm font-medium transition duration-200 hover:bg-primary-dark mb-3"
+                >
+                  Manage My Pets
+                </button>
+                
+                <h4 className="text-sm font-medium text-gray-600 mb-2 mt-4">Coming Soon</h4>
+                <div className="space-y-2 text-sm text-gray-500">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    <span>Diet Tracking</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    <span>Exercise Logs</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    <span>Mental Stimulation Activities</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    <span>Vet Visit Reminders</span>
+                  </div>
+                </div>
               </div>
               
               {/* Coming Soon: Pet Community section */}
@@ -1942,44 +2066,7 @@ const TailTalksInner = () => {
                 </div>
               </div>
               
-              {/* Suggested For You section */}
-              <div className="bg-white rounded-lg shadow-sm p-4">
-                <h3 className="font-medium text-gray-700 mb-3">Suggested For You</h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center">
-                      <img src="https://images.unsplash.com/photo-1559839734-2b71ea197ec2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=256&q=80" alt="Dr. Amanda" className="w-8 h-8 rounded-full mr-2 object-cover" />
-                      <div>
-                        <p className="font-medium text-gray-800">Dr. Amanda</p>
-                        <p className="text-xs text-gray-500">Veterinarian</p>
-                      </div>
-                    </div>
-                    <button 
-                      className="text-primary text-sm border border-primary rounded-md px-3 py-1 hover:bg-primary hover:text-white transition-colors"
-                      onClick={() => showNotification('info', 'Following feature coming soon!')}
-                    >
-                      Follow
-                    </button>
-                  </div>
-                  
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center">
-                      <img src="https://images.unsplash.com/photo-1601758124510-52d02ddb7cbd?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTV8fGRvZyUyMHRyYWluZXJ8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=256&q=80" alt="PetTrainers" className="w-8 h-8 rounded-full mr-2 object-cover" />
-                      <div>
-                        <p className="font-medium text-gray-800">PetTrainers</p>
-                        <p className="text-xs text-gray-500">Training Tips</p>
-                      </div>
-                    </div>
-                    <button 
-                      className="text-primary text-sm border border-primary rounded-md px-3 py-1 hover:bg-primary hover:text-white transition-colors"
-                      onClick={() => showNotification('info', 'Following feature coming soon!')}
-                    >
-                      Follow
-                    </button>
-                  </div>
-                </div>
-              </div>
-              
+              {/* The rest of desktop sidebar components...  */}
               {/* Trending Topics section */}
               <div className="bg-white rounded-lg shadow-sm p-4">
                 <h3 className="font-medium text-gray-700 mb-3">Trending Topics</h3>
@@ -2001,25 +2088,25 @@ const TailTalksInner = () => {
             </div>
           </div>
 
-          {/* Main Feed */}
-          <div className="md:w-3/4">
+          {/* Main Feed - Full width on mobile */}
+          <div className="w-full md:w-3/4">
             <PullToRefresh
               pullDownThreshold={80}
               onRefresh={handleRefresh}
               pullingContent={
-                <div className="text-center py-3 text-gray-500">
+                <div className="text-center py-2 text-gray-500">
                   <span>Pull down to refresh...</span>
                 </div>
               }
               refreshingContent={
-                <div className="flex justify-center items-center py-3">
+                <div className="flex justify-center items-center py-2">
                   <LoadingSpinner size="small" />
                   <span className="ml-2 text-gray-600">Refreshing...</span>
                 </div>
               }
             >
-              {/* Create Post Box */}
-              <div className="bg-white rounded-lg shadow-sm mb-4 p-4">
+              {/* Create Post Box - Simplified for mobile */}
+              <div className="bg-white rounded-lg shadow-sm mb-3 p-3 md:p-4 hidden md:block">
                 <div className="flex">
                   <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mr-3 overflow-hidden">
                     {currentUser?.photoURL ? (
@@ -2039,6 +2126,22 @@ const TailTalksInner = () => {
                 </div>
               </div>
 
+              {/* Active Tag Indicator - Only show on mobile */}
+              {activeTag !== 'all' && (
+                <div className="flex items-center justify-between bg-white rounded-lg shadow-sm mb-3 p-2.5 md:hidden">
+                  <div className="flex items-center">
+                    <span className="text-sm text-gray-600">Showing: </span>
+                    <span className="ml-1 text-sm font-medium text-primary">#{activeTag}</span>
+                  </div>
+                  <button 
+                    onClick={() => setActiveTag('all')}
+                    className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded"
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
+
               {/* Main Feed Content */}
               {loading ? (
                 <div className="flex justify-center items-center py-10">
@@ -2048,27 +2151,27 @@ const TailTalksInner = () => {
                 <>
                   {posts.length > 0 ? (
                     <>
-                      <div className="space-y-4">
+                      <div className="space-y-3">
                         {posts.map(post => renderPostCard(post))}
                       </div>
 
                       {/* Load more trigger */}
                       <div
                         ref={observerTarget}
-                        className="py-4 text-center"
+                        className="py-3 text-center"
                       >
                         {loadingMore && <LoadingSpinner size="small" />}
                         {!hasMore && posts.length > 10 && (
-                          <p className="text-sm text-gray-500">No more posts to load</p>
+                          <p className="text-xs text-gray-500">No more posts to load</p>
                         )}
                       </div>
                     </>
                   ) : (
-                    <div className="text-center py-10 bg-white rounded-lg shadow-sm">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div className="text-center py-8 bg-white rounded-lg shadow-sm">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"></path>
                       </svg>
-                      <p className="mt-2 text-gray-500">No posts found in this category yet</p>
+                      <p className="mt-2 text-sm text-gray-500">No posts found in this category</p>
                     </div>
                   )}
                 </>
@@ -2080,10 +2183,10 @@ const TailTalksInner = () => {
 
       <MobileBottomNav />
 
-      {/* Render the Ask Modal */}
+      {/* Render the Ask Modal - Optimized for mobile */}
       {renderAskModal()}
       
-      {/* Flag Modal */}
+      {/* Flag Modal - Optimized for mobile */}
       {renderFlagModal()}
     </div>
   );

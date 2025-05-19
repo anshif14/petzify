@@ -927,6 +927,10 @@ const PetBoardingSearch = () => {
                           {locationNames[center.id] || center.city || 'Location not specified'}
                         </p>
                         
+                        <p className="text-sm font-medium text-primary mt-2">
+                          ₹{center.perDayCharge || center.pricePerDay || 0}/day
+                        </p>
+                        
                         <div className="mt-3">
                           {center.petTypes && center.petTypes.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-2">
@@ -1047,6 +1051,10 @@ const PetBoardingSearch = () => {
                             {locationNames[center.id] || center.city || 'Location not specified'}
                           </p>
                           
+                          <p className="text-sm font-medium text-primary mt-2">
+                            ₹{center.perDayCharge || center.pricePerDay || 0}/day
+                          </p>
+                          
                           <div className="mt-3">
                             {center.petTypes && center.petTypes.length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-2">
@@ -1127,6 +1135,10 @@ const PetBoardingSearch = () => {
                             {locationNames[center.id] || center.city || 'Location not specified'}
                           </p>
                           
+                          <p className="text-sm font-medium text-primary mt-2">
+                            ₹{center.perDayCharge || center.pricePerDay || 0}/day
+                          </p>
+                          
                           <div className="mt-3">
                             {center.petTypes && center.petTypes.length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-2">
@@ -1205,6 +1217,10 @@ const PetBoardingSearch = () => {
                           
                           <p className="text-sm text-gray-500 mt-1">
                             {locationNames[center.id] || center.city || 'Location not specified'}
+                          </p>
+                          
+                          <p className="text-sm font-medium text-primary mt-2">
+                            ₹{center.perDayCharge || center.pricePerDay || 0}/day
                           </p>
                           
                           <div className="mt-3">
@@ -1295,6 +1311,10 @@ const PetBoardingSearch = () => {
                       
                       <p className="text-sm text-gray-500 mt-1">
                         {locationNames[center.id] || center.city || 'Location not specified'}
+                      </p>
+                      
+                      <p className="text-sm font-medium text-primary mt-2">
+                        ₹{center.perDayCharge || center.pricePerDay || 0}/day
                       </p>
                       
                       <div className="mt-3">

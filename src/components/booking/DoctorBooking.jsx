@@ -765,7 +765,7 @@ const DoctorBooking = () => {
                       
                       {selectedDoctor.consultationFee && (
                         <p className="text-gray-700 mb-1">
-                          <span className="font-medium">Consultation Fee:</span> {selectedDoctor.consultationFee}
+                          <span className="font-medium">Consultation Fee:</span> ₹ {selectedDoctor.consultationFee}
                         </p>
                       )}
                       

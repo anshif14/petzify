@@ -289,13 +289,13 @@ const ProductDetail = () => {
                 )}
                 
                 {/* Stock */}
-                {product.stock !== undefined && (
-                  <div className="mb-4">
-                    <p className={`text-sm ${product.stock > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {product.stock > 0 ? `In Stock (${product.stock} available)` : 'Out of Stock'}
-                    </p>
-                  </div>
-                )}
+                {/*{product.stock !== undefined && (*/}
+                {/*  <div className="mb-4">*/}
+                {/*    <p className={`text-sm ${product.stock > 0 ? 'text-green-600' : 'text-red-600'}`}>*/}
+                {/*      {product.stock > 0 ? `In Stock (${product.stock} available)` : 'Out of Stock'}*/}
+                {/*    </p>*/}
+                {/*  </div>*/}
+                {/*)}*/}
                 
                 {/* Add to Cart */}
                 <div className="mt-auto">
