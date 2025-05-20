@@ -10,6 +10,7 @@
 //   const [pendingBookingsCount, setPendingBookingsCount] = useState(0);
 //   const [pendingBookings, setPendingBookings] = useState([]);
 //   const [bookingUpdateLoading, setBookingUpdateLoading] = useState(false);
+//   const [rehomingEnquiriesCount, setRehomingEnquiriesCount] = useState(0);
 //
 //   // Fetch pending pet count
 //   const fetchPendingPetCount = async () => {
@@ -49,6 +50,21 @@
 //     }
 //   };
 //
+//   // Fetch rehoming enquiries count
+//   const fetchRehomingEnquiriesCount = async () => {
+//     try {
+//       const db = getFirestore(app);
+//       const q = query(
+//         collection(db, 'petRehomingEnquires'),
+//         where('read', '==', false)
+//       );
+//       const querySnapshot = await getDocs(q);
+//       setRehomingEnquiriesCount(querySnapshot.size);
+//     } catch (error) {
+//       console.error('Error fetching rehoming enquiries count:', error);
+//     }
+//   };
+//
 //   // Handle booking confirmation
 //   const handleConfirmBooking = async (bookingId) => {
 //     try {
@@ -73,6 +89,7 @@
 //   useEffect(() => {
 //     fetchPendingPetCount();
 //     fetchPendingBookings();
+//     fetchRehomingEnquiriesCount();
 //   }, []);
 //
 //   // Navigate to the dashboard overview if no specific route is selected
@@ -306,6 +323,26 @@
 //                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
 //                   </svg>
 //                   Tail Talks
+//                 </Link>
+//               </li>
+//               <li>
+//                 <Link
+//                   to="/admin/rehoming-enquiries"
+//                   className={`flex items-center px-4 py-3 ${
+//                     location.pathname.includes('/admin/rehoming-enquiries')
+//                       ? 'bg-primary text-white'
+//                       : 'text-gray-700 hover:bg-gray-100'
+//                   }`}
+//                 >
+//                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+//                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+//                   </svg>
+//                   Rehoming Enquiries
+//                   {rehomingEnquiriesCount > 0 && (
+//                     <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
+//                       {rehomingEnquiriesCount}
+//                     </span>
+//                   )}
 //                 </Link>
 //               </li>
 //               <li>

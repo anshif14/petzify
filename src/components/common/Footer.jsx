@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { FaFacebook, FaTwitter, FaInstagram, FaLinkedin } from 'react-icons/fa';
+import { FaFacebook, FaInstagram, FaLinkedin } from 'react-icons/fa';
+import { FaXTwitter } from 'react-icons/fa6';
 import logoImage from '../../assets/images/logo.png';
 import logoText from '../../assets/images/logo_white_text.png';
 
@@ -27,13 +28,13 @@ const Footer = () => {
               <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="hover:text-secondary-light transition-all duration-300 transform hover:scale-125">
                 <FaFacebook size={20} />
               </a>
-              <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="hover:text-secondary-light transition-all duration-300 transform hover:scale-125">
-                <FaTwitter size={20} />
+              <a href="https://x.com/petzifyofficial?t=OLwYCwA8GthS0urZGiZytQ&s=08" target="_blank" rel="noopener noreferrer" className="hover:text-secondary-light transition-all duration-300 transform hover:scale-125">
+                <FaXTwitter size={20} />
               </a>
-              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="hover:text-secondary-light transition-all duration-300 transform hover:scale-125">
+              <a href="https://www.instagram.com/petzify?utm_source=qr&igsh=MXViMzU1dnlqbjl4dA==" target="_blank" rel="noopener noreferrer" className="hover:text-secondary-light transition-all duration-300 transform hover:scale-125">
                 <FaInstagram size={20} />
               </a>
-              <a href="https://www.linkedin.com/company/petzifyinofficial/posts/?feedView=all" target="_blank" rel="noopener noreferrer" className="hover:text-secondary-light transition-all duration-300 transform hover:scale-125">
+              <a href="https://www.linkedin.com/company/petzifyinofficial/" target="_blank" rel="noopener noreferrer" className="hover:text-secondary-light transition-all duration-300 transform hover:scale-125">
                 <FaLinkedin size={20} />
               </a>
             </div>
@@ -154,7 +155,7 @@ const Footer = () => {
               </li>
               <li className="flex items-center">
                 <span className="text-secondary-light mr-2">💼</span>
-                <a href="https://www.linkedin.com/company/petzifyinofficial/posts/?feedView=all" target="_blank" rel="noopener noreferrer" className="hover:text-secondary-light transition-colors duration-300">
+                <a href="https://www.linkedin.com/company/petzifyinofficial/" target="_blank" rel="noopener noreferrer" className="hover:text-secondary-light transition-colors duration-300">
                   LinkedIn: @petzifyinofficial
                 </a>
               </li>

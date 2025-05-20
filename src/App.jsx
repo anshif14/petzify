@@ -9,6 +9,7 @@ import SettingsAdmin from './pages/admin/SettingsAdmin';
 import PetParentingManager from './components/admin/PetParentingManager';
 import PetParentingDetails from './pages/admin/PetParentingDetails';
 import PetBoardingAdmin from './pages/admin/PetBoardingAdmin';
+import RehomingEnquiriesAdmin from './pages/admin/RehomingEnquiriesAdmin';
 import AdminRoute from './components/auth/AdminRoute';
 import TailTalks from './pages/TailTalks';
 import TailTalksPostDetail from './pages/TailTalksPostDetail';
@@ -32,6 +33,11 @@ const App = () => {
               <Route path="pet-parenting/:id" element={<PetParentingDetails />} />
               <Route path="blog" element={<BlogAdmin />} />
               <Route path="settings" element={<SettingsAdmin />} />
+              <Route path="rehoming-enquiries" element={
+                <AdminRoute>
+                  <RehomingEnquiriesAdmin />
+                </AdminRoute>
+              } />
               <Route path="pet-boarding" element={
                 <AdminRoute>
                   <PetBoardingAdmin />

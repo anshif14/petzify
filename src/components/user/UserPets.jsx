@@ -775,9 +775,10 @@ const UserPets = () => {
                   
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Notes
+                    Special notes
                     </label>
                     <textarea
+                        placeholder="Previous grooming date, heating date, and food routine"
                       name="notes"
                       value={formData.notes}
                       onChange={handleChange}

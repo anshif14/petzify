@@ -24,6 +24,7 @@ import ServicesAdmin from './admin/ServicesAdmin';
 import CustomerManagement from '../components/admin/CustomerManagement';
 import DoctorManagement from '../components/admin/DoctorManagement';
 import PetDetails from '../components/admin/PetDetails';
+import RehomingEnquiriesAdmin from './admin/RehomingEnquiriesAdmin';
 
 const AdminDashboard = () => {
   const [activeComponent, setActiveComponent] = useState('dashboard');
@@ -294,6 +295,11 @@ const AdminDashboard = () => {
             {activeComponent === 'customer-management' && <CustomerManagement />}
             {activeComponent === 'doctor-management' && <DoctorManagement />}
             {activeComponent === 'pet-details' && <PetDetails />}
+            {activeComponent === 'rehoming-enquiries' && (
+              <div className="p-0">
+                <RehomingEnquiriesAdmin />
+              </div>
+            )}
             {activeComponent === 'tail-talks' && (
               <div className="p-0">
                 <TailTalksAdmin />

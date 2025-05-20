@@ -5,6 +5,8 @@ import { app } from '../firebase/config';
 import Navbar from '../components/common/Navbar';
 import Footer from '../components/common/Footer';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useUser } from '../context/UserContext';
+import { useAlert } from '../context/AlertContext';
 
 const FindFurrySoulmate = () => {
   const [pets, setPets] = useState([]);
@@ -33,6 +35,10 @@ const FindFurrySoulmate = () => {
     sortBy: searchParams.get('sortBy') || 'createdAt',
     sortOrder: searchParams.get('sortOrder') || 'desc'
   });
+  const { currentUser, isAuthenticated } = useUser();
+  const { showSuccess, showError } = useAlert();
+  const [showEnquiryModal, setShowEnquiryModal] = useState(false);
+  const [enquiryMessage, setEnquiryMessage] = useState('');
 
   // Function to fetch approved pets with filters
   const fetchApprovedPets = async () => {
@@ -164,9 +170,84 @@ const FindFurrySoulmate = () => {
   };
 
   // Function to handle adoption interest
-  const handleAdoptInterest = () => {
-    setShowAdoptionForm(true);
-    window.scrollTo(0, 0);
+  const handleAdoptInterest = async () => {
+    if (!isAuthenticated()) {
+      showError("Please login to express interest in adopting this pet");
+      navigate('/login');
+      return;
+    }
+    
+    if (selectedPet.userId === currentUser.email) {
+      showError("You can't express interest in your own pet.");
+      return;
+    }
+    
+    try {
+      setSubmitting(true);
+      const db = getFirestore(app);
+      
+      // Create enquiry record without showing the modal
+      await addDoc(collection(db, 'petRehomingEnquires'), {
+        petId: selectedPet.id,
+        petDetails: selectedPet,
+        userId: currentUser.email,
+        ownerUserId: selectedPet.userId,
+        message: "Interested in adopting this pet", // Default message
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      });
+      
+      // Don't show success message in UI, just show notification
+      // showSuccess('Interest recorded');
+      
+      // Show the adoption form with contact details without success message
+      setShowAdoptionForm(true);
+    } catch (error) {
+      console.error('Error submitting enquiry:', error);
+      showError('Failed to register your interest. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Function to handle enquiry submission
+  const handleEnquirySubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!isAuthenticated()) {
+      showError("Please login to submit your enquiry");
+      navigate('/login');
+      return;
+    }
+    
+    if (!selectedPet) return;
+    
+    try {
+      setSubmitting(true);
+      const db = getFirestore(app);
+      
+      await addDoc(collection(db, 'petRehomingEnquires'), {
+        petId: selectedPet.id,
+        petDetails: selectedPet,
+        userId: currentUser.email,
+        ownerUserId: selectedPet.userId,
+        message: enquiryMessage,
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      });
+      
+      setShowEnquiryModal(false);
+      setEnquiryMessage('');
+      
+      showSuccess('Your enquiry has been sent to the pet owner!');
+      setSuccessMessage('Your enquiry has been sent to the pet owner! They will contact you soon.');
+      setTimeout(() => setSuccessMessage(''), 5000);
+    } catch (error) {
+      console.error('Error submitting enquiry:', error);
+      showError('Failed to submit enquiry. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // Function to handle adoption form input changes
@@ -282,6 +363,7 @@ const FindFurrySoulmate = () => {
                 onClick={() => {
                   setSelectedPet(null);
                   setShowAdoptionForm(false);
+                  setShowEnquiryModal(false);
                 }}
                 className="mb-6 flex items-center text-gray-600 hover:text-gray-900"
               >
@@ -383,7 +465,60 @@ const FindFurrySoulmate = () => {
 
                   {/* Right Column - Pet Details */}
                   <div className="p-8 bg-gray-50">
-                    {showAdoptionForm ? (
+                    {showEnquiryModal ? (
+                      <div>
+                        <h2 className="text-3xl font-bold text-gray-900 mb-4">{selectedPet.name}</h2>
+                        <div className="flex flex-wrap gap-2 mb-6">
+                          <span className="px-3 py-1 bg-primary-light text-primary text-sm rounded-full">{selectedPet.type}</span>
+                          {selectedPet.breed && <span className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full">{selectedPet.breed}</span>}
+                          {selectedPet.price && <span className="px-3 py-1 bg-green-100 text-green-700 text-sm rounded-full">₹{selectedPet.price}</span>}
+                        </div>
+                        
+                        <form onSubmit={handleEnquirySubmit} className="mt-6">
+                          <div className="mb-6">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Message to Pet Owner
+                            </label>
+                            <textarea
+                              value={enquiryMessage}
+                              onChange={(e) => setEnquiryMessage(e.target.value)}
+                              rows="6"
+                              placeholder="Introduce yourself and explain why you'd be a good home for this pet"
+                              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                              required
+                            ></textarea>
+                          </div>
+                          
+                          <div className="flex space-x-4">
+                            <button
+                              type="button"
+                              onClick={() => setShowEnquiryModal(false)}
+                              className="flex-1 px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition duration-200"
+                              disabled={submitting}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="submit"
+                              className="flex-1 px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition duration-200 flex items-center justify-center"
+                              disabled={submitting}
+                            >
+                              {submitting ? (
+                                <>
+                                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                  </svg>
+                                  Sending...
+                                </>
+                              ) : (
+                                'Send Enquiry'
+                              )}
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+                    ) : showAdoptionForm ? (
                       <div>
                         <h2 className="text-3xl font-bold text-gray-900 mb-4">{selectedPet.name}</h2>
                         <div className="flex flex-wrap gap-2 mb-6">
@@ -484,7 +619,7 @@ const FindFurrySoulmate = () => {
                         </div>
 
                         <button
-                          onClick={() => setShowAdoptionForm(true)}
+                          onClick={handleAdoptInterest}
                           className="mt-6 w-full px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition duration-200 flex items-center justify-center"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">

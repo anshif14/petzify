@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { getFirestore, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { app } from '../../firebase/config';
 
@@ -20,11 +20,13 @@ const AdminSidebar = ({
   canManageDoctors = true
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [pendingPetCount, setPendingPetCount] = useState(0);
   const [pendingProductCount, setPendingProductCount] = useState(0);
   const [pendingOrderCount, setPendingOrderCount] = useState(0);
   const [pendingBoardingCount, setPendingBoardingCount] = useState(0);
   const [pendingGroomingCount, setPendingGroomingCount] = useState(0);
+  const [unreadRehomingEnquiries, setUnreadRehomingEnquiries] = useState(0);
   const [userManagementOpen, setUserManagementOpen] = useState(false);
   const [serviceManagementOpen, setServiceManagementOpen] = useState(false);
 
@@ -44,6 +46,16 @@ const AdminSidebar = ({
           console.log('Pending pets count:', petSnapshot.size);
           setPendingPetCount(petSnapshot.size);
         }
+
+        // Fetch unread rehoming enquiries count
+        console.log('Fetching unread rehoming enquiries count...');
+        const enquiriesQuery = query(
+          collection(db, 'petRehomingEnquires'),
+          where('read', '==', false)
+        );
+        const enquiriesSnapshot = await getDocs(enquiriesQuery);
+        console.log('Unread rehoming enquiries count:', enquiriesSnapshot.size);
+        setUnreadRehomingEnquiries(enquiriesSnapshot.size);
 
         // Fetch pending product count
         if (canManageProducts) {
@@ -107,6 +119,7 @@ const AdminSidebar = ({
     let unsubscribeOrders;
     let unsubscribeBoarding;
     let unsubscribeGrooming;
+    let unsubscribeRehomingEnquiries;
 
     if (canManagePetParenting) {
       const petsQuery = query(
@@ -118,6 +131,16 @@ const AdminSidebar = ({
         setPendingPetCount(snapshot.size);
       });
     }
+
+    // Add listener for unread rehoming enquiries
+    const rehomingEnquiriesQuery = query(
+      collection(db, 'petRehomingEnquires'),
+      where('read', '==', false)
+    );
+    unsubscribeRehomingEnquiries = onSnapshot(rehomingEnquiriesQuery, (snapshot) => {
+      console.log('Real-time rehoming enquiries update:', snapshot.size);
+      setUnreadRehomingEnquiries(snapshot.size);
+    });
 
     if (canManageProducts) {
       const productsQuery = query(
@@ -172,6 +195,7 @@ const AdminSidebar = ({
       if (unsubscribeOrders) unsubscribeOrders();
       if (unsubscribeBoarding) unsubscribeBoarding();
       if (unsubscribeGrooming) unsubscribeGrooming();
+      if (unsubscribeRehomingEnquiries) unsubscribeRehomingEnquiries();
     };
   }, [canManagePetParenting, canManageProducts, canManageOrders, canManageServices]);
 
@@ -564,6 +588,28 @@ const AdminSidebar = ({
               </button>
             </li>
           )}
+
+          {/* Rehoming Enquiries */}
+          <li>
+            <button
+              onClick={() => setActiveComponent('rehoming-enquiries')}
+              className={`flex items-center w-full px-6 py-3 text-left transition-colors ${
+                activeComponent === 'rehoming-enquiries' || location.pathname === '/admin/rehoming-enquiries'
+                  ? 'bg-primary text-white'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+              </svg>
+              Rehoming Enquiries
+              {unreadRehomingEnquiries > 0 && (
+                <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
+                  {unreadRehomingEnquiries}
+                </span>
+              )}
+            </button>
+          </li>
 
           {isGroomingAdmin && (
             <li>

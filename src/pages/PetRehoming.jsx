@@ -34,6 +34,11 @@ const PetRehoming = () => {
   const [mediaPreview, setMediaPreview] = useState([]);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const [showEnquiryModal, setShowEnquiryModal] = useState(false);
+  const [selectedPet, setSelectedPet] = useState(null);
+  const [enquiryMessage, setEnquiryMessage] = useState('');
+  const [allPets, setAllPets] = useState([]);
+  const [viewMode, setViewMode] = useState('my_pets'); // 'my_pets' or 'all_pets'
 
   // Pet types options
   const petTypes = ['Dog', 'Cat', 'Bird', 'Rabbit', 'Hamster', 'Guinea Pig', 'Reptile', 'Other'];
@@ -47,6 +52,7 @@ const PetRehoming = () => {
   useEffect(() => {
     if (currentUser) {
       fetchPets();
+      fetchAllPets();
     }
   }, [currentUser]);
 
@@ -220,6 +226,87 @@ const PetRehoming = () => {
     }
   };
 
+  // Function to fetch all approved pets for rehoming
+  const fetchAllPets = async () => {
+    if (!currentUser) return;
+    
+    setLoading(true);
+    try {
+      const db = getFirestore(app);
+      const q = query(
+        collection(db, 'rehoming_pets'),
+        where('status', '==', 'approved'),
+        orderBy('createdAt', 'desc')
+      );
+      const querySnapshot = await getDocs(q);
+      const petsData = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setAllPets(petsData);
+    } catch (err) {
+      console.error('Error fetching all pets:', err);
+      setError('Failed to load pets. Please try again.');
+      showError('Failed to load pets. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to handle enquiry submission
+  const handleEnquirySubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!currentUser) {
+      setShowAuthModal(true);
+      return;
+    }
+    
+    if (!selectedPet) return;
+    
+    try {
+      setLoading(true);
+      const db = getFirestore(app);
+      
+      await addDoc(collection(db, 'petRehomingEnquires'), {
+        petId: selectedPet.id,
+        petDetails: selectedPet,
+        userId: currentUser.email,
+        ownerUserId: selectedPet.userId,
+        message: enquiryMessage,
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      });
+      
+      setShowEnquiryModal(false);
+      setEnquiryMessage('');
+      setSelectedPet(null);
+      
+      showSuccess('Your enquiry has been sent to the pet owner!');
+    } catch (error) {
+      console.error('Error submitting enquiry:', error);
+      showError('Failed to submit enquiry. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Function to open enquiry modal
+  const openEnquiryModal = (pet) => {
+    if (!currentUser) {
+      setShowAuthModal(true);
+      return;
+    }
+    
+    if (pet.userId === currentUser.email) {
+      showError("You can't enquire about your own pet.");
+      return;
+    }
+    
+    setSelectedPet(pet);
+    setShowEnquiryModal(true);
+  };
+
   // Function to mark a pet as sold
   const handleMarkAsSold = async (petId) => {
     if (!petId) return;
@@ -282,6 +369,7 @@ const PetRehoming = () => {
   const handleAuthSuccess = () => {
     setShowAuthModal(false);
     fetchPets();
+    fetchAllPets();
   };
 
   // Function to get status badge color
@@ -314,27 +402,45 @@ const PetRehoming = () => {
         <div className="max-w-4xl mx-auto">
           <div className="flex justify-between items-center mb-8">
             <h1 className="text-3xl font-bold text-gray-900">Pet Rehoming</h1>
-            {isAuthenticated() ? (
-              <button
-                onClick={() => setShowForm(true)}
-                className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition duration-200 flex items-center"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                </svg>
-                Add Pet Details
-              </button>
-            ) : (
-              <button
-                onClick={() => setShowAuthModal(true)}
-                className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition duration-200 flex items-center"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                </svg>
-                Sign In to Add Pet
-              </button>
-            )}
+            <div className="flex space-x-4">
+              {isAuthenticated() && (
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setViewMode('my_pets')}
+                    className={`px-4 py-2 rounded-lg transition duration-200 ${viewMode === 'my_pets' ? 'bg-primary text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                  >
+                    My Pets
+                  </button>
+                  <button
+                    onClick={() => setViewMode('all_pets')}
+                    className={`px-4 py-2 rounded-lg transition duration-200 ${viewMode === 'all_pets' ? 'bg-primary text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                  >
+                    Adopt a Pet
+                  </button>
+                </div>
+              )}
+              {isAuthenticated() ? (
+                <button
+                  onClick={() => setShowForm(true)}
+                  className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition duration-200 flex items-center"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                  </svg>
+                  Add Pet Details
+                </button>
+              ) : (
+                <button
+                  onClick={() => setShowAuthModal(true)}
+                  className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition duration-200 flex items-center"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                  </svg>
+                  Sign In to Add Pet
+                </button>
+              )}
+            </div>
           </div>
           
           {/* Add Pet Form */}
@@ -576,100 +682,236 @@ const PetRehoming = () => {
           )}
           
           {/* Pets List */}
-          <h2 className="text-2xl font-semibold text-gray-800 mb-6">Your Pets for Rehoming</h2>
-          
-          {loading ? (
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
-            </div>
-          ) : pets.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-xl shadow-sm">
-              <p className="text-gray-500">No pets added yet. Add your first pet for rehoming!</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {pets.map((pet) => (
-                <div key={pet.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
-                  {/* Pet Media */}
-                  <div className="relative h-48 bg-gray-100">
-                    {pet.mediaFiles && pet.mediaFiles.length > 0 ? (
-                      pet.mediaFiles[0].type === 'image' ? (
-                        <img
-                          src={pet.mediaFiles[0].url}
-                          alt={pet.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <video
-                          src={pet.mediaFiles[0].url}
-                          className="w-full h-full object-cover"
-                          controls
-                        />
-                      )
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                    )}
-                    <div className="absolute top-2 right-2">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(pet.status)}`}>
-                        {pet.status.charAt(0).toUpperCase() + pet.status.slice(1)}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {/* Pet Details */}
-                  <div className="p-4">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{pet.name}</h3>
-                    <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
-                      <div>
-                        <span className="font-medium">Type:</span> {pet.type}
-                      </div>
-                      <div>
-                        <span className="font-medium">Breed:</span> {pet.breed || 'Not specified'}
-                      </div>
-                      <div>
-                        <span className="font-medium">Age:</span> {pet.age || 'Not specified'}
-                      </div>
-                      <div>
-                        <span className="font-medium">Gender:</span> {pet.gender || 'Not specified'}
-                      </div>
-                      <div>
-                        <span className="font-medium">Price:</span> ₹{pet.price}
-                      </div>
-                      {pet.type === 'Dog' && (
-                        <div>
-                          <span className="font-medium">KCI:</span> {pet.hasKCICertificate ? 'Yes' : 'No'}
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Action Buttons */}
-                    <div className="mt-4 flex space-x-3">
-                      {pet.status === 'approved' && (
-                        <button
-                          onClick={() => handleMarkAsSold(pet.id)}
-                          className="px-3 py-1.5 bg-green-600 text-white text-sm rounded hover:bg-green-700 focus:outline-none transition-colors"
-                        >
-                          Mark as Sold
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleDeleteAd(pet.id)}
-                        className="px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700 focus:outline-none transition-colors"
-                      >
-                        Delete Ad
-                      </button>
-                    </div>
-                  </div>
+          {viewMode === 'my_pets' ? (
+            <>
+              <h2 className="text-2xl font-semibold text-gray-800 mb-6">Your Pets for Rehoming</h2>
+              
+              {loading ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
                 </div>
-              ))}
-            </div>
+              ) : pets.length === 0 ? (
+                <div className="text-center py-12 bg-white rounded-xl shadow-sm">
+                  <p className="text-gray-500">No pets added yet. Add your first pet for rehoming!</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {pets.map((pet) => (
+                    <div key={pet.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
+                      {/* Pet Media */}
+                      <div className="relative h-48 bg-gray-100">
+                        {pet.mediaFiles && pet.mediaFiles.length > 0 ? (
+                          pet.mediaFiles[0].type === 'image' ? (
+                            <img
+                              src={pet.mediaFiles[0].url}
+                              alt={pet.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <video
+                              src={pet.mediaFiles[0].url}
+                              className="w-full h-full object-cover"
+                              controls
+                            />
+                          )
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                        )}
+                        <div className="absolute top-2 right-2">
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(pet.status)}`}>
+                            {pet.status.charAt(0).toUpperCase() + pet.status.slice(1)}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Pet Details */}
+                      <div className="p-4">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">{pet.name}</h3>
+                        <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
+                          <div>
+                            <span className="font-medium">Type:</span> {pet.type}
+                          </div>
+                          <div>
+                            <span className="font-medium">Breed:</span> {pet.breed || 'Not specified'}
+                          </div>
+                          <div>
+                            <span className="font-medium">Age:</span> {pet.age || 'Not specified'}
+                          </div>
+                          <div>
+                            <span className="font-medium">Gender:</span> {pet.gender || 'Not specified'}
+                          </div>
+                          <div>
+                            <span className="font-medium">Price:</span> ₹{pet.price}
+                          </div>
+                          {pet.type === 'Dog' && (
+                            <div>
+                              <span className="font-medium">KCI:</span> {pet.hasKCICertificate ? 'Yes' : 'No'}
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Action Buttons */}
+                        <div className="mt-4 flex space-x-3">
+                          {pet.status === 'approved' && (
+                            <button
+                              onClick={() => handleMarkAsSold(pet.id)}
+                              className="px-3 py-1.5 bg-green-600 text-white text-sm rounded hover:bg-green-700 focus:outline-none transition-colors"
+                            >
+                              Mark as Sold
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDeleteAd(pet.id)}
+                            className="px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700 focus:outline-none transition-colors"
+                          >
+                            Delete Ad
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <h2 className="text-2xl font-semibold text-gray-800 mb-6">Available Pets for Adoption</h2>
+              
+              {loading ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
+                </div>
+              ) : allPets.length === 0 ? (
+                <div className="text-center py-12 bg-white rounded-xl shadow-sm">
+                  <p className="text-gray-500">No pets are currently available for adoption.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {allPets.map((pet) => (
+                    <div key={pet.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
+                      {/* Pet Media */}
+                      <div className="relative h-48 bg-gray-100">
+                        {pet.mediaFiles && pet.mediaFiles.length > 0 ? (
+                          pet.mediaFiles[0].type === 'image' ? (
+                            <img
+                              src={pet.mediaFiles[0].url}
+                              alt={pet.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <video
+                              src={pet.mediaFiles[0].url}
+                              className="w-full h-full object-cover"
+                              controls
+                            />
+                          )
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Pet Details */}
+                      <div className="p-4">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">{pet.name}</h3>
+                        <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
+                          <div>
+                            <span className="font-medium">Type:</span> {pet.type}
+                          </div>
+                          <div>
+                            <span className="font-medium">Breed:</span> {pet.breed || 'Not specified'}
+                          </div>
+                          <div>
+                            <span className="font-medium">Age:</span> {pet.age || 'Not specified'}
+                          </div>
+                          <div>
+                            <span className="font-medium">Gender:</span> {pet.gender || 'Not specified'}
+                          </div>
+                          <div>
+                            <span className="font-medium">Price:</span> ₹{pet.price}
+                          </div>
+                          {pet.type === 'Dog' && (
+                            <div>
+                              <span className="font-medium">KCI:</span> {pet.hasKCICertificate ? 'Yes' : 'No'}
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Action Button */}
+                        <div className="mt-4">
+                          <button
+                            onClick={() => openEnquiryModal(pet)}
+                            className="w-full py-2 bg-primary text-white rounded hover:bg-primary-dark focus:outline-none transition-colors"
+                          >
+                            I'm Interested
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
+      
+      {/* Enquiry Modal */}
+      {showEnquiryModal && selectedPet && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-semibold text-gray-900">
+                  Express Interest in {selectedPet.name}
+                </h3>
+                <button
+                  onClick={() => setShowEnquiryModal(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <form onSubmit={handleEnquirySubmit}>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Message to Pet Owner
+                  </label>
+                  <textarea
+                    value={enquiryMessage}
+                    onChange={(e) => setEnquiryMessage(e.target.value)}
+                    rows="4"
+                    placeholder="Introduce yourself and explain why you'd be a good home for this pet"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    required
+                  ></textarea>
+                </div>
+                
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50"
+                  >
+                    {loading ? 'Sending...' : 'Send Enquiry'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <Footer />
       <AuthModal
         isOpen={showAuthModal}
